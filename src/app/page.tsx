@@ -1,95 +1,41 @@
-import Image from "next/image";
+import { routes } from "./db/schema/routes";
+import { trips } from "./db/schema/trips";
 import styles from "./page.module.css";
+import { extractZip } from "./services/dataProcessors/extractZip";
+import { getVehiclePositions } from "./services/dataSources/gtfsRealtime";
+import { getStaticData } from "./services/dataSources/gtfsStatic";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+export default async function Home() {
+	const vehiclePositions = await getVehiclePositions();
+	// await getStaticData();
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+	if (!process.env.DATABASE_URL) {
+		throw new Error("DATABASE_URL is not defined");
+	}
+	const queryClient = postgres(process.env.DATABASE_URL);
+	const db = drizzle({ client: queryClient });
+	// const result = await db.execute("select 1");
+	// console.log(result);
+	// const routesindb = await db.select().from(routes);
+	// console.log(routesindb);
+
+	// const tripsindb = await db.select().from(trips);
+	// console.log(tripsindb);
+
+	// extractZip();
+	return (
+		<div className={styles.page}>
+			<h1>Vehicle positions</h1>
+			<ul>
+				{vehiclePositions.map((vehicle) => (
+					<li key={vehicle.vehicle.id}>
+						Vehicle ID: {vehicle.vehicle.id} - Position:{" "}
+						{vehicle.position.latitude}, {vehicle.position.longitude}
+					</li>
+				))}
+			</ul>
+		</div>
+	);
 }
