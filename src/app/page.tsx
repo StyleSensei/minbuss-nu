@@ -8,14 +8,6 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 export default async function Home() {
-	const vehiclePositions = await getVehiclePositions();
-	// await getStaticData();
-
-	if (!process.env.DATABASE_URL) {
-		throw new Error("DATABASE_URL is not defined");
-	}
-	const queryClient = postgres(process.env.DATABASE_URL);
-	const db = drizzle({ client: queryClient });
 	// const result = await db.execute("select 1");
 	// console.log(result);
 	// const routesindb = await db.select().from(routes);
@@ -27,15 +19,7 @@ export default async function Home() {
 	// extractZip();
 	return (
 		<div className={styles.page}>
-			<h1>Vehicle positions</h1>
-			<ul>
-				{vehiclePositions.map((vehicle) => (
-					<li key={vehicle.vehicle.id}>
-						Vehicle ID: {vehicle.vehicle.id} - Position:{" "}
-						{vehicle.position.latitude}, {vehicle.position.longitude}
-					</li>
-				))}
-			</ul>
+			<h1>Hem</h1>
 		</div>
 	);
 }
