@@ -1,0 +1,11 @@
+.button {
+    gap: 8px;
+    align-items: center;
+    padding: 10px 6rem;
+    margin-top: 20vh;
+    transition: all .3s ease-in-out;
+
+    &:hover {
+        background-color: var(--secondary--hover);
+    }
+}

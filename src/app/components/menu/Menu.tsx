@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import "./menu.scss";
+// import "./menu.scss";
 import { MenuItem } from "./MenuItem";
-import { houseDoorFill, info, search } from "../../../public/icons";
+import { houseDoorFill, info, search } from "../../../../public/icons";
 import { MenuBarSelection } from "./MenuBarSelection";
 
 export default function Menu() {

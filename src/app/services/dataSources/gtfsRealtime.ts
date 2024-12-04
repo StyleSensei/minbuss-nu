@@ -1,15 +1,15 @@
+"use server";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import { get } from "../serviceBase";
-import { use, useEffect } from "react";
 
-interface IVehiclePosition {
+export interface IVehiclePosition {
 	trip: {
 		tripId: string | null;
 		scheduleRelationship: string | null;
 	};
 	position: {
-		latitude: number | null;
-		longitude: number | null;
+		latitude: number;
+		longitude: number;
 		bearing: number | null;
 		speed: number | null;
 	};
@@ -40,7 +40,9 @@ export const getVehiclePositions = async (): Promise<IVehiclePosition[]> => {
 				return null;
 			})
 			.filter(Boolean) as IVehiclePosition[];
-		return vehiclePositions;
+		const data = JSON.parse(JSON.stringify(vehiclePositions));
+		return data;
+		// return vehiclePositions;
 	} catch (error) {
 		console.log(error);
 		return [];

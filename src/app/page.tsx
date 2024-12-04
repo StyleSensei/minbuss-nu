@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { routes } from "./db/schema/routes";
 import { trips } from "./db/schema/trips";
 import styles from "./page.module.css";
@@ -6,6 +7,7 @@ import { getVehiclePositions } from "./services/dataSources/gtfsRealtime";
 import { getStaticData } from "./services/dataSources/gtfsStatic";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import TextBlock from "./components/Textblock";
 
 export default async function Home() {
 	// const result = await db.execute("select 1");
@@ -18,8 +20,8 @@ export default async function Home() {
 
 	// extractZip();
 	return (
-		<div className={styles.page}>
-			<h1>Hem</h1>
+		<div className="wrapper__start">
+			<TextBlock title="Var är bussen?" className="textblock" />
 		</div>
 	);
 }
