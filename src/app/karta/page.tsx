@@ -8,9 +8,11 @@ import postgres from "postgres";
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 import { AdvancedMarker, APIProvider, Map } from "@vis.gl/react-google-maps";
 import { Button } from "../components/Button";
-import { bus } from "../../../public/icons";
+import { bus, search } from "../../../public/icons";
 import { useState } from "react";
-import { getFilteredVehiclePositions } from "../services/dataProcessors/filterVehicles";
+import { getFilteredVehiclePositions } from "../actions/filterVehicles";
+import { SearchBar } from "../components/SearchBar";
+import { useFilterContext } from "../context/FilterContext";
 
 export default function MapPage() {
 	const [vehiclePositions, setVehiclePositions] = useState<IVehiclePosition[]>(
@@ -19,6 +21,8 @@ export default function MapPage() {
 	const handleOnClick = async () => {
 		setVehiclePositions(await getFilteredVehiclePositions("177"));
 	};
+
+	const { filteredVehicles } = useFilterContext();
 
 	// const vehiclePositions = await getVehiclePositions();
 
@@ -32,13 +36,7 @@ export default function MapPage() {
 	}
 	return (
 		<div>
-			{/* <h1>Vehicle positions</h1> */}
-			<Button
-				title="Sök busslinje"
-				fill={"white"}
-				path={bus}
-				onClick={handleOnClick}
-			/>
+			{/* <SearchBar title="search-bus" iconSize="24" path={search} /> */}
 
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<Map
@@ -49,7 +47,7 @@ export default function MapPage() {
 					mapId={"SHOW_BUSES"}
 					// disableDefaultUI={true}
 				>
-					{vehiclePositions?.map((vehicle) => {
+					{filteredVehicles?.map((vehicle) => {
 						return (
 							<AdvancedMarker
 								key={vehicle?.vehicle?.id}

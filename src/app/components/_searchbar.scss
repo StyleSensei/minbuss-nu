@@ -1,0 +1,31 @@
+.search-bar__container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: all;
+    gap: 4px;
+    border-radius: 100px;
+    padding: 0.3rem 1rem;
+    background: $primary-color;
+
+    input {
+        background: $primary-color;
+        color: $secondary-color;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 700;
+        transition: background-color 0.3s;
+        display: flex;
+        width: 100%;
+
+        &::placeholder {
+            color: $tertiary-color;
+        }
+    }
+
+    button {
+        background: transparent;
+        padding: .2rem;
+    }
+}

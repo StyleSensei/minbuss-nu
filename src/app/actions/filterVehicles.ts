@@ -1,6 +1,6 @@
 "use server";
-import { getVehiclePositions } from "../dataSources/gtfsRealtime";
-import { selectFromDatabase } from "./selectFromDatabase";
+import { getVehiclePositions } from "../services/dataSources/gtfsRealtime";
+import { selectFromDatabase } from "../services/dataProcessors/selectFromDatabase";
 
 export const getFilteredVehiclePositions = async (busline: string) => {
 	const dbData = await selectFromDatabase(busline);

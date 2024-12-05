@@ -5,9 +5,6 @@ import { selectFromDatabase } from "../services/dataProcessors/selectFromDatabas
 import { getVehiclePositions } from "../services/dataSources/gtfsRealtime";
 import { db } from "@vercel/postgres";
 
-// import { drizzle } from "drizzle-orm/postgres-js";
-// import { routes } from "../db/schema/routes";
-
 export const GET = async () => {
 	// const db = drizzle();
 	const dbData = await selectFromDatabase("177");
@@ -20,5 +17,3 @@ export const GET = async () => {
 	// const result = await db.execute('select 1');
 	return NextResponse.json({ data });
 };
-// const db = drizzle(routes);
-// await db.select().from(routes);

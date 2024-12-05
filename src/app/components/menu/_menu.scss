@@ -13,9 +13,10 @@ $barHeight: 4px;
     justify-content: center;
     flex-direction: column;
 }
-.outer-container{
+
+.outer-container {
     padding: $outerPadding $outerPadding $outerPadding - $barHeight $outerPadding;
-    background-color: var(--primary);
+    background-color: $primary-color;
     border-radius: 24.5px + $outerPadding;
     display: flex;
     align-items: center;
@@ -24,47 +25,49 @@ $barHeight: 4px;
 }
 
 
-.inner-container{
+.inner-container {
     display: flex;
     justify-content: space-between;
-    background-color:var(--primary) ;
+    background-color: $primary-color;
     border-radius: 24.5px;
-    border: 1px solid var(--tertiary);
+    border: 1px solid $tertiary-color;
     // padding: 10px;
 }
 
-.menu-item{
+.menu-item {
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height:2 ;
+    line-height: 2;
     font-size: 14px;
     height: 40px;
     padding: 1.4rem 1.6rem;
     gap: 8px;
-    color: var(--secondary);
-    &:nth-child(2){
-        border-right: 1px solid var(--tertiary);
-        border-left: 1px solid var(--tertiary);
+    color: $secondary-color;
+
+    &:nth-child(2) {
+        border-right: 1px solid $tertiary-color;
+        border-left: 1px solid $tertiary-color;
     }
 }
 
-.menu-bar__outer-container{
+.menu-bar__outer-container {
     display: flex;
     width: 100%;
     height: $barHeight;
-    justify-content:center;
+    justify-content: center;
     align-items: center;
-    .menu-bar__inner-container{
-width: 322px;
-padding-left: 3.3rem;
-        .menu-bar__selection{
-            background-color: var(--secondary);
+
+    .menu-bar__inner-container {
+        width: 322px;
+        padding-left: 3.3rem;
+
+        .menu-bar__selection {
+            background-color: $secondary-color;
             width: 2rem;
             height: $barHeight;
             border-radius: 50px;
-            
+
         }
     }
 }
-

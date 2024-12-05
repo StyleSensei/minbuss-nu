@@ -1,8 +1,10 @@
+@import '../variables';
+
 .text-block {
     padding-top: 20rem;
     text-align: center;
 
-    color: var(--secondary);
+    color: $secondary-color;
 
     h1 {
         font-size: 6rem;
