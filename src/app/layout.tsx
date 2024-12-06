@@ -61,7 +61,7 @@ export default async function RootLayout({
 							className="background-image"
 						/>
 						{children}
-						<Button title="Sök busslinje" fill={"whitesmoke"} path={bus} />)
+						<Button title="Sök busslinje" fill={"whitesmoke"} path={bus} />
 					</main>
 				</FilterProvider>
 				<Menu />

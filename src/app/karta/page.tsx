@@ -47,17 +47,18 @@ export default function MapPage() {
 					mapId={"SHOW_BUSES"}
 					// disableDefaultUI={true}
 				>
-					{filteredVehicles?.map((vehicle) => {
-						return (
-							<AdvancedMarker
-								key={vehicle?.vehicle?.id}
-								position={{
-									lat: vehicle?.position?.latitude,
-									lng: vehicle?.position?.longitude,
-								}}
-							/>
-						);
-					})}
+					{filteredVehicles.length < 100 &&
+						filteredVehicles?.map((vehicle) => {
+							return (
+								<AdvancedMarker
+									key={vehicle?.vehicle?.id}
+									position={{
+										lat: vehicle?.position?.latitude,
+										lng: vehicle?.position?.longitude,
+									}}
+								/>
+							);
+						})}
 					{/* {vehiclePositions.length && (
 						<AdvancedMarker
 							key={vehiclePositions[1000]?.vehicle?.id}
