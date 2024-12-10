@@ -1,3 +1,5 @@
+@use '../../variables' as v;
+
 $containerWidth: 322px;
 $selectionWidth: 2rem;
 $outerPadding: 5px;
@@ -16,7 +18,7 @@ $barHeight: 4px;
 
 .outer-container {
     padding: $outerPadding $outerPadding $outerPadding - $barHeight $outerPadding;
-    background-color: $primary-color;
+    background-color: v.$primary-color;
     border-radius: 24.5px + $outerPadding;
     display: flex;
     align-items: center;
@@ -28,9 +30,9 @@ $barHeight: 4px;
 .inner-container {
     display: flex;
     justify-content: space-between;
-    background-color: $primary-color;
+    background-color: v.$primary-color;
     border-radius: 24.5px;
-    border: 1px solid $tertiary-color;
+    border: 1px solid v.$tertiary-color;
     // padding: 10px;
 }
 
@@ -43,11 +45,11 @@ $barHeight: 4px;
     height: 40px;
     padding: 1.4rem 1.6rem;
     gap: 8px;
-    color: $secondary-color;
+    color: v.$secondary-color;
 
     &:nth-child(2) {
-        border-right: 1px solid $tertiary-color;
-        border-left: 1px solid $tertiary-color;
+        border-right: 1px solid v.$tertiary-color;
+        border-left: 1px solid v.$tertiary-color;
     }
 }
 
@@ -63,7 +65,7 @@ $barHeight: 4px;
         padding-left: 3.3rem;
 
         .menu-bar__selection {
-            background-color: $secondary-color;
+            background-color: v.$secondary-color;
             width: 2rem;
             height: $barHeight;
             border-radius: 50px;

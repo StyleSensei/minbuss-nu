@@ -73,8 +73,8 @@ export const SearchBar = ({
 		pollBusPositionsEveryTwoSeconds,
 		setFilteredVehicles,
 	]);
-	console.log("filteredVehicles:", filteredVehicles);
-	console.log("intervalRef.current:", intervalRef.current);
+	// console.log("filteredVehicles:", filteredVehicles);
+	// console.log("intervalRef.current:", intervalRef.current);
 
 	return (
 		<>

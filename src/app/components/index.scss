@@ -1,6 +1,7 @@
-@import 'textblock';
-@import './menu/menu';
-@import 'button';
-@import '../../styles/reset';
-@import 'header';
-@import 'searchbar';
+@use 'customMarker';
+@use 'textblock';
+@use './menu/menu';
+@use 'button';
+@use '../../styles/reset';
+@use 'header';
+@use 'searchbar';

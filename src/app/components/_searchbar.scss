@@ -1,3 +1,5 @@
+@use '../variables' as v;
+
 .search-bar__container {
     display: flex;
     justify-content: center;
@@ -6,11 +8,11 @@
     gap: 4px;
     border-radius: 100px;
     padding: 0.3rem 1rem;
-    background: $primary-color;
+    background: v.$primary-color;
 
     input {
-        background: $primary-color;
-        color: $secondary-color;
+        background: v.$primary-color;
+        color: v.$secondary-color;
         border: none;
         padding: 1rem 2rem;
         font-size: 1rem;
@@ -20,7 +22,7 @@
         width: 100%;
 
         &::placeholder {
-            color: $tertiary-color;
+            color: v.$tertiary-color;
         }
     }
 

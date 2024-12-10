@@ -1,0 +1,32 @@
+@use '../variables' as v;
+$size: 20px;
+
+.custom-marker {
+    width: $size;
+    height: $size;
+    border-radius: 50%;
+    cursor: pointer;
+    float: left;
+    // transition: all 0.2s;
+    background: lighten(v.$primary-color, 5%);
+    border: 2px solid whitesmoke;
+    // outline: 1px solid $bg;
+    backface-visibility: hidden;
+
+    animation: pulse 2s 0s ease-out infinite;
+
+}
+
+@keyframes pulse {
+    // 0% {
+    //     box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428);
+    // }
+
+    10% {
+        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.092), 0 0 12px 10px rgba(0, 153, 255, 0.078), 0 0 12px 14px rgba(0, 153, 255, 0.035);
+    }
+
+    100% {
+        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.213), 0 0 0px 30px rgba(0, 153, 255, 0.046), 0 0 0px 30px rgba(0, 153, 255, 0.036);
+    }
+}
