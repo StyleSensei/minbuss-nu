@@ -1,4 +1,4 @@
-@import "../app/_variables";
+@import "../app/variables";
 
 // :root {
 
@@ -69,6 +69,8 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Set shorter line heights on headings and interactive elements */
@@ -127,25 +129,19 @@ textarea:not([rows]) {
 
 main {
   position: relative;
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  // align-items: center;
 }
 
 button {
-  background-color: $secondary-color;
-  color: $primary-color;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 100px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 700;
-  transition: background-color 0.3s;
   display: flex;
+  cursor: pointer;
+
 }
 
 .background-image {
-  filter: brightness(.6)
+  filter: brightness(.4)
 }

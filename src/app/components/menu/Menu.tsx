@@ -21,7 +21,7 @@ export default function Menu() {
 						fill="currentColor"
 					/>
 					<MenuItem
-						title="Karta"
+						title="Sök"
 						href="/karta"
 						iconSize={iconSize}
 						className="link__map"

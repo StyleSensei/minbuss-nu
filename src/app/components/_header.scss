@@ -1,11 +1,16 @@
+@use '../mixins' as m;
+$containerWidth: 309.5px;
+
 .header__container {
-    width: 100%;
+    width: auto;
+    left: calc(50vw - ($containerWidth / 2));
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem 2rem;
     position: fixed;
-    top: 0;
+    border-radius: 100px;
+    top: 1rem;
     z-index: 1;
     pointer-events: none;
+    @include m.backdropFilter;
 }

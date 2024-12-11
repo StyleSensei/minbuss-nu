@@ -8,8 +8,8 @@ $size: 20px;
     cursor: pointer;
     float: left;
     // transition: all 0.2s;
-    background: lighten(v.$primary-color, 5%);
-    border: 2px solid whitesmoke;
+    background: lighten(v.$accent-color, 5%);
+    border: 2px solid rgb(0, 0, 0);
     // outline: 1px solid $bg;
     backface-visibility: hidden;
 

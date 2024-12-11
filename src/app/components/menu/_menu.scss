@@ -1,6 +1,7 @@
 @use '../../variables' as v;
+@use '../../mixins' as m;
 
-$containerWidth: 322px;
+$containerWidth: 326px;
 $selectionWidth: 2rem;
 $outerPadding: 5px;
 $barHeight: 4px;
@@ -8,22 +9,27 @@ $barHeight: 4px;
 
 .wrapper {
     position: fixed;
-    width: 100%;
+    left: calc(50vw - ($containerWidth / 2));
+    width: auto;
+    border-radius: 100px;
     bottom: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    background: transparent;
+    @include m.backdropFilter;
 }
 
 .outer-container {
-    padding: $outerPadding $outerPadding $outerPadding - $barHeight $outerPadding;
+    padding: 5px 2px 1px 2px;
     background-color: v.$primary-color;
     border-radius: 24.5px + $outerPadding;
     display: flex;
     align-items: center;
     flex-direction: column;
     justify-content: center;
+    opacity: 80%;
 }
 
 

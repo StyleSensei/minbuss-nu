@@ -1,8 +1,10 @@
 interface ButtonProps {
-	title: string;
+	title?: string;
 	className?: string;
 	id?: string;
 	path?: string;
+	pathFillRule1?: string;
+	pathFillRule2?: string;
 	onClick?: () => void;
 	iconSize?: string;
 	fill: string;
@@ -13,6 +15,8 @@ export const Button = ({
 	className,
 	id,
 	path,
+	pathFillRule1,
+	pathFillRule2,
 	onClick,
 	iconSize = "18",
 	fill,
@@ -32,7 +36,9 @@ export const Button = ({
 				viewBox="0 0 16 16"
 			>
 				<title>{title}</title>
+				<path fillRule="evenodd" d={pathFillRule1} />
 				<path d={path} />
+				<path fillRule="evenodd" d={pathFillRule2} />
 			</svg>
 			{title}
 		</button>

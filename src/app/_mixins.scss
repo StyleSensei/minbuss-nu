@@ -1,0 +1,51 @@
+$fontSizeMenuLinkMobile: 2rem;
+$fontSizeMenuLinkMobile--landscape: 1.4rem;
+$fontSizeMenuLinkDesktop: 0.75rem;
+
+//breakpoints
+$tablet: 768px;
+$lg: 992px;
+$desktop: 1200px;
+$desktopXL: 1600px;
+$desktopXXL: 2000px;
+
+@mixin phoneLS {
+  @media only screen and (min-device-width: 375px) and (max-device-width: 950px) and (-webkit-min-device-pixel-ratio: 3) and (orientation: landscape) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media screen and (min-width: $tablet) {
+    @content;
+  }
+}
+
+@mixin lg {
+  @media screen and (min-width: $lg) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media screen and (min-width: $desktop) {
+    @content;
+  }
+}
+
+@mixin desktopXl {
+  @media screen and (min-width: $desktopXL) {
+    @content;
+  }
+}
+
+@mixin desktopXXL {
+  @media screen and (min-width: $desktopXXL) {
+    @content;
+  }
+}
+
+@mixin backdropFilter {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
