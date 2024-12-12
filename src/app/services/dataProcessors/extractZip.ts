@@ -2,27 +2,16 @@ import type { Readable } from "node:stream";
 import { getStaticData } from "../dataSources/gtfsStatic";
 const unzipper = require("unzipper");
 import csvParser from "csv-parser";
-
-export interface IRoute {
-	route_id: string;
-	agency_id: string;
-	route_short_name: string;
-	route_long_name: string;
-	route_type: number;
-	route_desc: string;
-}
-export interface ITrip {
-	route_id: string;
-	service_id: string;
-	trip_id: string;
-	trip_headsign: string;
-	direction_id: number;
-	shape_id: string;
-}
+import type { IRoute } from "@/app/models/IRoute";
+import type { ITrip } from "@/app/models/ITrip";
+import type { IStop } from "@/app/models/IStop";
+import type { IStopTime } from "@/app/models/IStopTime";
 
 export const extractZip = async () => {
 	const routes: IRoute[] = [];
 	const trips: ITrip[] = [];
+	const stops: IStop[] = [];
+	const stopTimes: IStopTime[] = [];
 
 	const zip: Readable = (await getStaticData()).pipe(
 		unzipper.Parse({ forceStream: true }),
@@ -30,11 +19,18 @@ export const extractZip = async () => {
 
 	for await (const entry of zip) {
 		const fileName = entry.path;
-		if (fileName === "routes.txt" || fileName === "trips.txt") {
+		if (
+			fileName === "routes.txt" ||
+			fileName === "trips.txt" ||
+			fileName === "stops.txt" ||
+			fileName === "stop_times.txt"
+		) {
 			entry
 				.pipe(csvParser())
-				.on("data", (data: IRoute | ITrip) => {
+				.on("data", (data: IRoute | ITrip | IStop | IStopTime) => {
 					if (fileName === "routes.txt") routes.push(data as IRoute);
+					if (fileName === "stops.txt") stops.push(data as IStop);
+					if (fileName === "stop_times.txt") stopTimes.push(data as IStopTime);
 					else trips.push(data as ITrip);
 				})
 				.on("end", () => {
@@ -49,5 +45,5 @@ export const extractZip = async () => {
 		}
 	}
 
-	return { routes, trips };
+	return { routes, trips, stops, stopTimes };
 };

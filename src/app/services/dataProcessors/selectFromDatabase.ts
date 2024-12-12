@@ -1,6 +1,5 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import type { IRoute, ITrip } from "./extractZip";
 import { trips } from "@/app/db/schema/trips";
 import { routes } from "@/app/db/schema/routes";
 import { eq } from "drizzle-orm";

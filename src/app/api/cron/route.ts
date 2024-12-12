@@ -13,11 +13,32 @@ export async function GET(request: NextRequest) {
 	}
 	try {
 		console.time("extractZip");
-		const { routes, trips } = await extractZip();
+		const { routes, trips, stops, stopTimes } = await extractZip();
 		console.timeEnd("extractZip");
 
-		await saveToDatabase(trips, "trips");
-		await saveToDatabase(routes, "routes");
+		try {
+			await saveToDatabase(trips, "trips");
+		} catch (error) {
+			console.error("Error saving trips to database:", error);
+		}
+
+		try {
+			await saveToDatabase(routes, "routes");
+		} catch (error) {
+			console.error("Error saving routes to database:", error);
+		}
+
+		try {
+			await saveToDatabase(stops, "stops");
+		} catch (error) {
+			console.error("Error saving stops to database:", error);
+		}
+
+		try {
+			await saveToDatabase(stopTimes, "stop_times");
+		} catch (error) {
+			console.error("Error saving stop_times to database:", error);
+		}
 
 		return Response.json({ success: true });
 	} catch (error) {
