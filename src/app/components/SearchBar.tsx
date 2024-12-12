@@ -1,8 +1,12 @@
 "use client";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
-import { getFilteredVehiclePositions } from "../actions/filterVehicles";
-import { useFilterContext } from "../context/FilterContext";
+import {
+	getCachedDbData,
+	getFilteredVehiclePositions,
+} from "../actions/filterVehicles";
+import { useDataContext } from "../context/DataContext";
+import type { IDbData } from "../models/IDbData";
 
 function debounce(cb: (query: string) => void, delay = 250) {
 	let timeout: NodeJS.Timeout;
@@ -32,7 +36,11 @@ export const SearchBar = ({
 	path2,
 }: SearchBarProps) => {
 	const [userInput, setUserInput] = useState<string>("");
-	const { setFilteredVehicles, filteredVehicles } = useFilterContext();
+	// const [cachedDbDataState, setCachedDbDataState] = useState<
+	// 	IDbData[] | undefined
+	// >(undefined);
+	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
+		useDataContext();
 	const intervalRef = useRef<NodeJS.Timeout>();
 
 	const handleOnChange = useCallback(
@@ -53,6 +61,10 @@ export const SearchBar = ({
 		},
 		[setFilteredVehicles],
 	);
+	const handleCachedDbData = useCallback(async () => {
+		const cachedDbData = await getCachedDbData(userInput);
+		setCachedDbDataState(cachedDbData);
+	}, [userInput, setCachedDbDataState]);
 
 	useEffect(() => {
 		if (userInput) {
@@ -63,6 +75,7 @@ export const SearchBar = ({
 		}
 		if (userInput && filteredVehicles.length)
 			pollBusPositionsEveryTwoSeconds(userInput);
+
 		return () => {
 			if (intervalRef.current) clearInterval(intervalRef.current);
 		};
@@ -73,8 +86,10 @@ export const SearchBar = ({
 		pollBusPositionsEveryTwoSeconds,
 		setFilteredVehicles,
 	]);
-	// console.log("filteredVehicles:", filteredVehicles);
-	// console.log("intervalRef.current:", intervalRef.current);
+
+	useEffect(() => {
+		if (filteredVehicles.length) handleCachedDbData();
+	}, [handleCachedDbData, filteredVehicles]);
 
 	return (
 		<>

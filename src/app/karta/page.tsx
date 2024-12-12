@@ -7,14 +7,14 @@ import {
 	type MapEvent,
 } from "@vis.gl/react-google-maps";
 
-import { useFilterContext } from "../context/FilterContext";
+import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
 import { ZoomButtons } from "../components/ZoomButtons";
 import { Button } from "../components/Button";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export default function MapPage() {
-	const { filteredVehicles } = useFilterContext();
+	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {

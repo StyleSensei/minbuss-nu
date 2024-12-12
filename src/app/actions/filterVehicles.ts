@@ -6,8 +6,8 @@ import {
 import { selectFromDatabase } from "../services/dataProcessors/selectFromDatabase";
 import { cache } from "react";
 
-const getCachedDbData = cache(selectFromDatabase);
-const getCachedVehiclePositions = cache(getVehiclePositions);
+export const getCachedDbData = cache(selectFromDatabase);
+export const getCachedVehiclePositions = cache(getVehiclePositions);
 
 export const getFilteredVehiclePositions = async (busline?: string) => {
 	const cachedVehiclePositions = await getCachedVehiclePositions();
@@ -22,5 +22,6 @@ export const getFilteredVehiclePositions = async (busline?: string) => {
 		cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
 	);
 	console.log(data.length);
+
 	return data;
 };

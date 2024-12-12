@@ -11,7 +11,7 @@ import { bus, search } from "../../public/icons";
 import { SearchBar } from "./components/SearchBar";
 import { Header } from "./components/Header";
 import { usePathname } from "next/navigation";
-import { FilterProvider } from "./context/FilterContext";
+import { DataProvider } from "./context/DataContext";
 
 const geistSans = localFont({
 	src: "./fonts/GeistVF.woff",
@@ -49,7 +49,7 @@ export default async function RootLayout({
 	return (
 		<html lang="en">
 			<body>
-				<FilterProvider>
+				<DataProvider>
 					<Header />
 					<main>
 						<Image
@@ -68,7 +68,7 @@ export default async function RootLayout({
 							className="--cta"
 						/>
 					</main>
-				</FilterProvider>
+				</DataProvider>
 				<Menu />
 			</body>
 		</html>
