@@ -6,7 +6,6 @@ import {
 	getFilteredVehiclePositions,
 } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
-import type { IDbData } from "../models/IDbData";
 
 function debounce(cb: (query: string) => void, delay = 250) {
 	let timeout: NodeJS.Timeout;
@@ -36,9 +35,7 @@ export const SearchBar = ({
 	path2,
 }: SearchBarProps) => {
 	const [userInput, setUserInput] = useState<string>("");
-	// const [cachedDbDataState, setCachedDbDataState] = useState<
-	// 	IDbData[] | undefined
-	// >(undefined);
+
 	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
 		useDataContext();
 	const intervalRef = useRef<NodeJS.Timeout>();
