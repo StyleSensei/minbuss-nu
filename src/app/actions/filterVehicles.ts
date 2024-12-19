@@ -22,6 +22,7 @@ export const getFilteredVehiclePositions = async (busline?: string) => {
 		cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
 	);
 	console.log(data.length);
+	// console.log(data);
 
 	return data;
 };

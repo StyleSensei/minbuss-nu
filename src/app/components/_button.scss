@@ -1,5 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use 'sass:color';
 
 .button {
     gap: 8px;
@@ -15,7 +16,7 @@
     width: fit-content;
 
     &:hover {
-        background-color: lighten(v.$accent-color, 30);
+        background-color: color.adjust(v.$accent-color, $lightness: 30%);
     }
 
     &.--cta {
@@ -43,7 +44,7 @@
             font-size: 2rem;
 
             &:hover {
-                background-color: lighten(v.$primary-color, 10);
+                background-color: color.adjust(v.$primary-color, $lightness: 10%);
             }
         }
     }

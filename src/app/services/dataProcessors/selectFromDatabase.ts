@@ -6,6 +6,7 @@ import { eq, inArray, and, desc } from "drizzle-orm";
 import { stop_times } from "@/app/db/schema/stop_times";
 import { stops } from "@/app/db/schema/stops";
 import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
+import type { IDbData } from "@/app/models/IDbData";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -27,6 +28,8 @@ export const selectFromDatabase = async (busLine: string) => {
 				stop_headsign: stop_times.stop_headsign,
 				arrival_time: stop_times.arrival_time,
 				stop_name: stops.stop_name,
+				stop_sequence: stop_times.stop_sequence,
+				stop_id: stops.stop_id,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
 			})
@@ -44,7 +47,7 @@ export const selectFromDatabase = async (busLine: string) => {
 
 		// console.log(data);
 
-		return data;
+		return data as IDbData[];
 	} catch (error) {
 		console.log(error);
 		return [];

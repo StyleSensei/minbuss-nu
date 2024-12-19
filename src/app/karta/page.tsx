@@ -5,13 +5,16 @@ import {
 	MapControl,
 	ControlPosition,
 	type MapEvent,
+	InfoWindow,
+	useAdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
 
 import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
 import { ZoomButtons } from "../components/ZoomButtons";
 import { Button } from "../components/Button";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import TextBlock from "../components/Textblock";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -29,6 +32,9 @@ export default function MapPage() {
 		// biome-ignore lint/style/noNonNullAssertion: <Returns the zoom of the map. If the zoom has not been set then the result is undefined.>
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	};
+
+	// console.log("cachcedDB:", cachedDbDataState);
+	// console.log("filteredVehicles:", filteredVehicles);
 
 	return (
 		<div>
@@ -49,6 +55,7 @@ export default function MapPage() {
 					streetViewControl={false}
 					fullscreenControl={false}
 					colorScheme="FOLLOW_SYSTEM"
+					reuseMaps={true}
 					zoomControlOptions={{
 						position: ControlPosition.INLINE_END_BLOCK_START,
 					}}
@@ -67,6 +74,7 @@ export default function MapPage() {
 								lat: vehicle.position.latitude,
 								lng: vehicle.position.longitude,
 							}}
+							// onClick={handleOnClick}
 						/>
 					))}
 				</GoogleMap>
