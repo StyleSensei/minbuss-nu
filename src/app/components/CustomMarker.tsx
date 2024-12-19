@@ -14,12 +14,12 @@ import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
-	onClick?: (e: google.maps.LatLng) => void;
+	currentVehicle: IVehiclePosition;
 }
 
 export default function CustomMarker({
 	position,
-	onClick,
+	currentVehicle,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
@@ -27,8 +27,9 @@ export default function CustomMarker({
 	const [passedStops, setPassedStops] = useState<Map<string, IDbData>>(
 		new Map(),
 	);
-	const [clickEvent, setClickEvent] = useState<google.maps.MapMouseEvent>();
-	const [currentBus, setCurrentBus] = useState<IVehiclePosition>();
+	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
+		currentVehicle,
+	);
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const previousDistanceRef = useRef<number | null>(null);
 	const [hasPassedStop, setHasPassedStop] = useState(false);
@@ -246,15 +247,13 @@ export default function CustomMarker({
 		return closestBus as IVehiclePosition;
 	}, [filteredVehicles, getClosest, infoWindowActive, marker]);
 
-	const handleOnClick = (e: google.maps.MapMouseEvent) => {
+	const handleOnClick = () => {
 		setInfoWindowActive(!infoWindowActive);
 
 		if (!infoWindowActive) {
 			setPassedStops(new Map());
 			setHasPassedStop(false);
-			setClickEvent(e);
 		} else {
-			setClickEvent(undefined);
 			setClosestStop(null);
 		}
 	};

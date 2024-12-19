@@ -33,9 +33,6 @@ export default function MapPage() {
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	};
 
-	// console.log("cachcedDB:", cachedDbDataState);
-	// console.log("filteredVehicles:", filteredVehicles);
-
 	return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
@@ -69,12 +66,12 @@ export default function MapPage() {
 					</MapControl>
 					{filteredVehicles.map((vehicle) => (
 						<CustomMarker
+							currentVehicle={vehicle}
 							key={vehicle.vehicle.id}
 							position={{
 								lat: vehicle.position.latitude,
 								lng: vehicle.position.longitude,
 							}}
-							// onClick={handleOnClick}
 						/>
 					))}
 				</GoogleMap>
