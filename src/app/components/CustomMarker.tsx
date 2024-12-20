@@ -6,22 +6,43 @@ import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
 	useAdvancedMarkerRef,
+	Map as GoogleMap,
+	useMap,
 } from "@vis.gl/react-google-maps";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	type MutableRefObject,
+	use,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "../models/IDbData";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import { InfoWindow } from "./InfoWindow";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
 	currentVehicle: IVehiclePosition;
+	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	zoomAction: boolean;
+	setZoomAction: (value: boolean) => void;
+	clickedOutside: boolean;
+	setClickedOutside: (value: boolean) => void;
 }
 
 export default function CustomMarker({
+	googleMapRef,
 	position,
 	currentVehicle,
+	zoomAction,
+	setZoomAction,
+	clickedOutside,
+	setClickedOutside,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
+
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
 	const [passedStops, setPassedStops] = useState<Map<string, IDbData>>(
@@ -33,6 +54,9 @@ export default function CustomMarker({
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const previousDistanceRef = useRef<number | null>(null);
 	const [hasPassedStop, setHasPassedStop] = useState(false);
+	const timeToStop = useRef<number>();
+	// const [zoomAction, setZoomAction] = useState(false);
+	const myMap = useMap();
 
 	useGSAP(() => {
 		if (marker) {
@@ -248,8 +272,13 @@ export default function CustomMarker({
 	}, [filteredVehicles, getClosest, infoWindowActive, marker]);
 
 	const handleOnClick = () => {
+		setClickedOutside(false);
 		setInfoWindowActive(!infoWindowActive);
-
+		if (googleMapRef.current) {
+			setZoom(googleMapRef.current);
+			panTo(googleMapRef.current);
+		}
+		// if (marker?.position) GoogleMap.panTo(marker.position);
 		if (!infoWindowActive) {
 			setPassedStops(new Map());
 			setHasPassedStop(false);
@@ -257,14 +286,78 @@ export default function CustomMarker({
 			setClosestStop(null);
 		}
 	};
+	const centerMap = useCallback(
+		(GoogleMap: google.maps.Map) => {
+			if (marker?.position) {
+				const currentCenter = GoogleMap.getCenter();
+
+				const from = {
+					lat: currentCenter?.lat(),
+					lng: currentCenter?.lng(),
+				};
+				const to = {
+					lat: +marker.position.lat,
+					lng: +marker.position.lng,
+				};
+				gsap.to(from, {
+					duration: 4,
+					ease: "sine",
+					lat: to.lat,
+					lng: to.lng,
+					onUpdate: () => {
+						from.lat &&
+							GoogleMap.setCenter(new google.maps.LatLng(from.lat, from.lng));
+					},
+				});
+			}
+		},
+		[marker],
+	);
+	const panTo = useCallback(
+		(GoogleMap: google.maps.Map) => {
+			if (marker?.position) {
+				GoogleMap.panTo(marker.position);
+			}
+		},
+		[marker],
+	);
+
+	const setZoom = useCallback((GoogleMap: google.maps.Map) => {
+		GoogleMap.setZoom(17);
+	}, []);
+
+	const checkArrival = useCallback(() => {
+		if (!currentBus?.position.speed || !closestStopState) return;
+		const distance = getDistanceFromLatLon(
+			currentBus.position.latitude,
+			currentBus.position.longitude,
+			closestStopState.stop_lat,
+			closestStopState.stop_lon,
+		);
+		const timeToStop = distance / currentBus?.position?.speed;
+		const timeInMinutes = Math.round(timeToStop / 60);
+		console.log(timeInMinutes);
+		return timeInMinutes;
+	}, [currentBus, closestStopState, getDistanceFromLatLon]);
 
 	useEffect(() => {
 		checkIfCloserOrFurtherFromStop();
 	}, [checkIfCloserOrFurtherFromStop]);
 
+	// useEffect(() => {
+	// 	if (position && googleMapRef.current && infoWindowActive && !zoomAction) {
+	// 		// centerMap(googleMapRef.current);
+	// 		// setZoom(googleMapRef.current);
+	// 	}
+	// }, [position, googleMapRef, infoWindowActive, centerMap, zoomAction]);
+
 	useEffect(() => {
 		if (filteredVehicles.length === 0 || !infoWindowActive) return;
+		// timeToStop.current = checkArrival();
 		setCurrentBus(findCurrentBus());
+		if (clickedOutside) {
+			setInfoWindowActive(false);
+		}
 
 		const closestOrNextStop = findClosestOrNextStop();
 		const closestStop = closestOrNextStop?.closestStop;
@@ -296,6 +389,8 @@ export default function CustomMarker({
 		hasPassedStop,
 		findCurrentBus,
 		findPassedStops,
+		clickedOutside,
+		// checkArrival,
 	]);
 
 	return (
@@ -304,27 +399,14 @@ export default function CustomMarker({
 				ref={markerRef}
 				position={position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				className="custom-marker"
-				onClick={handleOnClick}
+				className={
+					infoWindowActive ? "custom-marker --active" : "custom-marker"
+				}
+				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 			>
 				<div> </div> {/* prevent standard marker from rendering */}
 			</AdvancedMarker>
-			{infoWindowActive && (
-				<div
-					className="info-window"
-					style={{
-						position: "absolute",
-						top: "5vh",
-						left: "5vw",
-						width: "200px",
-						height: "200px",
-						backgroundColor: "white",
-					}}
-				>
-					<p>{closestStopState?.route_short_name}</p>
-					<p>{closestStopState?.stop_name}</p>
-				</div>
-			)}
+			{infoWindowActive && <InfoWindow closestStopState={closestStopState} />}
 		</>
 	);
 }

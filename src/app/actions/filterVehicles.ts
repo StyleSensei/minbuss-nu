@@ -1,13 +1,12 @@
 "use server";
 import {
+	getCachedDbData,
+	getCachedVehiclePositions,
+} from "../services/cacheHelper";
+import {
 	getVehiclePositions,
 	type IVehiclePosition,
 } from "../services/dataSources/gtfsRealtime";
-import { selectFromDatabase } from "../services/dataProcessors/selectFromDatabase";
-import { cache } from "react";
-
-export const getCachedDbData = cache(selectFromDatabase);
-export const getCachedVehiclePositions = cache(getVehiclePositions);
 
 export const getFilteredVehiclePositions = async (busline?: string) => {
 	const cachedVehiclePositions = await getCachedVehiclePositions();

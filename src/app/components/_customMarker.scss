@@ -16,6 +16,12 @@ $size: 20px;
 
     animation: pulse 2s 0s ease-out infinite;
 
+    &.--active {
+        animation: none;
+        outline: 7px solid v.$active;
+        // background: color.adjust(v.$accent-color, $lightness: 30%);
+        background-color: white;
+    }
 }
 
 @keyframes pulse {

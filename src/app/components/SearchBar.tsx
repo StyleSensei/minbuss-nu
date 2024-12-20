@@ -1,11 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
-import {
-	getCachedDbData,
-	getFilteredVehiclePositions,
-} from "../actions/filterVehicles";
+import { getFilteredVehiclePositions } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
+import { getCachedDbData } from "../services/cacheHelper";
 
 function debounce(cb: (query: string) => void, delay = 250) {
 	let timeout: NodeJS.Timeout;

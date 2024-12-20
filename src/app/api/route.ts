@@ -7,18 +7,27 @@ import { db } from "@vercel/postgres";
 import {
 	getCachedDbData,
 	getCachedVehiclePositions,
-} from "../actions/filterVehicles";
+} from "../services/cacheHelper";
+import { getFilteredVehiclePositions } from "../actions/filterVehicles";
+import { getCurrentTripIds } from "../actions/getCurrentTripIds";
 
 export const GET = async () => {
 	// const db = drizzle();
-	// const dbData = await getCachedDbData("177");
-	// const vehiclePositions = await getCachedVehiclePositions();
+	// const data = await getCachedDbData("177");
+	const data = await getCachedVehiclePositions();
+	const tripidsFromVP = data?.map((vehicle) => vehicle?.trip?.tripId);
+	// const correctBus = data?.find(
+	// 	(vehicle) => vehicle?.trip?.tripId === "14010000630848092",
+	// );
+	const tripIds = await getCurrentTripIds();
 	// const data = vehiclePositions?.filter((vehicle) =>
 	// 	dbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
 	// );
-	const data = await getCachedDbData("177");
-
-	console.log("filtered data: ", data);
+	// const data = await getFilteredVehiclePositions("177");
+	// const data = await getCachedDbData("177");
+	// const data = await selectFromDatabase("177");
+	// console.log("data: ", data);
+	// console.log("correctBus: ", correctBus);
 	// const result = await db.execute('select 1');
-	return NextResponse.json({ data });
+	return NextResponse.json({ tripidsFromVP });
 };

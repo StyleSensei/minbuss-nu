@@ -19,6 +19,9 @@ import TextBlock from "../components/Textblock";
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
+	const [zoomAction, setZoomAction] = useState(false);
+	// const [infoWindowActive, setInfoWindowActive] = useState(false);
+	const [clickedOutside, setClickedOutside] = useState(false);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
@@ -32,7 +35,6 @@ export default function MapPage() {
 		// biome-ignore lint/style/noNonNullAssertion: <Returns the zoom of the map. If the zoom has not been set then the result is undefined.>
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	};
-
 	return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
@@ -51,8 +53,24 @@ export default function MapPage() {
 					mapTypeControl={false}
 					streetViewControl={false}
 					fullscreenControl={false}
-					colorScheme="FOLLOW_SYSTEM"
+					onClick={() => setClickedOutside(true)}
+					// onZoomChanged={(e: MapEvent) => {
+					// 	if (zoomAction) return;
+					// 	setZoomAction(true);
+					// 	console.log("zoom changed", e);
+					// }}
+					// onIdle={() => {
+					// 	if (!zoomAction) return;
+					// 	setZoomAction(false);
+					// 	console.log("idle");
+					// }}
+
+					colorScheme="DARK"
 					reuseMaps={true}
+					restriction={{
+						latLngBounds: { north: 60, south: 58.5, east: 18.5, west: 17.5 },
+					}}
+					minZoom={8}
 					zoomControlOptions={{
 						position: ControlPosition.INLINE_END_BLOCK_START,
 					}}
@@ -66,6 +84,11 @@ export default function MapPage() {
 					</MapControl>
 					{filteredVehicles.map((vehicle) => (
 						<CustomMarker
+							googleMapRef={mapRef}
+							zoomAction={zoomAction}
+							clickedOutside={clickedOutside}
+							setClickedOutside={setClickedOutside}
+							setZoomAction={setZoomAction}
 							currentVehicle={vehicle}
 							key={vehicle.vehicle.id}
 							position={{

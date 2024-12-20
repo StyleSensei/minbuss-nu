@@ -1,3 +1,4 @@
+// import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { trips } from "@/app/db/schema/trips";
@@ -5,8 +6,9 @@ import { routes } from "@/app/db/schema/routes";
 import { eq, inArray, and, desc } from "drizzle-orm";
 import { stop_times } from "@/app/db/schema/stop_times";
 import { stops } from "@/app/db/schema/stops";
-import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import type { IDbData } from "@/app/models/IDbData";
+import { getCachedVehiclePositions } from "../cacheHelper";
+import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -17,7 +19,6 @@ const db = drizzle({ client: queryClient });
 
 export const selectFromDatabase = async (busLine: string) => {
 	const { filteredTripIds } = await getCurrentTripIds();
-	// console.log(currentTripIds);
 
 	try {
 		const data = await db

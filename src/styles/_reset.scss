@@ -1,4 +1,4 @@
-@use "../app/variables";
+@use "../app/variables" as v;
 
 // :root {
 
@@ -116,6 +116,8 @@ select {
   font: inherit;
   resize: none;
 }
+
+
 
 /* Make sure textareas without a rows attribute are not tiny */
 textarea:not([rows]) {

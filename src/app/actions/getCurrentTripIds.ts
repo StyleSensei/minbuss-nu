@@ -1,6 +1,6 @@
 "use server";
 
-import { getCachedVehiclePositions } from "./filterVehicles";
+import { getCachedVehiclePositions } from "../services/cacheHelper";
 
 export const getCurrentTripIds = async () => {
 	const cachedVehiclePositions = await getCachedVehiclePositions();

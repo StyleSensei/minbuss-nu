@@ -1,0 +1,35 @@
+@use '../variables' as v;
+@use '../mixins' as m;
+
+
+.info-window {
+    position: absolute;
+    top: 15vh;
+    right: 5vw;
+    width: 250px;
+    // height: auto;
+    background-color: v.$primary-color;
+    color: white;
+    border: solid 5px v.$active;
+    padding: 1rem 1rem;
+    border-radius: 20px;
+
+    h2 {
+        font-size: 1.3rem;
+        line-height: 1.5;
+
+    }
+
+    #final-station {
+        font-style: italic;
+        font-weight: 300;
+    }
+
+    p {
+        font-size: 1rem;
+    }
+
+    @include m.desktop {
+        right: 10vw;
+    }
+}
