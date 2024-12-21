@@ -4,17 +4,9 @@ import { Icon } from "./Icon";
 import { getFilteredVehiclePositions } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
 import { getCachedDbData } from "../services/cacheHelper";
-
-function debounce(cb: (query: string) => void, delay = 250) {
-	let timeout: NodeJS.Timeout;
-
-	return (...args: [string]) => {
-		clearTimeout(timeout);
-		timeout = setTimeout(() => {
-			cb(...args);
-		}, delay);
-	};
-}
+import { getAllRoutes } from "../actions/getAllRoutes";
+import { all } from "axios";
+import { debounce } from "../utilities/debounce";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -33,16 +25,30 @@ export const SearchBar = ({
 	path2,
 }: SearchBarProps) => {
 	const [userInput, setUserInput] = useState<string>("");
+	const [allRoutes, setAllRoutes] = useState<string[]>([]);
 
 	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
 		useDataContext();
 	const intervalRef = useRef<NodeJS.Timeout>();
 
+	const checkIfRouteExists = useCallback(
+		(route: string) => {
+			return allRoutes?.some((r) => r === route);
+		},
+		[allRoutes],
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: < didn't work without >
 	const handleOnChange = useCallback(
 		debounce(async (query: string) => {
+			const routeExists = checkIfRouteExists(query);
+			if (!routeExists) {
+				console.log("Route does not exist");
+				return;
+			}
 			setFilteredVehicles(await getFilteredVehiclePositions(query));
 		}, 250),
-		[],
+		[checkIfRouteExists],
 	);
 
 	const pollBusPositionsEveryTwoSeconds = useCallback(
@@ -60,6 +66,15 @@ export const SearchBar = ({
 		const cachedDbData = await getCachedDbData(userInput);
 		setCachedDbDataState(cachedDbData);
 	}, [userInput, setCachedDbDataState]);
+
+	useEffect(() => {
+		if (!allRoutes?.length) {
+			(async () => {
+				const allRoutes = await getAllRoutes();
+				setAllRoutes(allRoutes);
+			})();
+		}
+	});
 
 	useEffect(() => {
 		if (userInput) {
@@ -92,9 +107,11 @@ export const SearchBar = ({
 				<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
 				<input
 					type="text"
+					maxLength={5}
+					pattern="[A-Z]{0,2}[0-9]{1,3}[A-Z]{0,2}"
 					placeholder="Sök busslinje..."
 					className="search-bar__input"
-					onChange={(e) => setUserInput(e.target.value)}
+					onChange={(e) => setUserInput(e.target.value.toUpperCase())}
 					value={userInput}
 				/>
 				{userInput && title2 && path2 && (

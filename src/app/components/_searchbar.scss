@@ -12,23 +12,36 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     opacity: 80%;
-
-
+    // width: 300px;
 
 
     input {
         background: v.$primary-color;
         color: v.$secondary-color;
         border: none;
-        padding: 1rem 2rem;
+        padding: 1rem;
         font-size: 1rem;
         font-weight: 700;
-        transition: background-color 0.3s;
         display: flex;
         width: 100%;
+        transition: all .3s ease;
 
         &::placeholder {
             color: v.$tertiary-color;
+        }
+
+        &:has(:placeholder-shown) {
+            // width: 250px
+        }
+
+        &:focus {
+            outline-color: v.$accent-color;
+
+        }
+
+        &:not(:valid) {
+            color: v.$not-valid;
+            outline-color: v.$not-valid;
         }
     }
 

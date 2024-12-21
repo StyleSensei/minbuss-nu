@@ -1,4 +1,3 @@
-// import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { trips } from "@/app/db/schema/trips";
@@ -7,7 +6,6 @@ import { eq, inArray, and, desc } from "drizzle-orm";
 import { stop_times } from "@/app/db/schema/stop_times";
 import { stops } from "@/app/db/schema/stops";
 import type { IDbData } from "@/app/models/IDbData";
-import { getCachedVehiclePositions } from "../cacheHelper";
 import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 
 if (!process.env.DATABASE_URL) {
