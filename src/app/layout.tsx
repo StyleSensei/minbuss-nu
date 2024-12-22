@@ -10,7 +10,6 @@ import { Button } from "./components/Button";
 import { bus, search } from "../../public/icons";
 import { SearchBar } from "./components/SearchBar";
 import { Header } from "./components/Header";
-import { usePathname } from "next/navigation";
 import { DataProvider } from "./context/DataContext";
 
 const geistSans = localFont({

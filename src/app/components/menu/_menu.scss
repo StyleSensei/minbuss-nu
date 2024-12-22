@@ -67,8 +67,20 @@ $barHeight: 4px;
     align-items: center;
 
     .menu-bar__inner-container {
+        transition: padding-left .5s cubic-bezier(0.375, 1.650, 0.180, 0.805);
         width: 322px;
-        padding-left: 3.3rem;
+
+        &.home {
+            padding-left: 3.3rem;
+        }
+
+        &.map {
+            padding-left: calc(50% - 1rem);
+        }
+
+        &.info {
+            padding-left: calc(100% - 4.3rem)
+        }
 
         .menu-bar__selection {
             background-color: v.$secondary-color;
