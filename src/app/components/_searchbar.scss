@@ -47,3 +47,31 @@
         padding: .2rem;
     }
 }
+
+.error-message {
+    color: v.$secondary-color;
+    transition: all .3s ease;
+    font-size: .9rem;
+    margin-top: .5rem;
+    text-align: left;
+    position: absolute;
+    bottom: -2.5rem;
+    left: 0;
+    background-color: v.$not-valid;
+    padding: .5rem 1rem;
+    width: 100%;
+    animation: drop ease .3s;
+    transform-origin: top;
+    overflow: hidden;
+}
+
+@keyframes drop {
+    from {
+        transform: scale(0);
+    }
+
+    to {
+        transform: scale(1);
+    }
+
+}

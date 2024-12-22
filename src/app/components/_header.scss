@@ -5,6 +5,7 @@ $containerWidth: 309.5px;
     width: auto;
     left: calc(50vw - ($containerWidth / 2));
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     position: fixed;
