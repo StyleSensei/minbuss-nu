@@ -5,8 +5,8 @@ import { getFilteredVehiclePositions } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
 import { getCachedDbData } from "../services/cacheHelper";
 import { getAllRoutes } from "../actions/getAllRoutes";
-import { all } from "axios";
 import { debounce } from "../utilities/debounce";
+import colors from "../colors.module.scss";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -26,6 +26,7 @@ export const SearchBar = ({
 }: SearchBarProps) => {
 	const [userInput, setUserInput] = useState<string>("");
 	const [allRoutes, setAllRoutes] = useState<string[]>([]);
+	const [routeExists, setRouteExists] = useState<boolean>(false);
 
 	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
 		useDataContext();
@@ -33,6 +34,7 @@ export const SearchBar = ({
 
 	const checkIfRouteExists = useCallback(
 		(route: string) => {
+			setRouteExists(allRoutes?.some((r) => r === route));
 			return allRoutes?.some((r) => r === route);
 		},
 		[allRoutes],
@@ -113,6 +115,9 @@ export const SearchBar = ({
 					className="search-bar__input"
 					onChange={(e) => setUserInput(e.target.value.toUpperCase())}
 					value={userInput}
+					style={{
+						outlineColor: routeExists ? colors.accentColor : colors.notValid,
+					}}
 				/>
 				{userInput && title2 && path2 && (
 					<button

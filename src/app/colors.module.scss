@@ -1,0 +1,11 @@
+@use 'variables' as v;
+
+:export {
+    primaryColor: v.$primary-color;
+    secondaryColor: v.$secondary-color;
+    secondaryColorHover: v.$secondary-color--hover;
+    tertiaryColor: v.$tertiary-color;
+    accentColor: v.$accent-color;
+    notValid: v.$not-valid;
+    active: v.$active;
+}

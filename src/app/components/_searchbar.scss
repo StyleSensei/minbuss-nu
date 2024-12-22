@@ -30,9 +30,6 @@
             color: v.$tertiary-color;
         }
 
-        &:has(:placeholder-shown) {
-            // width: 250px
-        }
 
         &:focus {
             outline-color: v.$accent-color;
