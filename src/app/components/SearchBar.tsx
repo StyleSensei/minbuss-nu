@@ -1,13 +1,16 @@
 "use client";
 import {
+	type KeyboardEvent,
 	lazy,
 	Suspense,
+	use,
 	useCallback,
 	useEffect,
 	useRef,
 	useState,
 } from "react";
 import { Icon } from "./Icon";
+import Form from "next/form";
 import { getFilteredVehiclePositions } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
 import { getCachedDbData } from "../services/cacheHelper";
@@ -38,6 +41,9 @@ export const SearchBar = ({
 	const [routeExists, setRouteExists] = useState<boolean>(false);
 	const [proposedRoute, setProposedRoute] = useState<string | undefined>("");
 	const [loading, setLoading] = useState<boolean>(false);
+	const inputRef = useRef<HTMLInputElement | null>(null);
+	const inputContainerRef = useRef<HTMLDivElement | null>(null);
+	const overlayRef = useRef<HTMLDivElement | null>(null);
 
 	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
 		useDataContext();
@@ -136,34 +142,87 @@ export const SearchBar = ({
 		}
 	}, [handleCachedDbData, filteredVehicles]);
 
+	const handleKeydown = (event: KeyboardEvent) => {
+		if (
+			event.key === "Escape" ||
+			event.key === "Cancel" ||
+			event.key === "Enter"
+		) {
+			inputRef.current?.blur();
+			handleBlur();
+		}
+	};
+	useEffect(() => {
+		console.log(inputContainerRef.current?.classList.value);
+		if (inputContainerRef.current?.classList.contains("--active")) {
+			overlayRef.current?.classList.add("--active");
+		}
+	});
+	const handleFocus = () => {
+		inputContainerRef.current?.classList.add("--active");
+		overlayRef.current?.classList.add("--active");
+	};
+	const handleBlur = () => {
+		inputContainerRef.current?.classList.remove("--active");
+		overlayRef.current?.classList.remove("--active");
+	};
+
 	return (
 		<>
-			<div className="search-bar__container">
-				<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
-				<input
-					type="text"
-					maxLength={5}
-					pattern="[A-Z]{0,2}[0-9]{1,3}[A-Z]{0,2}"
-					placeholder="Sök busslinje..."
-					className="search-bar__input"
-					onChange={(e) => {
-						setUserInput(e.target.value.toUpperCase());
-						handleOnChange(e.target.value.toUpperCase());
-					}}
-					value={userInput}
-					style={{
-						outlineColor: routeExists ? colors.accentColor : colors.notValid,
-					}}
-				/>
-				{userInput && title2 && path2 && (
-					<button
-						className="reset-button"
-						type="reset"
-						onClick={() => setUserInput("")}
-					>
-						<Icon path={path2} fill={fill} iconSize={iconSize} title={title2} />
-					</button>
-				)}
+			<div
+				ref={inputContainerRef}
+				className={
+					inputRef.current?.focus
+						? "search-bar__container --active"
+						: "search-bar__container"
+				}
+			>
+				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
+					<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
+					<label htmlFor="search" className="sr-only">
+						{" "}
+						Sök busslinje{" "}
+					</label>
+					<input
+						ref={inputRef}
+						type="search"
+						maxLength={5}
+						pattern="[A-Z]{0,2}[0-9]{1,3}[A-Z]{0,2}"
+						placeholder="Sök busslinje..."
+						className="search-bar__input"
+						onChange={(e) => {
+							setUserInput(e.target.value.toUpperCase());
+							handleOnChange(e.target.value.toUpperCase());
+						}}
+						value={userInput}
+						onKeyDown={handleKeydown}
+						onFocus={handleFocus}
+						onBlur={handleBlur}
+						style={{
+							outlineColor: routeExists ? colors.accentColor : colors.notValid,
+						}}
+						// biome-ignore lint/a11y/noAutofocus: < expected behaviour when clicking on search in menu>
+						autoFocus
+					/>
+					{userInput && title2 && path2 && (
+						<button
+							className="reset-button"
+							type="reset"
+							onClick={() => setUserInput("")}
+						>
+							<Icon
+								path={path2}
+								fill={fill}
+								iconSize={iconSize}
+								title={title2}
+							/>
+						</button>
+					)}
+					<button type="submit">Sök</button>
+				</Form>
+			</div>
+			<div ref={overlayRef} className="overlay">
+				{" "}
 			</div>
 			{!routeExists && userInput && proposedRoute && !loading && (
 				<Suspense fallback={<p className="error-message">Laddar...</p>}>
