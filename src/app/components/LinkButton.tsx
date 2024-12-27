@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface ButtonProps {
 	title?: string;
 	text?: string;
@@ -9,9 +11,10 @@ interface ButtonProps {
 	onClick?: () => void;
 	iconSize?: string;
 	fill: string;
+	href: string;
 }
 
-export const Button = ({
+export const LinkButton = ({
 	title,
 	text,
 	className,
@@ -19,19 +22,15 @@ export const Button = ({
 	path,
 	pathFillRule1,
 	pathFillRule2,
-	onClick,
 	iconSize = "18",
 	fill,
+	href,
 }: ButtonProps) => {
-
-
 	return (
-		<button
+		<Link
 			className={className ? `button ${className}` : "button"}
-			type="button"
 			id={id}
-			onClick={onClick}
-			// area-label={title}
+			href={href}
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < the button is described with button text > */}
 			<svg
@@ -49,6 +48,6 @@ export const Button = ({
 				<path fillRule="evenodd" d={pathFillRule2} />
 			</svg>
 			{text}
-		</button>
+		</Link>
 	);
-}; 
+};

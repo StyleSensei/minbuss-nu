@@ -153,7 +153,6 @@ export const SearchBar = ({
 		}
 	};
 	useEffect(() => {
-		console.log(inputContainerRef.current?.classList.value);
 		if (inputContainerRef.current?.classList.contains("--active")) {
 			overlayRef.current?.classList.add("--active");
 		}
@@ -220,20 +219,20 @@ export const SearchBar = ({
 					)}
 					<button type="submit">Sök</button>
 				</Form>
+				{!routeExists && userInput && proposedRoute && !loading && (
+					<Suspense fallback={<p className="error-message">Laddar...</p>}>
+						<RouteNotFound proposedRoute={proposedRoute} />
+					</Suspense>
+				)}
+				{routeExists && userInput && !filteredVehicles.length && !loading && (
+					<Suspense fallback={<p className="error-message">Laddar...</p>}>
+						<NotInTraffic userInput={userInput} />
+					</Suspense>
+				)}{" "}
 			</div>
 			<div ref={overlayRef} className="overlay">
 				{" "}
 			</div>
-			{!routeExists && userInput && proposedRoute && !loading && (
-				<Suspense fallback={<p className="error-message">Laddar...</p>}>
-					<RouteNotFound proposedRoute={proposedRoute} />
-				</Suspense>
-			)}
-			{routeExists && userInput && !filteredVehicles.length && !loading && (
-				<Suspense fallback={<p className="error-message">Laddar...</p>}>
-					<NotInTraffic userInput={userInput} />
-				</Suspense>
-			)}
 		</>
 	);
 };

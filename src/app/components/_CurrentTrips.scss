@@ -1,0 +1,48 @@
+@use '../variables' as v;
+@use '../mixins' as m;
+
+.table-container {
+    position: absolute;
+    top: 10vh;
+    left: 1vw;
+    width: auto;
+    max-width: 70vw;
+    height: auto;
+    color: white;
+    padding: v.$padding-textBox;
+    max-height: 100vh;
+    background-color: v.$primary-color;
+    border: solid 5px v.$active;
+    border-radius: v.$border-radius-standard;
+    overflow: auto;
+    z-index: 2;
+
+    caption {
+        font-size: 1.5rem;
+        font-weight: 700;
+        padding: 1vh;
+        color: v.$active;
+    }
+
+    tr:last-of-type {
+        td {
+            border-bottom: none;
+        }
+    }
+
+
+    td {
+        padding: 1vw;
+        border-bottom: solid 1px v.$active;
+
+
+
+    }
+
+
+
+    @include m.desktop {
+        left: 5vw;
+        max-height: none;
+    }
+}

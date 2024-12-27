@@ -29,6 +29,8 @@ interface ICustomMarkerProps {
 	setZoomAction: (value: boolean) => void;
 	clickedOutside: boolean;
 	setClickedOutside: (value: boolean) => void;
+	id: string | null;
+	lastStops: IDbData[];
 }
 
 export default function CustomMarker({
@@ -39,6 +41,8 @@ export default function CustomMarker({
 	setZoomAction,
 	clickedOutside,
 	setClickedOutside,
+	id,
+	lastStops,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 
@@ -54,8 +58,7 @@ export default function CustomMarker({
 	const previousDistanceRef = useRef<number | null>(null);
 	const [hasPassedStop, setHasPassedStop] = useState(false);
 	const timeToStop = useRef<number>();
-	// const [zoomAction, setZoomAction] = useState(false);
-	const myMap = useMap();
+	const markerButtonRef = useRef<HTMLButtonElement | null>(null);
 
 	useGSAP(() => {
 		if (marker) {
@@ -343,13 +346,6 @@ export default function CustomMarker({
 		checkIfCloserOrFurtherFromStop();
 	}, [checkIfCloserOrFurtherFromStop]);
 
-	// useEffect(() => {
-	// 	if (position && googleMapRef.current && infoWindowActive && !zoomAction) {
-	// 		// centerMap(googleMapRef.current);
-	// 		// setZoom(googleMapRef.current);
-	// 	}
-	// }, [position, googleMapRef, infoWindowActive, centerMap, zoomAction]);
-
 	useEffect(() => {
 		if (filteredVehicles.length === 0 || !infoWindowActive) return;
 		// timeToStop.current = checkArrival();
@@ -396,11 +392,12 @@ export default function CustomMarker({
 		<>
 			<AdvancedMarker
 				ref={markerRef}
-				position={position}
+				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 				className={
 					infoWindowActive ? "custom-marker --active" : "custom-marker"
 				}
+				title={`${lastStops.find((stop) => stop.trip_id === currentVehicle.trip.tripId)?.route_short_name} ,${lastStops.find((stop) => stop.trip_id === currentVehicle.trip.tripId)?.stop_headsign}`}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 			>
 				<div> </div> {/* prevent standard marker from rendering */}

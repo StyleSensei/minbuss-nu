@@ -3,6 +3,7 @@
 @use 'sass:color';
 
 .button {
+    display: flex;
     gap: 8px;
     align-items: center;
     padding: 10px 6rem;
@@ -38,6 +39,8 @@
         border-radius: 20px;
         width: fit-content;
         opacity: 80%;
+        @include m.backdropFilter;
+
 
         @include m.desktop {
             padding: 1.5rem;
@@ -49,14 +52,27 @@
         }
     }
 
+    &.--table {
+        @extend .--zoom;
+        z-index: 11;
+        position: relative;
+
+    }
 }
 
-.zoom-buttons {
-    padding: .5rem;
+
+.map-control-buttons {
+    padding: 1vh;
     display: flex;
     flex-direction: column;
     gap: .5rem;
     border-radius: calc(20px + .5rem);
+}
+
+.map-control-button-container {
     @include m.backdropFilter;
+    border-radius: calc(20px + .5rem);
+    // z-index: 3;
+    // position: relative;
 
 }

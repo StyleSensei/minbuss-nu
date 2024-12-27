@@ -8,7 +8,7 @@ interface IInfoWindowProps {
 
 export const InfoWindow = ({ closestStopState }: IInfoWindowProps) => {
 	return (
-		<div className="info-window">
+		<div className="info-window" aria-live="polite">
 			<h2>
 				<span className="bus-line">{closestStopState?.route_short_name}, </span>
 				<span id="final-station">{closestStopState?.stop_headsign}</span>
@@ -16,7 +16,7 @@ export const InfoWindow = ({ closestStopState }: IInfoWindowProps) => {
 			<h2 className="next-stop">Nästa stop: </h2>
 			<p className="next-stop">{closestStopState?.stop_name}</p>
 			<h2>Ankomsttid:</h2>
-			<p>{closestStopState?.arrival_time}</p>
+			<p>{closestStopState?.arrival_time.slice(0, 5)}</p>
 		</div>
 	);
 };

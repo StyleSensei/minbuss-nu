@@ -4,15 +4,18 @@
 
 .info-window {
     position: absolute;
-    top: 15vh;
+    top: 10vh;
     right: 5vw;
     width: 250px;
     // height: auto;
+    max-width: 70vw;
+    z-index: 2;
+
     background-color: v.$primary-color;
     color: white;
     border: solid 5px v.$active;
-    padding: 1rem 1rem;
-    border-radius: 20px;
+    padding: v.$padding-textBox;
+    border-radius: v.$border-radius-standard;
 
     h2 {
         font-size: 1.3rem;

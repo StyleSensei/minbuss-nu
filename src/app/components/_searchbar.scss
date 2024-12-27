@@ -1,22 +1,20 @@
 @use '../variables' as v;
 @use '../mixins' as m;
 
-$containerWidth: 250px;
+$containerWidth: 278px;
 
 
 .search-bar__container {
-    width: auto;
     left: calc(50vw - ($containerWidth / 2));
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    position: fixed;
     border-radius: 100px;
-    top: 1.9rem;
+    top: 1vh;
     z-index: 1;
     pointer-events: none;
-    transition: all 1s ease;
+    transition: all .5s ease;
     @include m.backdropFilter;
 
     &.--active {
@@ -25,7 +23,7 @@ $containerWidth: 250px;
         border: 2px white solid;
 
         @include m.desktop {
-            transform: scale(2);
+            transform: scale(1.5);
         }
     }
 
@@ -54,6 +52,8 @@ $containerWidth: 250px;
             display: flex;
             width: auto;
             transition: all .3s ease;
+            max-width: 51vw;
+            max-height: 18vw;
 
             &::placeholder {
                 color: v.$tertiary-color;
@@ -92,7 +92,7 @@ $containerWidth: 250px;
     margin-top: .5rem;
     text-align: left;
     position: absolute;
-    bottom: -2.5rem;
+    bottom: -4.2rem;
     left: 0;
     background-color: v.$not-valid;
     padding: .5rem 1rem;
@@ -115,15 +115,16 @@ $containerWidth: 250px;
 
 .overlay {
     position: absolute;
-    top: 0;
+    top: -10px;
     left: 0;
+
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     z-index: 0;
     display: none;
-    pointer-events: all;
-    transition: all .3s ease;
+    pointer-events: none;
+    transition: all .5s ease;
 
     &.--active {
         animation: fade 1s ease both;

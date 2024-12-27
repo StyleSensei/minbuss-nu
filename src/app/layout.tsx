@@ -11,6 +11,8 @@ import { bus, search } from "../../public/icons";
 import { SearchBar } from "./components/SearchBar";
 import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
+import Link from "next/link";
+import { LinkButton } from "./components/LinkButton";
 
 const geistSans = localFont({
 	src: "./fonts/GeistVF.woff",
@@ -37,9 +39,6 @@ export default async function RootLayout({
 	const { device } = userAgent({ headers: requestHeaders });
 	const deviceType = device?.type === "mobile" ? "mobile" : "desktop";
 
-	// const pathname = usePathname();
-	// const isMapPage = pathname === "/karta";
-
 	const imageSrc =
 		deviceType === "mobile"
 			? "/wait-for-bus_mobile.jpg"
@@ -50,7 +49,7 @@ export default async function RootLayout({
 			<body>
 				<DataProvider>
 					<Header />
-					<main>
+					<main id="main">
 						<Image
 							src={imageSrc}
 							fill
@@ -58,13 +57,17 @@ export default async function RootLayout({
 							quality={60}
 							style={{ objectFit: "cover", zIndex: -1 }}
 							className="background-image"
+							id="background-image"
 						/>
 						{children}
-						<Button
+						<LinkButton
 							title="Sök busslinje"
+							text="Sök busslinje"
 							fill={"black"}
 							path={bus}
 							className="--cta"
+							href="/karta"
+							id="cta"
 						/>
 					</main>
 				</DataProvider>

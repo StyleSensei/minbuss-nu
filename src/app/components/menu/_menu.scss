@@ -1,16 +1,20 @@
 @use '../../variables' as v;
 @use '../../mixins' as m;
 
-$containerWidth: 326px;
+$containerWidth-small: 90vw;
+$containerWidth-desktop: 25vw;
 $selectionWidth: 2rem;
 $outerPadding: 5px;
 $barHeight: 4px;
+$menuItemWidth: 8rem;
+$menuBarWidth: 2rem;
 
 
 .wrapper {
     position: fixed;
-    left: calc(50vw - ($containerWidth / 2));
-    width: auto;
+    // padding: 0 1rem;
+    left: calc(50vw - ($containerWidth-small / 2));
+    width: $containerWidth-small;
     border-radius: 100px;
     bottom: 5px;
     display: flex;
@@ -18,38 +22,46 @@ $barHeight: 4px;
     justify-content: center;
     flex-direction: column;
     background: transparent;
+    z-index: 1;
     @include m.backdropFilter;
+
+    @include m.desktop {
+        left: calc(50vw - ($containerWidth-desktop / 2));
+        width: $containerWidth-desktop;
+    }
 }
 
 .outer-container {
-    padding: 5px 2px 1px 2px;
+    width: 100%;
+    padding: 3px 2px 0px 2px;
     background-color: v.$primary-color;
     border-radius: 24.5px + $outerPadding;
     display: flex;
     align-items: center;
     flex-direction: column;
-    justify-content: center;
     opacity: 80%;
+
 }
 
 
 .inner-container {
     display: flex;
-    justify-content: space-between;
+    width: 100%;
+    justify-content: space-evenly;
     background-color: v.$primary-color;
     border-radius: 24.5px;
     border: 1px solid v.$tertiary-color;
-    // padding: 10px;
 }
 
 .menu-item {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: $menuItemWidth;
     line-height: 2;
-    font-size: 14px;
+    font-size: .8rem;
     height: 40px;
-    padding: 1.4rem 1.6rem;
+    padding: 1.4rem auto;
     gap: 8px;
     color: v.$secondary-color;
 
@@ -68,23 +80,23 @@ $barHeight: 4px;
 
     .menu-bar__inner-container {
         transition: padding-left .5s cubic-bezier(0.375, 1.650, 0.180, 0.805);
-        width: 322px;
+        width: 100%;
 
         &.home {
-            padding-left: 3.3rem;
+            padding-left: calc(($menuItemWidth / 2) - ($menuBarWidth / 2));
         }
 
         &.map {
-            padding-left: calc(50% - 1rem);
+            padding-left: calc(50% - ($menuBarWidth / 2));
         }
 
         &.info {
-            padding-left: calc(100% - 4.3rem)
+            padding-left: calc(100% - ($menuItemWidth / 2) - ($menuBarWidth / 2));
         }
 
         .menu-bar__selection {
             background-color: v.$secondary-color;
-            width: 2rem;
+            width: $menuBarWidth;
             height: $barHeight;
             border-radius: 50px;
 

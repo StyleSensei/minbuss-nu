@@ -4,7 +4,8 @@ $containerWidth: 250px;
 .header__container {
     width: auto;
     // left: calc(50vw - ($containerWidth / 2));
-    // top: 1.9rem;
+    top: 1vh;
+    width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -14,4 +15,5 @@ $containerWidth: 250px;
     z-index: 1;
     pointer-events: none;
     // @include m.backdropFilter;
+    background: none;
 }

@@ -5,23 +5,57 @@ import {
 	MapControl,
 	ControlPosition,
 	type MapEvent,
-	InfoWindow,
-	useAdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
 
 import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
-import { ZoomButtons } from "../components/ZoomButtons";
-import { Button } from "../components/Button";
-import { useEffect, useRef, useState } from "react";
-import TextBlock from "../components/Textblock";
+import { MapControlButtons } from "../components/MapControlButtons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { IDbData } from "../models/IDbData";
+import { CurrentTrips } from "../components/CurrentTrips";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [zoomAction, setZoomAction] = useState(false);
-	// const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [clickedOutside, setClickedOutside] = useState(false);
+	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
+	const [lastStops, setLastStops] = useState<IDbData[]>([]);
+	const [showCurrentTrips, setShowCurrentTrips] = useState(false);
+
+	useEffect(() => {
+		const ctaButton = document.getElementById("cta");
+		const backgroundImage = document.getElementById("background-image");
+		ctaButton?.classList.add("--hidden");
+		backgroundImage?.classList.add("--hidden");
+
+		return () => {
+			ctaButton?.classList.remove("--hidden");
+			backgroundImage?.classList.remove("--hidden");
+		};
+	}, []);
+
+	const getMaxObjectsById = useCallback((array: IDbData[]) => {
+		const map = new Map();
+
+		for (const item of array) {
+			const current = map.get(item.trip_id);
+			if (!current || item.stop_sequence > current.stop_sequence) {
+				map.set(item.trip_id, item);
+			}
+		}
+
+		return Array.from(map.values());
+	}, []);
+
+	useEffect(() => {
+		if (filteredVehicles.length === 0) {
+			setLastStops([]);
+			setShowCurrentTrips(false);
+		}
+		const lastStops = getMaxObjectsById(cachedDbDataState);
+		setLastStops(lastStops);
+	}, [cachedDbDataState, getMaxObjectsById, filteredVehicles]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
@@ -35,11 +69,30 @@ export default function MapPage() {
 		// biome-ignore lint/style/noNonNullAssertion: <Returns the zoom of the map. If the zoom has not been set then the result is undefined.>
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	};
+
+	const getWindowZoomLevel = useCallback(() => {
+		const zoomLevel = ((window.outerWidth - 10) / window.innerWidth) * 100;
+		setCurrentWindowZoomLevel(zoomLevel);
+		return zoomLevel;
+	}, []);
+
+	useEffect(() => {
+		window.addEventListener("resize", getWindowZoomLevel);
+		window.addEventListener("zoom", getWindowZoomLevel);
+
+		getWindowZoomLevel();
+
+		return () => {
+			window.removeEventListener("resize", getWindowZoomLevel);
+			window.removeEventListener("zoom", getWindowZoomLevel);
+		};
+	}, [getWindowZoomLevel]);
+
 	return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
-					style={{ width: "100vw", height: "100vh" }}
+					style={{ width: "100vw", height: "100vh", zIndex: "unset" }}
 					defaultZoom={10}
 					defaultCenter={{ lat: 59.33258, lng: 18.0649 }}
 					gestureHandling={"greedy"}
@@ -54,17 +107,6 @@ export default function MapPage() {
 					streetViewControl={false}
 					fullscreenControl={false}
 					onClick={() => setClickedOutside(true)}
-					// onZoomChanged={(e: MapEvent) => {
-					// 	if (zoomAction) return;
-					// 	setZoomAction(true);
-					// 	console.log("zoom changed", e);
-					// }}
-					// onIdle={() => {
-					// 	if (!zoomAction) return;
-					// 	setZoomAction(false);
-					// 	console.log("idle");
-					// }}
-
 					colorScheme="DARK"
 					reuseMaps={true}
 					restriction={{
@@ -75,11 +117,20 @@ export default function MapPage() {
 						position: ControlPosition.INLINE_END_BLOCK_START,
 					}}
 				>
-					<MapControl position={ControlPosition.INLINE_END_BLOCK_START}>
-						<ZoomButtons
+					<MapControl
+						position={
+							zoomWindowLevel > 100
+								? ControlPosition.INLINE_END_BLOCK_CENTER
+								: ControlPosition.INLINE_END_BLOCK_START
+						}
+					>
+						<MapControlButtons
 							googleMapRef={mapRef}
 							zoomIn={zoomIn}
 							zoomOut={zoomOut}
+							setShowCurrentTrips={setShowCurrentTrips}
+							showCurrentTrips={showCurrentTrips}
+							filteredVehicles={filteredVehicles}
 						/>
 					</MapControl>
 					{filteredVehicles.map((vehicle) => (
@@ -90,13 +141,18 @@ export default function MapPage() {
 							setClickedOutside={setClickedOutside}
 							setZoomAction={setZoomAction}
 							currentVehicle={vehicle}
+							lastStops={lastStops}
 							key={vehicle.vehicle.id}
+							id={vehicle.vehicle.id}
 							position={{
 								lat: vehicle.position.latitude,
 								lng: vehicle.position.longitude,
 							}}
 						/>
-					))}
+					))}{" "}
+					{filteredVehicles.length > 0 && showCurrentTrips && (
+						<CurrentTrips lastStops={lastStops} />
+					)}
 				</GoogleMap>
 			</APIProvider>
 		</div>
