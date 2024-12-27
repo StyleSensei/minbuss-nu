@@ -60,7 +60,7 @@ export default async function RootLayout({
 							id="background-image"
 						/>
 						{children}
-						<LinkButton
+						{/* <LinkButton
 							title="Sök busslinje"
 							text="Sök busslinje"
 							fill={"black"}
@@ -68,7 +68,7 @@ export default async function RootLayout({
 							className="--cta"
 							href="/karta"
 							id="cta"
-						/>
+						/> */}
 					</main>
 				</DataProvider>
 				<Menu />

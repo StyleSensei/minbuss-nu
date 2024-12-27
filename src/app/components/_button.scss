@@ -6,7 +6,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    padding: 10px 6rem;
+    padding: 1rem 2rem;
     transition: all .3s ease-in-out;
     background-color: v.$accent-color;
     color: v.$primary-color;
@@ -15,18 +15,28 @@
     font-weight: 700;
     transition: background-color 0.3s;
     width: fit-content;
+    width: 300px;
+    justify-content: center;
+    max-width: 80vw;
+    max-height: 12vh;
+    line-height: 1.1;
 
     &:hover {
         background-color: color.adjust(v.$accent-color, $lightness: 30%);
     }
 
     &.--cta {
-        margin-top: v.$large-margin-top;
+        margin-bottom: v.$large-margin-bottom;
         margin-left: 10vw;
 
         @include m.phoneLS {
             margin-top: 20vh;
         }
+
+        @include m.desktop {
+            margin-bottom: 50vh;
+        }
+
     }
 
     &.--zoom {

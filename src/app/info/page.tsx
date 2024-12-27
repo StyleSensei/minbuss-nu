@@ -1,4 +1,3 @@
-import Image from "next/image";
 import TextBlock from "../components/Textblock";
 
 export default function InfoPage() {
@@ -8,6 +7,7 @@ export default function InfoPage() {
 				title="Info"
 				description="This is a project to show the usage of Drizzle ORM with Postgres and
 				GTFS data."
+				className="info"
 			/>
 		</div>
 	);
