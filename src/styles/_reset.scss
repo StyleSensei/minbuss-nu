@@ -138,6 +138,14 @@ main {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
+
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(to right, rgba(0, 0, 0, .6) 0%, rgba(0, 0, 0, 0) 100%);
+  background-blend-mode: overlay;
+
 }
 
 button {
@@ -147,9 +155,6 @@ button {
 
 }
 
-.background-image {
-  filter: brightness(.4)
-}
 
 .sr-only {
   position: absolute;

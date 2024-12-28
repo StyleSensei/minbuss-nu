@@ -1,14 +1,16 @@
 import TextBlock from "../components/Textblock";
 
-export default function InfoPage() {
+export default async function InfoPage() {
 	return (
-		<div>
-			<TextBlock
-				title="Info"
-				description="This is a project to show the usage of Drizzle ORM with Postgres and
+		<>
+			<div className="wrapper__info">
+				<TextBlock
+					title="Info"
+					description="This is a project to show the usage of Drizzle ORM with Postgres and
 				GTFS data."
-				className="info"
-			/>
-		</div>
+					className="info"
+				/>
+			</div>
+		</>
 	);
 }
