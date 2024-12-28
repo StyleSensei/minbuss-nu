@@ -24,6 +24,13 @@ $size: 24px;
     }
 }
 
+.user-location {
+    @extend .custom-marker;
+    background: color.adjust(v.$active, $lightness: 5%);
+    animation: pulse .5s 3s ease-out 2;
+
+}
+
 @keyframes pulse {
     // 0% {
     //     box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428);

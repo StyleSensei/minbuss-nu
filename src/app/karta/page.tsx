@@ -5,12 +5,13 @@ import {
 	MapControl,
 	ControlPosition,
 	type MapEvent,
+	AdvancedMarker,
 } from "@vis.gl/react-google-maps";
 
 import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { is } from "drizzle-orm";
@@ -26,6 +27,8 @@ export default function MapPage() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+	const [userLocation, setUserLocation] =
+		useState<GeolocationPosition | null>();
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -36,6 +39,15 @@ export default function MapPage() {
 		return () => {
 			ctaButton?.classList.remove("--hidden");
 			backgroundImage?.classList.remove("--hidden");
+		};
+	}, []);
+
+	useEffect(() => {
+		navigator.geolocation.getCurrentPosition((position) => {
+			setUserLocation(position);
+		});
+		return () => {
+			setUserLocation(null);
 		};
 	}, []);
 
@@ -166,6 +178,20 @@ export default function MapPage() {
 					))}{" "}
 					{filteredVehicles.length > 0 && showCurrentTrips && (
 						<CurrentTrips lastStops={lastStops} />
+					)}
+					{userLocation && google.maps.LatLng && (
+						<AdvancedMarker
+							className="user-location"
+							title={"Din position"}
+							position={
+								new google.maps.LatLng({
+									lat: userLocation.coords.latitude,
+									lng: userLocation.coords.longitude,
+								})
+							}
+						>
+							<div> </div>
+						</AdvancedMarker>
 					)}
 				</GoogleMap>
 			</APIProvider>
