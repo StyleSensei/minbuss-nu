@@ -4,8 +4,8 @@
 
 .info-window {
     position: absolute;
-    top: 10vh;
-    right: 5vw;
+    bottom: 10vh;
+    right: 30vw;
     width: 250px;
     // height: auto;
     max-width: 70vw;
@@ -16,6 +16,11 @@
     border: solid 5px v.$active;
     padding: v.$padding-textBox;
     border-radius: v.$border-radius-standard;
+
+    @include m.desktop {
+        top: 10vh;
+        bottom: unset;
+    }
 
     h2 {
         font-size: 1.3rem;

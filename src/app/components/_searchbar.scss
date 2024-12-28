@@ -5,9 +5,7 @@ $containerWidth: 278px;
 
 
 .search-bar__container {
-    left: calc(50vw - ($containerWidth / 2));
     display: flex;
-    position: fixed;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -20,6 +18,7 @@ $containerWidth: 278px;
 
     &.--active {
         top: calc(50vh - 4rem);
+        margin-top: calc(50vh - 4rem);
         transform: scale(1.2);
         border: 2px white solid;
 
