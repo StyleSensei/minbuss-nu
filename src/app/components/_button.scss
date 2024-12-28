@@ -49,7 +49,8 @@
         border-radius: 20px;
         width: fit-content;
         opacity: 80%;
-        @include m.backdropFilter;
+        margin-bottom: .5rem;
+        // @include m.backdropFilter;
 
 
         @include m.desktop {
@@ -64,9 +65,18 @@
 
     &.--table {
         @extend .--zoom;
-        z-index: 11;
-        position: relative;
+        margin-bottom: unset;
+    }
 
+    &.--follow {
+        @extend .--zoom;
+        margin-bottom: unset;
+
+        &.--active {
+            background-color: color.adjust(v.$active, $lightness: 0);
+            // animation: infinite .2s alternate follow;
+            // border: 7px solid v.$active;
+        }
     }
 }
 
@@ -75,14 +85,42 @@
     padding: 1vh;
     display: flex;
     flex-direction: column;
-    gap: .5rem;
+    gap: 1rem;
     border-radius: calc(20px + .5rem);
+    @include m.backdropFilter;
+
+}
+
+.zoom-buttons {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .map-control-button-container {
-    @include m.backdropFilter;
+    // @include m.backdropFilter;
     border-radius: calc(20px + .5rem);
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     // z-index: 3;
     // position: relative;
 
+}
+
+.label {
+    color: whitesmoke;
+}
+
+@keyframes follow {
+    0% {
+        filter: saturate(100%);
+    }
+
+    100% {
+        filter: saturate(20%);
+
+    }
 }

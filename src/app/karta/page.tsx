@@ -13,6 +13,7 @@ import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
+import { is } from "drizzle-orm";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -22,6 +23,9 @@ export default function MapPage() {
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
 	const [lastStops, setLastStops] = useState<IDbData[]>([]);
 	const [showCurrentTrips, setShowCurrentTrips] = useState(false);
+	const [infoWindowActive, setInfoWindowActive] = useState(false);
+	const [followBus, setFollowBus] = useState(false);
+	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -131,6 +135,10 @@ export default function MapPage() {
 							setShowCurrentTrips={setShowCurrentTrips}
 							showCurrentTrips={showCurrentTrips}
 							filteredVehicles={filteredVehicles}
+							setFollowBus={setFollowBus}
+							followBus={followBus}
+							infoWindowActive={infoWindowActive}
+							activeMarker={activeMarkerId !== null}
 						/>
 					</MapControl>
 					{filteredVehicles.map((vehicle) => (
@@ -142,6 +150,12 @@ export default function MapPage() {
 							setZoomAction={setZoomAction}
 							currentVehicle={vehicle}
 							lastStops={lastStops}
+							setInfoWindowActiveExternal={setInfoWindowActive}
+							infoWindowActiveExternal={infoWindowActive}
+							followBus={followBus}
+							setFollowBus={setFollowBus}
+							isActive={activeMarkerId === vehicle?.vehicle?.id}
+							onActivateMarker={(id) => setActiveMarkerId(id)}
 							key={vehicle.vehicle.id}
 							id={vehicle.vehicle.id}
 							position={{
