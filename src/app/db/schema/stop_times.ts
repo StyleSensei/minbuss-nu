@@ -1,4 +1,5 @@
 import { integer, numeric, pgTable, varchar } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 
 export const stop_times = pgTable("stop_times", {
 	trip_id: varchar(),
@@ -12,3 +13,5 @@ export const stop_times = pgTable("stop_times", {
 	shape_dist_traveled: numeric(),
 	timepoint: integer(),
 });
+
+export const stopTimesInsertSchema = createInsertSchema(stop_times);

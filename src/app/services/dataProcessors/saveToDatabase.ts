@@ -1,7 +1,7 @@
-import { routes } from "@/app/db/schema/routes";
-import { stop_times } from "@/app/db/schema/stop_times";
-import { stops } from "@/app/db/schema/stops";
-import { trips } from "@/app/db/schema/trips";
+import { routes, routesInsertSchema } from "@/app/db/schema/routes";
+import { stop_times, stopTimesInsertSchema } from "@/app/db/schema/stop_times";
+import { stops, stopsInsertSchema } from "@/app/db/schema/stops";
+import { trips, tripsInsertSchema } from "@/app/db/schema/trips";
 import type { IRoute } from "@/app/models/IRoute";
 import type { IStop } from "@/app/models/IStop";
 import type { IStopTime } from "@/app/models/IStopTime";
@@ -28,7 +28,8 @@ export const saveToDatabase = async (
 		switch (table) {
 			case "routes": {
 				const routesBatch = batch as IRoute[];
-				await db.insert(routes).values(routesBatch).onConflictDoNothing();
+				const routesBatchParsed = routesInsertSchema.parse(routesBatch);
+				await db.insert(routes).values(routesBatchParsed).onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from routes to database`,
 				);
@@ -36,7 +37,8 @@ export const saveToDatabase = async (
 			}
 			case "trips": {
 				const tripsBatch = batch as ITrip[];
-				await db.insert(trips).values(tripsBatch).onConflictDoNothing();
+				const tripsBatchParsed = tripsInsertSchema.parse(tripsBatch);
+				await db.insert(trips).values(tripsBatchParsed).onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from trips to database`,
 				);
@@ -44,7 +46,8 @@ export const saveToDatabase = async (
 			}
 			case "stops": {
 				const stopsBatch = batch as IStop[];
-				await db.insert(stops).values(stopsBatch).onConflictDoNothing();
+				const stopsBatchParsed = stopsInsertSchema.parse(stopsBatch);
+				await db.insert(stops).values(stopsBatchParsed).onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from stops to database`,
 				);
@@ -52,9 +55,11 @@ export const saveToDatabase = async (
 			}
 			case "stop_times": {
 				const stopTimesBatch = batch as IStopTime[];
+				const stopTimesBatchParsed =
+					stopTimesInsertSchema.parse(stopTimesBatch);
 				await db
 					.insert(stop_times)
-					.values(stopTimesBatch)
+					.values(stopTimesBatchParsed)
 					.onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from stop_times to database`,

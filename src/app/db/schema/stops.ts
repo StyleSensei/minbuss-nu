@@ -4,6 +4,7 @@ import {
 	pgTable,
 	varchar,
 } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 
 export const stops = pgTable("stops", {
 	stop_id: varchar(),
@@ -14,3 +15,5 @@ export const stops = pgTable("stops", {
 	parent_station: varchar(),
 	platform_code: varchar(),
 });
+
+export const stopsInsertSchema = createInsertSchema(stops);

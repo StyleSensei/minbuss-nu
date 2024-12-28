@@ -7,6 +7,8 @@ import { stop_times } from "@/app/db/schema/stop_times";
 import { stops } from "@/app/db/schema/stops";
 import type { IDbData } from "@/app/models/IDbData";
 import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
+import { selectAllSchema } from "@/app/db/schema/selectAll";
+import { z } from "zod";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -44,9 +46,10 @@ export const selectFromDatabase = async (busLine: string) => {
 			)
 			.orderBy(desc(trips.trip_id), desc(stop_times.arrival_time));
 
+		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 		// console.log(data);
 
-		return data as IDbData[];
+		return parsed;
 	} catch (error) {
 		console.log(error);
 		return [];
