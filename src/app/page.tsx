@@ -9,7 +9,7 @@ export default async function Home() {
 				<TextBlock
 					title="Var är bussen?"
 					className="start"
-					description="Undrar du också var bussen är? Här kan du se var bussen är i realtid."
+					description="Undrar du också var bussen är? Vi visar var bussen är i realtid."
 				/>
 			</div>
 			<LinkButton

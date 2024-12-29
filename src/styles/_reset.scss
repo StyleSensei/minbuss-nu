@@ -139,22 +139,18 @@ main {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(to right, rgba(0, 0, 0, .6) 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(to right, rgba(0, 0, 0, .8) 0%, rgba(0, 0, 0, .1) 100%);
   background-blend-mode: overlay;
-
 }
 
 button {
   border: none;
   display: flex;
   cursor: pointer;
-
 }
-
 
 .sr-only {
   position: absolute;

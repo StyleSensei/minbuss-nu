@@ -14,13 +14,14 @@ $containerWidth: 278px;
     z-index: 1;
     pointer-events: none;
     transition: all .5s ease;
+    border: 1px v.$tertiary-color solid;
     @include m.backdropFilter;
 
     &.--active {
+        border: 3px v.$secondary-color solid;
         top: calc(50vh - 4rem);
         margin-top: calc(50vh - 4rem);
         transform: scale(1.2);
-        border: 2px white solid;
 
         @include m.desktop {
             transform: scale(1.5);

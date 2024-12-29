@@ -2,6 +2,7 @@ import type { MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import colors from "../colors.module.scss";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
@@ -67,12 +68,12 @@ export const MapControlButtons = ({
 				<div className="map-control-button-container">
 					<p className="label table-label">Tabell</p>
 					<Button
-						title={
-							showCurrentTrips ? "Dölj pågående resor" : "Visa pågående resor"
-						}
+						title="Visa pågående resor"
 						path={table.path}
-						fill="whitesmoke"
-						className="--table"
+						fill={
+							showCurrentTrips ? colors.primaryColor : colors.secondaryColor
+						}
+						className={showCurrentTrips ? "--table --active" : "--table"}
 						onClick={() => setShowCurrentTrips(!showCurrentTrips)}
 					/>
 				</div>
@@ -81,9 +82,9 @@ export const MapControlButtons = ({
 				<div className="map-control-button-container">
 					<p className="label follow-label">Följ buss</p>
 					<Button
-						title={showCurrentTrips ? "Följ buss" : "Sluta följ buss"}
+						title="Följ buss"
 						pathFillRule1={follow.path}
-						fill="whitesmoke"
+						fill={followBus ? colors.primaryColor : colors.secondaryColor}
 						className={followBus ? "--follow --active" : "--follow"}
 						onClick={() => {
 							setFollowBus(!followBus);

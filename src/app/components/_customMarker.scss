@@ -1,6 +1,8 @@
 @use '../variables' as v;
 @use 'sass:color';
-$size: 24px;
+$size: 32px;
+$userSize: 24px;
+$userColor: rgb(0, 149, 255);
 
 .custom-marker {
     width: $size;
@@ -8,33 +10,42 @@ $size: 24px;
     border-radius: 50%;
     cursor: pointer;
     float: left;
-    // transition: all 0.2s;
     background: color.adjust(v.$accent-color, $lightness: 5%);
     border: 2px solid rgb(0, 0, 0);
-    // outline: 1px solid $bg;
     backface-visibility: hidden;
-
+    transition: all .3s ease;
     animation: pulse 2s 0s ease-out infinite;
 
     &.--active {
-        animation: none;
         outline: 7px solid v.$active;
-        // background: color.adjust(v.$accent-color, $lightness: 30%);
-        background-color: white;
+        border: 7px solid v.$active;
+        background: v.$primary-color;
+        animation: pulse .7s ease-out infinite;
+
+        &::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: v.$active solid 5px;
+            border-radius: 100%;
+
+            top: -10px;
+            left: -10px;
+            transform: translateX(-50%);
+        }
     }
 }
 
 .user-location {
     @extend .custom-marker;
-    background: color.adjust(v.$active, $lightness: 5%);
+    height: $userSize;
+    width: $userSize;
+    background: $userColor;
     animation: pulse .5s 3s ease-out 2;
-
 }
 
 @keyframes pulse {
-    // 0% {
-    //     box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428), 0 0 0px 0px rgba(0, 153, 255, 0.428);
-    // }
 
     10% {
         box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.092), 0 0 12px 10px rgba(0, 153, 255, 0.078), 0 0 12px 14px rgba(0, 153, 255, 0.035);
