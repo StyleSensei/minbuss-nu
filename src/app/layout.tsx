@@ -6,24 +6,8 @@ import "./components/index.scss";
 import Image from "next/image";
 import { userAgent } from "next/server";
 import { headers } from "next/headers";
-import { Button } from "./components/Button";
-import { bus, search } from "../../public/icons";
-import { SearchBar } from "./components/SearchBar";
 import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
-import Link from "next/link";
-import { LinkButton } from "./components/LinkButton";
-
-const geistSans = localFont({
-	src: "./fonts/GeistVF.woff",
-	variable: "--font-geist-sans",
-	weight: "100 900",
-});
-const geistMono = localFont({
-	src: "./fonts/GeistMonoVF.woff",
-	variable: "--font-geist-mono",
-	weight: "100 900",
-});
 
 export const metadata: Metadata = {
 	title: "Var är bussen?",

@@ -1,4 +1,4 @@
-import type { MutableRefObject } from "react";
+import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
@@ -13,7 +13,6 @@ interface MapControlButtonsProps {
 	filteredVehicles: IVehiclePosition[];
 	setFollowBus: (followBus: boolean) => void;
 	followBus: boolean;
-	infoWindowActive: boolean;
 	activeMarker: boolean;
 }
 
@@ -26,9 +25,20 @@ export const MapControlButtons = ({
 	filteredVehicles,
 	setFollowBus,
 	followBus,
-	infoWindowActive,
 	activeMarker,
 }: MapControlButtonsProps) => {
+	useEffect(() => {
+		const inputContainer = document.getElementById("searchbar");
+		inputContainer?.addEventListener("focus", () => {
+			setFollowBus(false);
+		});
+		return () => {
+			inputContainer?.removeEventListener("focus", () => {
+				setFollowBus(false);
+			});
+		};
+	}, [setFollowBus]);
+
 	return (
 		<div className="map-control-buttons">
 			<div className="map-control-button-container">

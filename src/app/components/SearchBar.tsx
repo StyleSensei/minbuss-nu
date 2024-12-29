@@ -3,7 +3,6 @@ import {
 	type KeyboardEvent,
 	lazy,
 	Suspense,
-	use,
 	useCallback,
 	useEffect,
 	useRef,
@@ -183,6 +182,7 @@ export const SearchBar = ({
 						Sök busslinje{" "}
 					</label>
 					<input
+						id="searchbar"
 						ref={inputRef}
 						type="search"
 						maxLength={5}

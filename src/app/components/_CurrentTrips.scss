@@ -34,16 +34,10 @@
         }
     }
 
-
     td {
         padding: 1vw;
         border-bottom: solid 1px v.$active;
-
-
-
     }
-
-
 
     @include m.desktop {
         left: 5vw;

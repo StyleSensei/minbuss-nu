@@ -7,7 +7,6 @@ import {
 	AdvancedMarkerAnchorPoint,
 	useAdvancedMarkerRef,
 	Map as GoogleMap,
-	useMap,
 } from "@vis.gl/react-google-maps";
 import {
 	type MutableRefObject,
@@ -20,13 +19,12 @@ import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "../models/IDbData";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import { InfoWindow } from "./InfoWindow";
+import { set } from "zod";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
 	currentVehicle: IVehiclePosition;
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
-	zoomAction: boolean;
-	setZoomAction: (value: boolean) => void;
 	clickedOutside: boolean;
 	setClickedOutside: (value: boolean) => void;
 	id: string | null;
@@ -43,8 +41,6 @@ export default function CustomMarker({
 	googleMapRef,
 	position,
 	currentVehicle,
-	zoomAction,
-	setZoomAction,
 	clickedOutside,
 	setClickedOutside,
 	id,
@@ -58,7 +54,6 @@ export default function CustomMarker({
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 
-	// const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
 	const [passedStops, setPassedStops] = useState<Map<string, IDbData>>(
 		new Map(),
@@ -69,7 +64,6 @@ export default function CustomMarker({
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const previousDistanceRef = useRef<number | null>(null);
 	const [hasPassedStop, setHasPassedStop] = useState(false);
-	const markerButtonRef = useRef<HTMLButtonElement | null>(null);
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);

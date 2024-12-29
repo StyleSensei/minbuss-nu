@@ -1,6 +1,7 @@
 @use '../variables' as v;
 @use 'sass:color';
 $size: 32px;
+$size-active: 24px;
 $userSize: 24px;
 $userColor: rgb(0, 149, 255);
 
@@ -17,6 +18,8 @@ $userColor: rgb(0, 149, 255);
     animation: pulse 2s 0s ease-out infinite;
 
     &.--active {
+        width: $size-active;
+        height: $size-active;
         outline: 7px solid v.$active;
         border: 7px solid v.$active;
         background: v.$primary-color;
@@ -27,7 +30,7 @@ $userColor: rgb(0, 149, 255);
             position: absolute;
             width: 0;
             height: 0;
-            border: v.$active solid 5px;
+            border: v.$accent-color solid 3px;
             border-radius: 100%;
 
             top: -10px;

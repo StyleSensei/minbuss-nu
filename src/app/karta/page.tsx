@@ -11,15 +11,13 @@ import {
 import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
-import { is } from "drizzle-orm";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
-	const [zoomAction, setZoomAction] = useState(false);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
 	const [lastStops, setLastStops] = useState<IDbData[]>([]);
@@ -50,6 +48,16 @@ export default function MapPage() {
 			setUserLocation(null);
 		};
 	}, []);
+
+	useEffect(() => {
+		const main = document.getElementById("main");
+		if (followBus) {
+			main?.classList.add("follow-bus-active");
+		}
+		return () => {
+			main?.classList.remove("follow-bus-active");
+		};
+	}, [followBus]);
 
 	const getMaxObjectsById = useCallback((array: IDbData[]) => {
 		const map = new Map();
@@ -117,6 +125,7 @@ export default function MapPage() {
 						mapRef.current = map;
 					}}
 					mapId={"SHOW_BUSES"}
+					onZoomChanged={() => setFollowBus(false)}
 					disableDefaultUI={true}
 					rotateControl={false}
 					mapTypeControl={false}
@@ -149,17 +158,14 @@ export default function MapPage() {
 							filteredVehicles={filteredVehicles}
 							setFollowBus={setFollowBus}
 							followBus={followBus}
-							infoWindowActive={infoWindowActive}
 							activeMarker={activeMarkerId !== null}
 						/>
 					</MapControl>
 					{filteredVehicles.map((vehicle) => (
 						<CustomMarker
 							googleMapRef={mapRef}
-							zoomAction={zoomAction}
 							clickedOutside={clickedOutside}
 							setClickedOutside={setClickedOutside}
-							setZoomAction={setZoomAction}
 							currentVehicle={vehicle}
 							lastStops={lastStops}
 							setInfoWindowActiveExternal={setInfoWindowActive}

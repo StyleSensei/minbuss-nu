@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
-import { check } from "drizzle-orm/mysql-core";
 import { useOverflow } from "../hooks/useOverflow";
 
 interface ICurrentTripsProps {
