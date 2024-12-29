@@ -4,18 +4,24 @@
 
 .info-window {
     position: absolute;
-    bottom: 10vh;
-    right: 30vw;
+    bottom: 20vh;
+    left: 2vw;
     width: 250px;
     // height: auto;
     max-width: 70vw;
     z-index: 2;
-
+    max-height: 50vh;
+    overflow: auto;
     background-color: v.$primary-color;
     color: white;
     border: solid 5px v.$active;
     padding: v.$padding-textBox;
     border-radius: v.$border-radius-standard;
+    // box-shadow: inset 0 -20px 20px -20px v.$secondary-color;
+
+    &.--overflowing {
+        box-shadow: inset 0 -20px 20px -20px rgba($color: v.$secondary-color, $alpha: .4);
+    }
 
     @include m.desktop {
         top: 10vh;
