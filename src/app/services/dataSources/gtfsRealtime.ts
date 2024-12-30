@@ -24,11 +24,6 @@ export const getVehiclePositions = async (): Promise<IVehiclePosition[]> => {
 		const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/VehiclePositions.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
 		const response = await get<ArrayBuffer>(url, "arraybuffer");
 
-		// if (!response) {
-		//   const error = new Error(`${response.url}: ${response.status} ${response.statusText}`);
-		//   throw error;
-
-		// }
 		const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
 			new Uint8Array(response),
 		);
@@ -42,7 +37,6 @@ export const getVehiclePositions = async (): Promise<IVehiclePosition[]> => {
 			.filter(Boolean) as IVehiclePosition[];
 		const data = JSON.parse(JSON.stringify(vehiclePositions));
 		return data;
-		// return vehiclePositions;
 	} catch (error) {
 		console.log(error);
 		return [];

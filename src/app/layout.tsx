@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import "../styles/globals.css";
 import Menu from "./components/menu/Menu";
 import "./components/index.scss";
 import Image from "next/image";
@@ -9,9 +8,24 @@ import { headers } from "next/headers";
 import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
 
+const myFont = localFont({
+	src: "/fonts/myfont.woff2",
+	preload: true,
+	variable: "--myfont",
+});
+
+const myFontBold = localFont({
+	src: "/fonts/myfont-bold.woff2",
+	preload: true,
+	variable: "--myfont--bold",
+});
+
+export const fonts = { myFont, myFontBold };
+
 export const metadata: Metadata = {
 	title: "Var är bussen?",
 	description: "Sök efter bussar i realtid",
+	icons: "/icons/bus.png",
 };
 
 export default async function RootLayout({
@@ -29,8 +43,8 @@ export default async function RootLayout({
 			: "/wait-for-bus_desktop.jpg";
 
 	return (
-		<html lang="en">
-			<body>
+		<html lang="sv">
+			<body className={`${fonts.myFont.variable} ${fonts.myFontBold.variable}`}>
 				<DataProvider>
 					<Header />
 					<main id="main">

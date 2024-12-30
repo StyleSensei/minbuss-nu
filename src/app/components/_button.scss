@@ -2,6 +2,8 @@
 @use '../mixins' as m;
 @use 'sass:color';
 
+$buttonWidth: 300px;
+
 .button {
     display: flex;
     gap: 8px;
@@ -15,7 +17,7 @@
     font-weight: 700;
     transition: background-color 0.3s;
     width: fit-content;
-    width: 300px;
+    width: $buttonWidth;
     justify-content: center;
     max-width: 80vw;
     max-height: 12vh;
@@ -28,7 +30,7 @@
 
     &.--cta {
         margin-bottom: v.$large-margin-bottom;
-        margin-left: 10vw;
+        margin-left: calc(50% - #{$buttonWidth / 2});
 
         @include m.phoneLS {
             margin-top: 20vh;
@@ -36,6 +38,7 @@
 
         @include m.desktop {
             margin-bottom: 50vh;
+            margin-left: 10vw;
         }
 
     }
