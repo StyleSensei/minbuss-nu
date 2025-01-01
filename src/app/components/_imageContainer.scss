@@ -1,0 +1,17 @@
+@use '../mixins' as m;
+
+.info__image {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding-left: 10vw;
+
+    img {
+        // inset: 0 10vw;
+        position: relative !important;
+    }
+
+    @include m.desktop {
+        // width: 60%;
+    }
+}

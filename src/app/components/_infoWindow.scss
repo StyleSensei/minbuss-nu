@@ -18,7 +18,7 @@
     border-radius: v.$border-radius-standard;
 
     &.--overflowing {
-        box-shadow: inset 0 -20px 20px -20px rgba($color: v.$secondary-color, $alpha: .4);
+        @include m.overFlowing;
     }
 
     @include m.desktop {

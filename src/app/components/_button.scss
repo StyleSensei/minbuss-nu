@@ -2,7 +2,8 @@
 @use '../mixins' as m;
 @use 'sass:color';
 
-$buttonWidth: 300px;
+$buttonWidth: 80vw;
+$buttonWidthDesktop: 20vw;
 
 .button {
     display: flex;
@@ -16,7 +17,6 @@ $buttonWidth: 300px;
     font-size: 1rem;
     font-weight: 700;
     transition: background-color 0.3s;
-    width: fit-content;
     width: $buttonWidth;
     justify-content: center;
     max-width: 80vw;
@@ -39,6 +39,15 @@ $buttonWidth: 300px;
         @include m.desktop {
             margin-bottom: 50vh;
             margin-left: 10vw;
+            width: $buttonWidthDesktop;
+        }
+
+        &.--info {
+            margin-top: 2rem;
+
+            @include m.desktop {
+                margin-top: 8rem;
+            }
         }
 
     }

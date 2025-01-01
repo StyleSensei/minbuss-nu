@@ -12,7 +12,6 @@ $menuBarWidth: 2rem;
 
 .wrapper {
     position: fixed;
-    // padding: 0 1rem;
     left: calc(50vw - ($containerWidth-small / 2));
     width: $containerWidth-small;
     border-radius: 100px;
