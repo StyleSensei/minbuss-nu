@@ -19,7 +19,6 @@ import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "../models/IDbData";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import { InfoWindow } from "./InfoWindow";
-import { set } from "zod";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -90,6 +89,7 @@ export default function CustomMarker({
 		}
 	}, [position, marker]);
 
+	// @see https://www.geeksforgeeks.org/haversine-formula-to-find-distance-between-two-points-on-a-sphere/
 	const getDistanceFromLatLon = useCallback(
 		(lat1: number, lon1: number, lat2: number, lon2: number) => {
 			const convertLatLonToRadians = (degree: number) =>

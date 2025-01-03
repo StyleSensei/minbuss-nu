@@ -21,6 +21,14 @@
 
 `Var är bussen?` is a Next.js application that show real-time bus information from SL (Storstockholms Lokaltrafik). It uses both static GTFS data and real-time GTFS-RT data from [Trafiklab](https://www.trafiklab.se). The data is rendered on a map from [Google Maps](https://developers.google.com/maps). 
 
+<details>
+<summary>
+Flowchart
+</summary>
+<p align="center">
+    <img src="public/flow chart search.png" alt="flowchart"/>
+</p>
+</details>
 
 ## Apply for API-keys 
 
@@ -158,7 +166,7 @@ objects.
 <h4>Map</h4>
 
 - Google Maps Javascript API: For map visualization.
-- @vis.gl/react-google-maps: React integration for efficent map rendering.
+- @vis.gl/react-google-maps: React integration for efficient map rendering.
 
 <h4>JS Animations</h4>
 
@@ -188,7 +196,7 @@ understanding how to decode and use real-time transit data.
 
 - [Trafiklab - Overview](https://www.trafiklab.se/api/gtfs-datasets/overview/)
 - [Trafiklab - GTFS regional](https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional)
-- [Trafiklab - Using Trfaiklab data](https://www.trafiklab.se/docs/using-trafiklab-data/the-protobuf-file-format/)
+- [Trafiklab - Using Trafiklab data](https://www.trafiklab.se/docs/using-trafiklab-data/the-protobuf-file-format/)
 - [GTFS-realtime Language Bindings](https://www.npmjs.com/package/gtfs-realtime-bindings?activeTab=readme)
 - [Google Maps API](https://developers.google.com/maps/documentation/javascript/?hl=en)
 - [Drizzle ORM](https://orm.drizzle.team/docs/get-started)

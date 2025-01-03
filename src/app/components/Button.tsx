@@ -23,14 +23,13 @@ export const Button = ({
 	iconSize = "18",
 	fill,
 }: ButtonProps) => {
-
-
 	return (
 		<button
 			className={className ? `button ${className}` : "button"}
 			type="button"
 			id={id}
 			onClick={onClick}
+			tabIndex={0}
 			// area-label={title}
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < the button is described with button text > */}
@@ -51,4 +50,4 @@ export const Button = ({
 			{text}
 		</button>
 	);
-}; 
+};

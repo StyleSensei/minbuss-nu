@@ -47,7 +47,7 @@ export default async function RootLayout({
 			<body className={`${fonts.myFont.variable} ${fonts.myFontBold.variable}`}>
 				<DataProvider>
 					<Header />
-					<main id="main">
+					<main id="main" aria-label="Huvudinnehåll">
 						<Image
 							src={imageSrc}
 							fill

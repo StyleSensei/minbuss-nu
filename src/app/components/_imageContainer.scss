@@ -7,11 +7,8 @@
     padding-left: 10vw;
 
     img {
-        // inset: 0 10vw;
         position: relative !important;
     }
 
-    @include m.desktop {
-        // width: 60%;
-    }
+    @include m.desktop {}
 }

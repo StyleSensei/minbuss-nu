@@ -138,9 +138,6 @@ export default function MapPage() {
 						latLngBounds: { north: 60, south: 58.5, east: 18.5, west: 17.5 },
 					}}
 					minZoom={8}
-					zoomControlOptions={{
-						position: ControlPosition.INLINE_END_BLOCK_START,
-					}}
 				>
 					<MapControl
 						position={

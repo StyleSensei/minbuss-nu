@@ -177,12 +177,12 @@ export const SearchBar = ({
 			>
 				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
 					<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
-					<label htmlFor="search" className="sr-only">
-						{" "}
-						Sök busslinje{" "}
+					<label htmlFor="searchbar" className="sr-only">
+						Sök busslinje
 					</label>
 					<input
 						id="searchbar"
+						name="searchbar"
 						ref={inputRef}
 						type="search"
 						maxLength={5}
