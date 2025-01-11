@@ -32,7 +32,7 @@ Flowchart
 
 ## Apply for API-keys 
 
-To get started with Var är bussen?, you will need to apply for for two API-keys from Trafiklab. You can get started immediately by folloring the guide on [Trafiklab](https://www.trafiklab.se/docs/getting-started/using-trafiklab/). For this project you will need one key for `GTFS Regional Realtime` and one key for `GTFS Regional Static Data`. Since we will ask for real-time data quite frequently, you will also need to upgrade the quota for GTFS Regional Realtime to silver.
+To get started with `Var är bussen?`, you will need to apply for for two API-keys from Trafiklab. You can get started immediately by following the guide on [Trafiklab](https://www.trafiklab.se/docs/getting-started/using-trafiklab/). For this project you will need one key for `GTFS Regional Realtime` and one key for `GTFS Regional Static Data`. Since we will ask for real-time data quite frequently, you will also need to upgrade the quota for GTFS Regional Realtime to silver.
 
 Next, you need to apply for a key from Google for the [Maps Javascript API](https://developers.google.com/maps/get-started#create-project).
 
@@ -183,7 +183,7 @@ objects.
 </details>
 
 ## Cron job for Static Data Updates ♻️
-To ensure the static GTFS data remains up-to-date, you can set up a cron job that makes an HTTP GET request to the /api/cron endpoint. Trafiklab updates the static data infrequently, so running this job once a month should suffice.
+To ensure the static GTFS data remains up-to-date, you can set up a cron job that makes a HTTP `GET` request to the `/api/cron` endpoint. Trafiklab updates the static data infrequently, so running this job once a month should suffice.
 <h4>Using Vercel</h4> 
 
 - If you’re deploying on Vercel, you can leverage their built-in scheduler for cron jobs. Check out the official documentation here:<br>
