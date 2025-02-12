@@ -6,7 +6,7 @@ export const routes = pgTable("routes", {
 	agency_id: varchar(),
 	route_short_name: varchar(),
 	route_long_name: varchar(),
-	route_type: integer(),
+	route_type: varchar(),
 	route_desc: varchar(),
 });
 
@@ -16,3 +16,4 @@ export const lineSelectSchema = z.object({
 });
 
 export const routesInsertSchema = createInsertSchema(routes);
+export const routesInsertSchemaArray = z.array(routesInsertSchema);

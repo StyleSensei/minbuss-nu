@@ -28,7 +28,7 @@ export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 						<tr key={stop?.trip_id}>
 							<td>{stop?.route_short_name}</td>
 							<td>{stop?.stop_headsign}</td>
-							<td>{stop?.arrival_time.slice(0, 5)}</td>
+							<td>{stop?.arrival_time?.slice(0, 5)}</td>
 						</tr>
 					))}
 				</tbody>

@@ -28,10 +28,20 @@ export const extractZip = async () => {
 			entry
 				.pipe(csvParser())
 				.on("data", (data: IRoute | ITrip | IStop | IStopTime) => {
-					if (fileName === "routes.txt") routes.push(data as IRoute);
-					if (fileName === "stops.txt") stops.push(data as IStop);
-					if (fileName === "stop_times.txt") stopTimes.push(data as IStopTime);
-					else trips.push(data as ITrip);
+					switch (fileName) {
+						case "routes.txt":
+							routes.push(data as IRoute);
+							break;
+						case "stops.txt":
+							stops.push(data as IStop);
+							break;
+						case "stop_times.txt":
+							stopTimes.push(data as IStopTime);
+							break;
+						default:
+							trips.push(data as ITrip);
+							break;
+					}
 				})
 				.on("end", () => {
 					console.log("CSV parsing completed for: ", fileName);

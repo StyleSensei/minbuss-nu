@@ -3,7 +3,6 @@ $containerWidth: 250px;
 
 .header__container {
     width: auto;
-    // left: calc(50vw - ($containerWidth / 2));
     top: 1vh;
     width: 100%;
     display: flex;
@@ -16,4 +15,5 @@ $containerWidth: 250px;
     pointer-events: none;
     // @include m.backdropFilter;
     background: none;
+    anchor-name: --header;
 }

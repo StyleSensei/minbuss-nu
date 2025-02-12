@@ -45,9 +45,7 @@ export const selectFromDatabase = async (busLine: string) => {
 				),
 			)
 			.orderBy(desc(trips.trip_id), desc(stop_times.arrival_time));
-
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
-		// console.log(data);
 
 		return parsed;
 	} catch (error) {

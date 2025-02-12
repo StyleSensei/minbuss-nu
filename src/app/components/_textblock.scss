@@ -6,6 +6,14 @@
     padding: 10vh 0 20vh;
 }
 
+.wrapper__start {
+    padding: 10vh 0 20vh;
+
+    @include m.desktop {
+        padding: unset;
+    }
+}
+
 .text-block {
     position: relative;
     padding: 0 10vw;

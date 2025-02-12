@@ -2,13 +2,8 @@
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import {
-	lineSelectSchema,
-	routes,
-	routesSelectSchema,
-} from "@/app/db/schema/routes";
+import { lineSelectSchema, routes } from "@/app/db/schema/routes";
 import { asc, desc } from "drizzle-orm";
-import type { IRoute } from "@/app/models/IRoute";
 import { z } from "zod";
 
 if (!process.env.DATABASE_URL) {
@@ -26,7 +21,6 @@ export const selectAllroutes = async () => {
 			.orderBy(asc(routes.route_id));
 
 		const parsed = z.array(lineSelectSchema).parse(data);
-
 		return parsed;
 	} catch (error) {
 		console.log(error);

@@ -18,7 +18,7 @@ import { selectAllroutes } from "../services/dataProcessors/selectAllRoutes";
 export const GET = async () => {
 	// const db = drizzle();
 	// const data = await getCachedDbData("177");
-	const data = await getCachedVehiclePositions();
+	// const data = await getCachedVehiclePositions();
 	// const tripidsFromVP = data?.map((vehicle) => vehicle?.trip?.tripId);
 	// const correctBus = data?.find(
 	// 	(vehicle) => vehicle?.trip?.tripId === "14010000630848092",

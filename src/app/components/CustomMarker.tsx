@@ -417,7 +417,7 @@ export default function CustomMarker({
 				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 				className={isActive ? "custom-marker --active" : "custom-marker"}
-				title={`${lastStops.find((stop) => stop.trip_id === currentVehicle.trip.tripId)?.route_short_name} ,${lastStops.find((stop) => stop.trip_id === currentVehicle.trip.tripId)?.stop_headsign}`}
+				title={`${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.route_short_name} ,${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.stop_headsign}`}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 			>
 				<div> </div> {/* prevent standard marker from rendering */}
