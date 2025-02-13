@@ -286,6 +286,7 @@ export default function CustomMarker({
 	}, [filteredVehicles, getClosest, infoWindowActive, marker]);
 
 	const handleOnClick = () => {
+		if (followBus) return;
 		if (currentBus) onActivateMarker(isActive ? null : currentBus?.vehicle?.id);
 		setClickedOutside(false);
 		setInfoWindowActive(!infoWindowActive);
@@ -303,16 +304,15 @@ export default function CustomMarker({
 
 	const centerMap = useCallback(
 		(GoogleMap: google.maps.Map) => {
-			if (currentBus?.vehicle.id === id) {
-				const currentCenter = GoogleMap.getCenter();
-
-				const from = {
-					lat: currentCenter?.lat(),
-					lng: currentCenter?.lng(),
-				};
+			if (currentBus?.vehicle.id === id && followBus && marker) {
 				const to = {
 					lat: currentBus.position.latitude,
 					lng: currentBus.position.longitude,
+				};
+
+				const from = {
+					lat: marker?.position?.lat ?? to.lat,
+					lng: marker?.position?.lng ?? to.lng,
 				};
 				gsap.to(from, {
 					duration: 4,
@@ -321,21 +321,24 @@ export default function CustomMarker({
 					lng: to.lng,
 					onUpdate: () => {
 						from.lat &&
-							GoogleMap.setCenter(new google.maps.LatLng(from.lat, from.lng));
+							GoogleMap.setCenter(new google.maps.LatLng(+from.lat, +from.lng));
 					},
 				});
 			}
 		},
-		[currentBus, id],
+		[currentBus, id, marker, followBus],
 	);
 
 	const panTo = useCallback(
 		(GoogleMap: google.maps.Map) => {
-			if (marker?.position) {
-				GoogleMap.panTo(marker.position);
+			if (currentBus?.position) {
+				GoogleMap.panTo({
+					lat: currentBus.position.latitude,
+					lng: currentBus.position.longitude,
+				});
 			}
 		},
-		[marker],
+		[currentBus],
 	);
 
 	const setZoom = useCallback((GoogleMap: google.maps.Map) => {
@@ -349,6 +352,7 @@ export default function CustomMarker({
 			filteredVehicles.length > 0 &&
 			currentBus
 		) {
+			// console.log(googleMapRef.current);
 			centerMap(googleMapRef.current);
 		}
 	}, [followBus, centerMap, googleMapRef, filteredVehicles, currentBus]);
