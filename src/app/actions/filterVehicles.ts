@@ -11,10 +11,7 @@ import {
 export const getFilteredVehiclePositions = async (busline?: string) => {
 	const cachedVehiclePositions = await getCachedVehiclePositions();
 	let data: IVehiclePosition[] = [];
-	if (!busline) {
-		data = cachedVehiclePositions;
-		return data;
-	}
+	if (!busline) return data;
 
 	const cachedDbData = await getCachedDbData(busline);
 	data = cachedVehiclePositions?.filter((vehicle) =>

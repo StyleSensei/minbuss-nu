@@ -110,7 +110,7 @@ export const SearchBar = ({
 	});
 
 	useEffect(() => {
-		if (userInput && !filteredVehicles.length && !routeExists) {
+		if (userInput && !filteredVehicles?.length && !routeExists) {
 			if (!routeExists) {
 				const route = findClosestRoute(userInput);
 				setProposedRoute(route);
@@ -120,7 +120,7 @@ export const SearchBar = ({
 		if (!userInput) {
 			setFilteredVehicles([]);
 		}
-		if (userInput && filteredVehicles.length)
+		if (userInput && filteredVehicles?.length)
 			pollBusPositionsEveryTwoSeconds(userInput);
 
 		return () => {
@@ -128,7 +128,7 @@ export const SearchBar = ({
 		};
 	}, [
 		userInput,
-		filteredVehicles.length,
+		filteredVehicles?.length,
 		pollBusPositionsEveryTwoSeconds,
 		setFilteredVehicles,
 		routeExists,

@@ -158,7 +158,7 @@ export default function MapPage() {
 							activeMarker={activeMarkerId !== null}
 						/>
 					</MapControl>
-					{filteredVehicles.map((vehicle) => (
+					{filteredVehicles?.map((vehicle) => (
 						<CustomMarker
 							googleMapRef={mapRef}
 							clickedOutside={clickedOutside}
@@ -179,7 +179,7 @@ export default function MapPage() {
 							}}
 						/>
 					))}{" "}
-					{filteredVehicles.length > 0 && showCurrentTrips && (
+					{filteredVehicles?.length > 0 && showCurrentTrips && (
 						<CurrentTrips lastStops={lastStops} />
 					)}
 					{userLocation && google.maps.LatLng && (
