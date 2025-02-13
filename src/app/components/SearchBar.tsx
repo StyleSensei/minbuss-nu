@@ -157,10 +157,14 @@ export const SearchBar = ({
 		}
 	});
 	useEffect(() => {
-		const timeout = setTimeout(() => {
-			inputRef.current?.focus();
-		}, 300);
-		return () => clearTimeout(timeout);
+		if (inputRef.current) {
+			inputRef.current.setAttribute("readonly", "readonly");
+			const timeout = setTimeout(() => {
+				inputRef.current?.removeAttribute("readonly");
+				inputRef.current?.focus();
+			}, 300);
+			return () => clearTimeout(timeout);
+		}
 	}, []);
 
 	const handleFocus = () => {
