@@ -135,7 +135,7 @@ export default function MapPage() {
 					colorScheme="DARK"
 					reuseMaps={true}
 					restriction={{
-						latLngBounds: { north: 60, south: 58.5, east: 18.5, west: 17.5 },
+						latLngBounds: { north: 60, south: 58.5, east: 20, west: 16.5 },
 					}}
 					minZoom={8}
 				>
