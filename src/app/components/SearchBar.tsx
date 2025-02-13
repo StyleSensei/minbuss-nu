@@ -156,6 +156,13 @@ export const SearchBar = ({
 			overlayRef.current?.classList.add("--active");
 		}
 	});
+	useEffect(() => {
+		const timeout = setTimeout(() => {
+			inputRef.current?.focus();
+		}, 300);
+		return () => clearTimeout(timeout);
+	}, []);
+
 	const handleFocus = () => {
 		inputContainerRef.current?.classList.add("--active");
 		overlayRef.current?.classList.add("--active");
@@ -200,8 +207,6 @@ export const SearchBar = ({
 						style={{
 							outlineColor: routeExists ? colors.accentColor : colors.notValid,
 						}}
-						// biome-ignore lint/a11y/noAutofocus: < expected behaviour when clicking on search in menu>
-						autoFocus
 					/>
 					{userInput && title2 && path2 && (
 						<button
