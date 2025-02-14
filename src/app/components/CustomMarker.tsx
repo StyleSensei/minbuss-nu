@@ -320,8 +320,7 @@ export default function CustomMarker({
 					lat: to.lat,
 					lng: to.lng,
 					onUpdate: () => {
-						from.lat &&
-							GoogleMap.setCenter(new google.maps.LatLng(+from.lat, +from.lng));
+						GoogleMap.setCenter(new google.maps.LatLng(+from.lat, +from.lng));
 					},
 				});
 			}
@@ -331,14 +330,11 @@ export default function CustomMarker({
 
 	const panTo = useCallback(
 		(GoogleMap: google.maps.Map) => {
-			if (currentBus?.position) {
-				GoogleMap.panTo({
-					lat: currentBus.position.latitude,
-					lng: currentBus.position.longitude,
-				});
+			if (marker?.position) {
+				GoogleMap.panTo(marker.position);
 			}
 		},
-		[currentBus],
+		[marker],
 	);
 
 	const setZoom = useCallback((GoogleMap: google.maps.Map) => {
