@@ -302,31 +302,24 @@ export default function CustomMarker({
 		}
 	};
 
-	const centerMap = useCallback(
-		(GoogleMap: google.maps.Map) => {
-			if (currentBus?.vehicle.id === id && followBus && marker) {
-				const to = {
-					lat: currentBus.position.latitude,
-					lng: currentBus.position.longitude,
-				};
-
-				const from = {
-					lat: marker?.position?.lat ?? to.lat,
-					lng: marker?.position?.lng ?? to.lng,
-				};
-				gsap.to(from, {
-					duration: 4,
-					ease: "sine",
-					lat: to.lat,
-					lng: to.lng,
-					onUpdate: () => {
-						GoogleMap.setCenter(new google.maps.LatLng(+from.lat, +from.lng));
-					},
-				});
-			}
-		},
-		[currentBus, id, marker, followBus],
-	);
+	useGSAP(() => {
+		if (marker && followBus && isActive) {
+			const currentPosition = marker.position
+				? { lat: marker.position.lat, lng: marker.position.lng }
+				: position;
+			gsap.to(currentPosition, {
+				duration: 4,
+				ease: "sine",
+				lat: position.lat,
+				lng: position.lng,
+				onUpdate: () => {
+					googleMapRef.current?.setCenter(
+						new google.maps.LatLng(+currentPosition.lat, +currentPosition.lng),
+					);
+				},
+			});
+		}
+	}, [position, marker, isActive, followBus, googleMapRef]);
 
 	const panTo = useCallback(
 		(GoogleMap: google.maps.Map) => {
@@ -340,18 +333,6 @@ export default function CustomMarker({
 	const setZoom = useCallback((GoogleMap: google.maps.Map) => {
 		GoogleMap.setZoom(17);
 	}, []);
-
-	useEffect(() => {
-		if (
-			followBus &&
-			googleMapRef.current &&
-			filteredVehicles.length > 0 &&
-			currentBus
-		) {
-			// console.log(googleMapRef.current);
-			centerMap(googleMapRef.current);
-		}
-	}, [followBus, centerMap, googleMapRef, filteredVehicles, currentBus]);
 
 	useEffect(() => {
 		checkIfCloserOrFurtherFromStop();
