@@ -7,6 +7,7 @@ import { userAgent } from "next/server";
 import { headers } from "next/headers";
 import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
+import { Analytics } from "@vercel/analytics/react";
 
 const myFont = localFont({
 	src: "/fonts/myfont.woff2",
@@ -58,6 +59,7 @@ export default async function RootLayout({
 							id="background-image"
 						/>
 						{children}
+						<Analytics />
 					</main>
 				</DataProvider>
 				<Menu />
