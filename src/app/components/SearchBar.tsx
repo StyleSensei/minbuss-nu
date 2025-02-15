@@ -89,7 +89,7 @@ export const SearchBar = ({
 
 	const findClosestRoute = useCallback(
 		(query: string) => {
-			if (query.length < 2) return;
+			if (!query.length) return;
 			if (!routeExists) {
 				const closestRoute = allRoutes.find((r) =>
 					r.includes(query.slice(0, query.length - 1)),

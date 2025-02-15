@@ -1,5 +1,6 @@
 import type { IDbData } from "../models/IDbData";
 import { useOverflow } from "../hooks/useOverflow";
+import useUserPosition from "../hooks/useUserPosition";
 
 interface ICurrentTripsProps {
 	lastStops: IDbData[];
@@ -7,6 +8,8 @@ interface ICurrentTripsProps {
 
 export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing } = useOverflow();
+
+	const { userPosition } = useUserPosition();
 
 	return (
 		<div
@@ -33,6 +36,27 @@ export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 					))}
 				</tbody>
 			</table>
+			{userPosition?.tripsAtClosestStop.length && (
+				<table>
+					<caption>Ankommer närmsta hållplats</caption>
+					<thead>
+						<tr>
+							<th>Linje</th>
+							<th>Hållplats</th>
+							<th>Ankomsttid</th>
+						</tr>
+					</thead>
+					<tbody>
+						{userPosition?.tripsAtClosestStop.map((trip) => (
+							<tr key={trip?.trip_id}>
+								<td>{trip?.route_short_name}</td>
+								<td>{trip?.stop_name}</td>
+								<td>{trip?.arrival_time?.slice(0, 5)}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			)}
 		</div>
 	);
 };

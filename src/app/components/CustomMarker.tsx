@@ -10,6 +10,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import {
 	type MutableRefObject,
+	use,
 	useCallback,
 	useEffect,
 	useRef,
@@ -19,6 +20,9 @@ import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "../models/IDbData";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import { InfoWindow } from "./InfoWindow";
+import useUserPosition from "../hooks/useUserPosition";
+import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
+import { getClosest } from "../utilities/getClosest";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -89,32 +93,6 @@ export default function CustomMarker({
 		}
 	}, [position, marker]);
 
-	// @see https://www.geeksforgeeks.org/haversine-formula-to-find-distance-between-two-points-on-a-sphere/
-	const getDistanceFromLatLon = useCallback(
-		(lat1: number, lon1: number, lat2: number, lon2: number) => {
-			const convertLatLonToRadians = (degree: number) =>
-				degree * (Math.PI / 180);
-
-			const EARTH_RADIUS_METERS = 6371000;
-			const radianForLat1 = convertLatLonToRadians(lat1);
-			const radianForLat2 = convertLatLonToRadians(lat2);
-			const deltaLat = convertLatLonToRadians(lat2 - lat1);
-			const deltaLon = convertLatLonToRadians(lon2 - lon1);
-
-			// Haversine formula
-			const a =
-				Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-				Math.cos(radianForLat1) *
-					Math.cos(radianForLat2) *
-					Math.sin(deltaLon / 2) *
-					Math.sin(deltaLon / 2);
-			const angularDistance = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-			const distance = EARTH_RADIUS_METERS * angularDistance; // Distance in meters
-			return distance;
-		},
-		[],
-	);
-
 	const checkIfCloserOrFurtherFromStop = useCallback(() => {
 		if (!currentBus || !closestStopState || !infoWindowActive) return;
 		const busPosition = currentBus?.position;
@@ -137,41 +115,7 @@ export default function CustomMarker({
 			previousDistanceRef.current = null;
 			setHasPassedStop(true);
 		}
-	}, [currentBus, getDistanceFromLatLon, infoWindowActive, closestStopState]);
-
-	const getClosest = useCallback(
-		(
-			list: IDbData[] | IVehiclePosition[],
-			latitude: number,
-			longitude: number,
-		) => {
-			const closest = list.reduce((prev, current) => {
-				const prevLat =
-					"stop_id" in prev ? prev.stop_lat : prev.position.latitude;
-				const prevLon =
-					"stop_id" in prev ? prev.stop_lon : prev.position.longitude;
-				const currentLat =
-					"stop_id" in current ? current.stop_lat : current.position.latitude;
-				const currentLon =
-					"stop_id" in current ? current.stop_lon : current.position.longitude;
-				const prevDistance = getDistanceFromLatLon(
-					latitude,
-					longitude,
-					prevLat,
-					prevLon,
-				);
-				const currentDistance = getDistanceFromLatLon(
-					latitude,
-					longitude,
-					currentLat,
-					currentLon,
-				);
-				return currentDistance < prevDistance ? current : prev;
-			});
-			return closest;
-		},
-		[getDistanceFromLatLon],
-	);
+	}, [currentBus, infoWindowActive, closestStopState]);
 
 	const findCurrentStopSequence = useCallback(() => {
 		if (!currentBus) return null;
@@ -188,7 +132,7 @@ export default function CustomMarker({
 		const closestStop = getClosest(stopsOnTrip, busLat, busLon) as IDbData;
 
 		return closestStop.stop_sequence;
-	}, [currentBus, cachedDbDataState, getClosest]);
+	}, [currentBus, cachedDbDataState]);
 
 	const findClosestOrNextStop = useCallback(() => {
 		if (!currentBus) return null;
@@ -231,7 +175,6 @@ export default function CustomMarker({
 		passedStops,
 		currentBus,
 		findCurrentStopSequence,
-		getClosest,
 	]);
 	const findPassedStops = useCallback(() => {
 		if (!currentBus) return;
@@ -265,12 +208,26 @@ export default function CustomMarker({
 		}
 	}, [
 		cachedDbDataState,
-		getDistanceFromLatLon,
+
 		currentBus,
 		passedStops,
 		findClosestOrNextStop,
 		closestStopState,
 	]);
+
+	// const findClosestStopToUser = useCallback(() => {
+	// 	if (!userPosition) return null;
+	// 	const userLat = userPosition.lat;
+	// 	const userLon = userPosition.lng;
+
+	// 	const closestStop = getClosest(
+	// 		cachedDbDataState,
+	// 		userLat,
+	// 		userLon,
+	// 	) as IDbData;
+
+	// 	return closestStop;
+	// }, [userPosition, cachedDbDataState, getClosest]);
 
 	const findCurrentBus = useCallback(() => {
 		if (!infoWindowActive || !marker?.position) return;
@@ -283,7 +240,7 @@ export default function CustomMarker({
 		) as IVehiclePosition;
 		if (closestBus) setCurrentBus(closestBus);
 		return closestBus as IVehiclePosition;
-	}, [filteredVehicles, getClosest, infoWindowActive, marker]);
+	}, [filteredVehicles, infoWindowActive, marker]);
 
 	const handleOnClick = () => {
 		if (followBus) return;

@@ -14,6 +14,7 @@ import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
+import useUserPosition from "../hooks/useUserPosition";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -25,8 +26,8 @@ export default function MapPage() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
-	const [userLocation, setUserLocation] =
-		useState<GeolocationPosition | null>();
+
+	const { userPosition, setUserPosition } = useUserPosition();
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -37,15 +38,6 @@ export default function MapPage() {
 		return () => {
 			ctaButton?.classList.remove("--hidden");
 			backgroundImage?.classList.remove("--hidden");
-		};
-	}, []);
-
-	useEffect(() => {
-		navigator.geolocation.getCurrentPosition((position) => {
-			setUserLocation(position);
-		});
-		return () => {
-			setUserLocation(null);
 		};
 	}, []);
 
@@ -68,9 +60,41 @@ export default function MapPage() {
 				map.set(item.trip_id, item);
 			}
 		}
-
 		return Array.from(map.values());
 	}, []);
+
+	const getTripsByStopId = useCallback(
+		(array: IDbData[]) => {
+			if (!userPosition?.tripsAtClosestStop) {
+				return [];
+			}
+			// Filtrera helt enkelt ut de poster som har samma stop_id
+			return array.filter(
+				(item) => item.stop_id === userPosition?.closestStop?.stop_id,
+			);
+		},
+		[userPosition?.closestStop?.stop_id, userPosition?.tripsAtClosestStop],
+	);
+
+	useEffect(() => {
+		if (!userPosition) return;
+
+		const tripsAtClosestStop = getTripsByStopId(cachedDbDataState);
+
+		// Kolla om listan faktiskt har ändrats innan du sätter ny state
+		if (
+			JSON.stringify(tripsAtClosestStop) !==
+			JSON.stringify(userPosition.tripsAtClosestStop)
+		) {
+			setUserPosition((prev) => {
+				if (!prev) return null;
+				return {
+					...prev,
+					tripsAtClosestStop,
+				};
+			});
+		}
+	}, [cachedDbDataState, getTripsByStopId, userPosition, setUserPosition]);
 
 	useEffect(() => {
 		if (filteredVehicles.length === 0) {
@@ -154,7 +178,7 @@ export default function MapPage() {
 							showCurrentTrips={showCurrentTrips}
 							filteredVehicles={filteredVehicles}
 							setFollowBus={setFollowBus}
-							followBus={followBus}
+							followBus={activeMarkerId ? followBus : false}
 							activeMarker={activeMarkerId !== null}
 						/>
 					</MapControl>
@@ -182,14 +206,14 @@ export default function MapPage() {
 					{filteredVehicles?.length > 0 && showCurrentTrips && (
 						<CurrentTrips lastStops={lastStops} />
 					)}
-					{userLocation && google.maps.LatLng && (
+					{userPosition && google.maps.LatLng && (
 						<AdvancedMarker
 							className="user-location"
 							title={"Din position"}
 							position={
 								new google.maps.LatLng({
-									lat: userLocation.coords.latitude,
-									lng: userLocation.coords.longitude,
+									lat: userPosition.lat,
+									lng: userPosition.lng,
 								})
 							}
 						>
