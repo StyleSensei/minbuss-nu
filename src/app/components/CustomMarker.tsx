@@ -23,6 +23,7 @@ import { InfoWindow } from "./InfoWindow";
 import useUserPosition from "../hooks/useUserPosition";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { getClosest } from "../utilities/getClosest";
+import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -61,15 +62,19 @@ export default function CustomMarker({
 	const [passedStops, setPassedStops] = useState<Map<string, IDbData>>(
 		new Map(),
 	);
+	const [passedBuses, setPassedBuses] = useState<Map<string, IVehiclePosition>>(
+		new Map(),
+	);
 	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
 		currentVehicle,
 	);
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
-	const previousDistanceRef = useRef<number | null>(null);
 	const [hasPassedStop, setHasPassedStop] = useState(false);
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
+
+	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 
 	useGSAP(() => {
 		if (marker) {
@@ -92,30 +97,6 @@ export default function CustomMarker({
 			});
 		}
 	}, [position, marker]);
-
-	const checkIfCloserOrFurtherFromStop = useCallback(() => {
-		if (!currentBus || !closestStopState || !infoWindowActive) return;
-		const busPosition = currentBus?.position;
-		const currentDistance = getDistanceFromLatLon(
-			busPosition.latitude,
-			busPosition.longitude,
-			closestStopState.stop_lat,
-			closestStopState.stop_lon,
-		);
-
-		if (
-			previousDistanceRef.current === null ||
-			currentDistance < previousDistanceRef.current
-		) {
-			// console.log("bus is getting closer to the stop");
-			previousDistanceRef.current = currentDistance;
-		}
-		if (currentDistance > previousDistanceRef.current) {
-			// console.log("bus is getting further from the stop");
-			previousDistanceRef.current = null;
-			setHasPassedStop(true);
-		}
-	}, [currentBus, infoWindowActive, closestStopState]);
 
 	const findCurrentStopSequence = useCallback(() => {
 		if (!currentBus) return null;
@@ -208,26 +189,37 @@ export default function CustomMarker({
 		}
 	}, [
 		cachedDbDataState,
-
 		currentBus,
 		passedStops,
 		findClosestOrNextStop,
 		closestStopState,
 	]);
 
-	// const findClosestStopToUser = useCallback(() => {
-	// 	if (!userPosition) return null;
-	// 	const userLat = userPosition.lat;
-	// 	const userLon = userPosition.lng;
+	const findPassedBus = useCallback(() => {
+		if (!closestStopState) return;
 
-	// 	const closestStop = getClosest(
-	// 		cachedDbDataState,
-	// 		userLat,
-	// 		userLon,
-	// 	) as IDbData;
+		const busFound = filteredVehicles.find((bus) => {
+			const distance = getDistanceFromLatLon(
+				bus.position.latitude,
+				bus.position.longitude,
+				closestStopState.stop_lat,
+				closestStopState.stop_lon,
+			);
+			return (
+				distance < 5 &&
+				bus.vehicle.id &&
+				!passedBuses.has(bus?.vehicle?.id) &&
+				bus.trip.tripId === closestStopState.trip_id
+			);
+		});
 
-	// 	return closestStop;
-	// }, [userPosition, cachedDbDataState, getClosest]);
+		if (busFound) {
+			// Lägg till i passedBuses
+			setPassedBuses((prev) =>
+				new Map(prev).set(busFound?.vehicle?.id, busFound),
+			);
+		}
+	}, [closestStopState, filteredVehicles, passedBuses]);
 
 	const findCurrentBus = useCallback(() => {
 		if (!infoWindowActive || !marker?.position) return;
@@ -238,7 +230,6 @@ export default function CustomMarker({
 			markerLat,
 			markerLng,
 		) as IVehiclePosition;
-		if (closestBus) setCurrentBus(closestBus);
 		return closestBus as IVehiclePosition;
 	}, [filteredVehicles, infoWindowActive, marker]);
 
@@ -292,8 +283,14 @@ export default function CustomMarker({
 	}, []);
 
 	useEffect(() => {
-		checkIfCloserOrFurtherFromStop();
-	}, [checkIfCloserOrFurtherFromStop]);
+		if (!currentBus || !closestStopState) return;
+		const furtherFromStop = checkIfFurtherFromStop(
+			currentBus,
+			closestStopState,
+			infoWindowActive,
+		);
+		if (furtherFromStop) setHasPassedStop(furtherFromStop);
+	}, [checkIfFurtherFromStop, currentBus, closestStopState, infoWindowActive]);
 
 	useEffect(() => {
 		if (infoWindowActive) {
@@ -306,33 +303,31 @@ export default function CustomMarker({
 
 	useEffect(() => {
 		if (filteredVehicles.length === 0 || !infoWindowActive) return;
-		setCurrentBus(findCurrentBus());
+
 		if (clickedOutside) {
 			setInfoWindowActive(false);
 			setFollowBus(false);
 			onActivateMarker(null);
+			return;
+		}
+
+		const newbus = findCurrentBus();
+		if (newbus && newbus.vehicle.id !== currentBus?.vehicle.id) {
+			setCurrentBus(newbus);
+			return;
 		}
 
 		const closestOrNextStop = findClosestOrNextStop();
-		const closestStop = closestOrNextStop?.closestStop;
-		const nextStop = closestOrNextStop?.nextStop;
 
-		let isUpdatingStop = false;
-
-		if (hasPassedStop) {
-			if (nextStop) {
-				setClosestStop(nextStop);
-			} else {
-				// console.log("no next stop");
-			}
+		if (hasPassedStop && closestOrNextStop?.nextStop) {
+			setClosestStop(closestOrNextStop.nextStop);
 			setHasPassedStop(false);
-			isUpdatingStop = true;
+		} else if (
+			closestOrNextStop?.closestStop &&
+			closestOrNextStop.closestStop.stop_id !== closestStopState?.stop_id
+		) {
+			setClosestStop(closestOrNextStop.closestStop);
 		} else {
-			if (closestStop && closestStop.stop_id !== closestStopState?.stop_id) {
-				setClosestStop(closestStop);
-			}
-		}
-		if (!isUpdatingStop) {
 			findPassedStops();
 		}
 	}, [
@@ -346,6 +341,7 @@ export default function CustomMarker({
 		clickedOutside,
 		setFollowBus,
 		onActivateMarker,
+		currentBus,
 	]);
 
 	return (

@@ -3,10 +3,7 @@ import {
 	getCachedDbData,
 	getCachedVehiclePositions,
 } from "../services/cacheHelper";
-import {
-	getVehiclePositions,
-	type IVehiclePosition,
-} from "../services/dataSources/gtfsRealtime";
+import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 
 export const getFilteredVehiclePositions = async (busline?: string) => {
 	const cachedVehiclePositions = await getCachedVehiclePositions();

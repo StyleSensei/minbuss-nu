@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
 import useUserPosition from "../hooks/useUserPosition";
+import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -203,9 +204,12 @@ export default function MapPage() {
 							}}
 						/>
 					))}{" "}
-					{filteredVehicles?.length > 0 && showCurrentTrips && (
+					{filteredVehicles?.length > 0 && showCurrentTrips && userPosition && (
 						<CurrentTrips lastStops={lastStops} />
 					)}
+					{filteredVehicles?.length > 0 &&
+						showCurrentTrips &&
+						!userPosition && <CurrentTripsNoGeo lastStops={lastStops} />}
 					{userPosition && google.maps.LatLng && (
 						<AdvancedMarker
 							className="user-location"

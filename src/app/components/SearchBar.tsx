@@ -11,11 +11,15 @@ import {
 import { Icon } from "./Icon";
 import Form from "next/form";
 import { getFilteredVehiclePositions } from "../actions/filterVehicles";
+import { getFilteredTripUpdates } from "../actions/filterTripUpdates";
 import { useDataContext } from "../context/DataContext";
 import { getCachedDbData } from "../services/cacheHelper";
 import { getAllRoutes } from "../actions/getAllRoutes";
 import { debounce } from "../utilities/debounce";
 import colors from "../colors.module.scss";
+import { usePoll } from "../hooks/usePoll";
+import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import type { ITripUpdate } from "../models/ITripUpdate";
 const RouteNotFound = lazy(() => import("./RouteNotFound"));
 const NotInTraffic = lazy(() => import("./NotInTraffic"));
 
@@ -44,9 +48,13 @@ export const SearchBar = ({
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
 	const overlayRef = useRef<HTMLDivElement | null>(null);
 
-	const { setFilteredVehicles, filteredVehicles, setCachedDbDataState } =
-		useDataContext();
-	const intervalRef = useRef<NodeJS.Timeout>();
+	const {
+		setFilteredVehicles,
+		filteredVehicles,
+		setCachedDbDataState,
+		setFilteredTripUpdates,
+		filteredTripUpdates,
+	} = useDataContext();
 
 	const checkIfRouteExists = useCallback(
 		(route: string) => {
@@ -71,17 +79,19 @@ export const SearchBar = ({
 		[checkIfRouteExists],
 	);
 
-	const pollBusPositionsEveryTwoSeconds = useCallback(
-		(query: string) => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current);
-			}
-			intervalRef.current = setInterval(async () => {
-				setFilteredVehicles(await getFilteredVehiclePositions(query));
-			}, 2000);
-		},
-		[setFilteredVehicles],
+	const { pollOnInterval: pollBusPositionsEveryTwoSeconds, stopPolling } =
+		usePoll(
+			setFilteredVehicles as (data: IVehiclePosition[]) => void,
+			getFilteredVehiclePositions,
+			2000,
+		);
+
+	const { pollOnInterval: pollTripUpdates } = usePoll(
+		setFilteredTripUpdates as (data: ITripUpdate[]) => void,
+		getFilteredTripUpdates,
+		15000,
 	);
+
 	const handleCachedDbData = useCallback(async () => {
 		const cachedDbData = await getCachedDbData(userInput);
 		setCachedDbDataState(cachedDbData);
@@ -120,11 +130,13 @@ export const SearchBar = ({
 		if (!userInput) {
 			setFilteredVehicles([]);
 		}
-		if (userInput && filteredVehicles?.length)
+		if (userInput && filteredVehicles?.length) {
 			pollBusPositionsEveryTwoSeconds(userInput);
+			pollTripUpdates(userInput);
+		}
 
 		return () => {
-			if (intervalRef.current) clearInterval(intervalRef.current);
+			stopPolling();
 		};
 	}, [
 		userInput,
@@ -133,6 +145,8 @@ export const SearchBar = ({
 		setFilteredVehicles,
 		routeExists,
 		findClosestRoute,
+		stopPolling,
+		pollTripUpdates,
 	]);
 
 	useEffect(() => {

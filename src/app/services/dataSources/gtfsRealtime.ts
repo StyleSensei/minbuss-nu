@@ -15,7 +15,7 @@ export interface IVehiclePosition {
 	};
 	timestamp: string | null;
 	vehicle: {
-		id: string | null;
+		id: string;
 	};
 }
 

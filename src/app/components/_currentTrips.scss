@@ -17,30 +17,73 @@
     overflow: auto;
     z-index: 2;
 
+    .trips-header {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    h3 {
+        color: v.$tertiary-color;
+    }
+
     &.--overflowing {
         @include m.overFlowing;
     }
 
-    caption {
-        font-size: 1.5rem;
-        font-weight: 700;
-        padding: 1vh;
-        color: v.$active;
-    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
 
-    tr:last-of-type {
-        td {
-            border-bottom: none;
+        caption {
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 1vh 0;
+            text-align: left;
         }
-    }
 
-    td {
-        padding: 1vw;
-        border-bottom: solid 1px v.$active;
-    }
 
-    @include m.desktop {
-        left: 5vw;
-        max-height: 80vh;
+        tr:last-of-type {
+            td {
+                border-bottom: none;
+            }
+        }
+
+        td {
+            padding: 1vw 0;
+            border-bottom: solid 1px v.$active;
+        }
+
+        td:first-child,
+        th:first-child {
+            text-align: left;
+        }
+
+        td:last-child,
+        th:last-child {
+            text-align: right;
+        }
+
+        @include m.desktop {
+            left: 5vw;
+            max-height: 80vh;
+        }
+
     }
+}
+
+.updated-time {
+    text-decoration: line-through;
+    opacity: .6;
+}
+
+.next-bus {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 1rem 2rem;
+    border-radius: 5px;
+    background-color: v.$active;
+    color: v.$primary-color;
+    text-align: left;
+    margin: 1rem 0;
 }

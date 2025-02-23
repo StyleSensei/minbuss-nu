@@ -1,9 +1,7 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { IDbData } from "../models/IDbData";
-import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { useDataContext } from "../context/DataContext";
-import { set } from "zod";
 
 interface IUser {
 	lat: number;
@@ -35,9 +33,9 @@ const useUserPosition = () => {
 						lat: latitude,
 						lng: longitude,
 						closestStop: newClosestStop,
-						tripsAtClosestStop: cachedDbDataState.filter(
-							(stop) => stop.stop_id === newClosestStop?.stop_id,
-						),
+						tripsAtClosestStop: cachedDbDataState
+							.filter((stop) => stop.stop_name === newClosestStop?.stop_name)
+							.sort((a, b) => a.trip_id.localeCompare(b.trip_id)),
 					};
 				}
 				return prev;
