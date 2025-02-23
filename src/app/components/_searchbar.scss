@@ -11,7 +11,7 @@ $containerWidth: 278px;
     align-items: center;
     border-radius: 100px;
     top: 1vh;
-    z-index: 1;
+    z-index: 3;
     pointer-events: none;
     transition: all .5s ease;
     border: 1px v.$tertiary-color solid;

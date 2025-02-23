@@ -24,6 +24,7 @@ import useUserPosition from "../hooks/useUserPosition";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -38,6 +39,7 @@ interface ICustomMarkerProps {
 	followBus: boolean;
 	setFollowBus: (value: boolean) => void;
 	isActive: boolean;
+	showCurrentTrips: boolean;
 	onActivateMarker: (id: string | null) => void;
 }
 
@@ -54,6 +56,7 @@ export default function CustomMarker({
 	followBus,
 	setFollowBus,
 	isActive,
+	showCurrentTrips,
 	onActivateMarker,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
@@ -73,7 +76,7 @@ export default function CustomMarker({
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
-
+	const isMobile = useIsMobile();
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 
 	useGSAP(() => {
@@ -356,7 +359,12 @@ export default function CustomMarker({
 			>
 				<div> </div> {/* prevent standard marker from rendering */}
 			</AdvancedMarker>
-			{isActive && <InfoWindow closestStopState={closestStopState} />}
+			{isActive && !showCurrentTrips && isMobile && (
+				<InfoWindow closestStopState={closestStopState} />
+			)}
+			{isActive && !isMobile && (
+				<InfoWindow closestStopState={closestStopState} />
+			)}
 		</>
 	);
 }

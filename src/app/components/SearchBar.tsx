@@ -89,7 +89,7 @@ export const SearchBar = ({
 	const { pollOnInterval: pollTripUpdates } = usePoll(
 		setFilteredTripUpdates as (data: ITripUpdate[]) => void,
 		getFilteredTripUpdates,
-		15000,
+		40000,
 	);
 
 	const handleCachedDbData = useCallback(async () => {

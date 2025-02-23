@@ -196,6 +196,7 @@ export default function MapPage() {
 							setFollowBus={setFollowBus}
 							isActive={activeMarkerId === vehicle?.vehicle?.id}
 							onActivateMarker={(id) => setActiveMarkerId(id)}
+							showCurrentTrips={showCurrentTrips}
 							key={vehicle.vehicle.id}
 							id={vehicle.vehicle.id}
 							position={{
