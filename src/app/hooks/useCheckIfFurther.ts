@@ -1,15 +1,18 @@
 import { useCallback, useRef } from "react";
-import type { IDbData } from "../models/IDbData";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
+import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import type { IDbData } from "../models/IDbData";
 
 export const useCheckIfFurtherFromStop = () => {
 	const previousDistancesRef = useRef<Map<string, number>>(new Map());
-	const passedBusesRef = useRef<Set<string>>(new Set());
+	const movingAwayCountRef = useRef<Map<string, number>>(new Map());
+	const DISTANCE_THRESHOLD = 7;
+	const CONSECUTIVE_CHECKS = 2;
 
 	const checkIfFurtherFromStop = useCallback(
 		(bus: IVehiclePosition, stop: IDbData, dependency = true) => {
-			if (!bus || !stop || !dependency) return;
+			if (!bus || !stop || !dependency) return false;
+
 			const busPosition = bus?.position;
 			const currentDistance = getDistanceFromLatLon(
 				busPosition.latitude,
@@ -17,32 +20,38 @@ export const useCheckIfFurtherFromStop = () => {
 				stop.stop_lat,
 				stop.stop_lon,
 			);
-			let prevDistance: number | undefined;
+
 			if (bus.trip.tripId) {
-				prevDistance = previousDistancesRef.current.get(bus?.trip?.tripId);
-				// console.log("prevDistance", prevDistance);
-				if (prevDistance === undefined || currentDistance < prevDistance) {
-					// console.log(`bus ${bus.trip.tripId} is getting closer to the stop`);
+				const prevDistance = previousDistancesRef.current.get(bus.trip.tripId);
+				let movingAwayCount =
+					movingAwayCountRef.current.get(bus.trip.tripId) || 0;
+
+				if (prevDistance === undefined) {
 					previousDistancesRef.current.set(bus.trip.tripId, currentDistance);
 					return false;
 				}
-				// if (currentDistance > prevDistance) {
-				// 	// console.log(
-				// 	// 	`bus ${bus.trip.tripId} is getting further from the stop`,
-				// 	// );
-				// 	// previousDistancesRef.current.set(bus.trip.tripId, currentDistance);
 
-				// 	passedBusesRef.current.add(bus.trip.tripId);
-				// 	return false;
-				// }
-				// if (currentDistance === prevDistance) {
-				// 	// console.log(`bus ${bus.trip.tripId} is at the same distance`);
-				// 	return true;
-				// }
-				return true;
+				const distanceChange = currentDistance - prevDistance;
+
+				if (distanceChange > DISTANCE_THRESHOLD) {
+					movingAwayCount++;
+					movingAwayCountRef.current.set(bus.trip.tripId, movingAwayCount);
+				} else if (distanceChange < -DISTANCE_THRESHOLD) {
+					movingAwayCount = 0;
+					movingAwayCountRef.current.set(bus.trip.tripId, 0);
+				}
+
+				if (Math.abs(distanceChange) > DISTANCE_THRESHOLD) {
+					previousDistancesRef.current.set(bus.trip.tripId, currentDistance);
+				}
+
+				return movingAwayCount >= CONSECUTIVE_CHECKS;
 			}
+
+			return false;
 		},
 		[],
 	);
+
 	return checkIfFurtherFromStop;
 };

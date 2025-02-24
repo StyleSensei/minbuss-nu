@@ -198,7 +198,6 @@ export default function MapPage() {
 							onActivateMarker={(id) => setActiveMarkerId(id)}
 							showCurrentTrips={showCurrentTrips}
 							key={vehicle.vehicle.id}
-							id={vehicle.vehicle.id}
 							position={{
 								lat: vehicle.position.latitude,
 								lng: vehicle.position.longitude,
