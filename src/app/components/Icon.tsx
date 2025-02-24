@@ -3,9 +3,10 @@ interface IconProps {
 	fill: string;
 	iconSize: string;
 	title: string;
+	className?: string;
 }
 
-export const Icon = ({ path, fill, iconSize, title }: IconProps) => {
+export const Icon = ({ path, fill, iconSize, title, className }: IconProps) => {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -13,6 +14,7 @@ export const Icon = ({ path, fill, iconSize, title }: IconProps) => {
 			height={iconSize}
 			fill={fill}
 			viewBox="0 0 16 16"
+			className={className}
 		>
 			<title>{title}</title>
 			<path d={path} />

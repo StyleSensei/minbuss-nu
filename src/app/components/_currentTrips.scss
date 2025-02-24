@@ -16,6 +16,7 @@
     border-radius: v.$border-radius-standard;
     overflow: auto;
     z-index: 2;
+    transition: all .5s ease;
 
     .trips-header {
         display: flex;
@@ -36,7 +37,7 @@
         border-collapse: collapse;
 
         caption {
-            font-size: 1.2rem;
+            font-size: 1rem;
             font-weight: 700;
             padding: 1vh 0;
             text-align: left;
@@ -74,16 +75,36 @@
 
 .updated-time {
     text-decoration: line-through;
-    opacity: .6;
+    color: v.$updated-time;
 }
 
-.next-bus {
-    font-size: 1.2rem;
+.next-departure {
     font-weight: 700;
-    padding: 1rem 2rem;
+    padding: .8rem;
     border-radius: 5px;
     background-color: v.$active;
     color: v.$primary-color;
     text-align: left;
     margin: 1rem 0;
+    font-size: 1.2rem;
+
+    & .time {
+        font-size: 1.4rem;
+        font-weight: 400;
+        align-items: center;
+
+        span {
+            font-weight: 700;
+
+        }
+
+        & .arrow {
+            transform: translateY(3px);
+        }
+    }
+
+    & .updated-time {
+        color: v.$not-valid;
+        font-weight: 400;
+    }
 }

@@ -3,6 +3,8 @@ import { useOverflow } from "../hooks/useOverflow";
 import useUserPosition from "../hooks/useUserPosition";
 import { useDataContext } from "../context/DataContext";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
+import { Icon } from "./Icon";
+import { arrow } from "../../../public/icons";
 
 interface ICurrentTripsProps {
 	lastStops: IDbData[];
@@ -129,17 +131,27 @@ export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 			<div className="trips-header">
 				<h2>Linje: {lastStops[0].route_short_name}</h2>
 				{userPosition && (
-					<h3>Närmaste hållplats: {userPosition?.closestStop?.stop_name}</h3>
+					<p className="station-name">
+						Din närmaste hållplats:{" "}
+						<strong>{userPosition?.closestStop?.stop_name}</strong>
+					</p>
 				)}
 			</div>
 			{notPassedStops?.length > 0 && (
 				<>
-					<div className="next-bus">
-						<p>Nästa avgång:</p>
-						<p>
-							Mot {nextBus.stop_headsign} –{" "}
+					<div className="next-departure">
+						<p>🕒 Nästa avgång:</p>
+						<p className="time">
+							<Icon
+								path={arrow.pathD}
+								title="Mot"
+								iconSize="24px"
+								fill="black"
+								className="arrow"
+							/>{" "}
+							{nextBus.stop_headsign} –{" "}
 							{hasUpdate && <span>{nextBusUpdatedTime} </span>}
-							<span className={hasUpdate ? "updated-time" : ""}>
+							<span className={hasUpdate ? "updated-time" : "scheduled-time"}>
 								{nextBusScheduledTime}
 							</span>
 						</p>

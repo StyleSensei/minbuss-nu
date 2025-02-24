@@ -31,7 +31,6 @@ export const InfoWindow = ({ closestStopState }: IInfoWindowProps) => {
 				<span className="bus-line">{closestStopState?.route_short_name}, </span>
 				<span id="final-station">{closestStopState?.stop_headsign}</span>
 			</h2>
-			{closestStopState?.trip_id}
 			<h2 className="next-stop">Nästa stopp: </h2>
 			<p className="next-stop">{closestStopState?.stop_name}</p>
 			<h2>Ankomst:</h2>
