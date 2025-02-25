@@ -19,7 +19,7 @@ export const InfoWindow = ({ closestStopState }: IInfoWindowProps) => {
 	const closestStopArrival = closestStopTimesStamp
 		? new Date(+closestStopTimesStamp * 1000).toLocaleTimeString().slice(0, 5)
 		: null;
-	const hasUpdate = closestStopArrival !== scheduledTime;
+	const hasUpdate = closestStopArrival && closestStopArrival !== scheduledTime;
 
 	return (
 		<div
@@ -35,12 +35,11 @@ export const InfoWindow = ({ closestStopState }: IInfoWindowProps) => {
 			<p className="next-stop">{closestStopState?.stop_name}</p>
 			<h2>Ankomst:</h2>
 			<p>
-				{closestStopState?.arrival_time.slice(0, 5) && (
-					<span>{scheduledTime}</span>
-				)}
-				{hasUpdate && (
-					<span className="updated-time"> {closestStopArrival}</span>
-				)}
+				{hasUpdate && <span>{closestStopArrival}</span>}
+				<span className={hasUpdate ? "updated-time" : ""}>
+					{" "}
+					{scheduledTime}
+				</span>
 			</p>
 		</div>
 	);
