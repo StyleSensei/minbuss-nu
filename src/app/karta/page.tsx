@@ -16,6 +16,7 @@ import type { IDbData } from "../models/IDbData";
 import { CurrentTrips } from "../components/CurrentTrips";
 import useUserPosition from "../hooks/useUserPosition";
 import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -29,6 +30,7 @@ export default function MapPage() {
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 
 	const { userPosition, setUserPosition } = useUserPosition();
+	const isMobile = useIsMobile();
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -69,7 +71,6 @@ export default function MapPage() {
 			if (!userPosition?.tripsAtClosestStop) {
 				return [];
 			}
-			// Filtrera helt enkelt ut de poster som har samma stop_id
 			return array.filter(
 				(item) => item.stop_id === userPosition?.closestStop?.stop_id,
 			);
@@ -82,7 +83,6 @@ export default function MapPage() {
 
 		const tripsAtClosestStop = getTripsByStopId(cachedDbDataState);
 
-		// Kolla om listan faktiskt har ändrats innan du sätter ny state
 		if (
 			JSON.stringify(tripsAtClosestStop) !==
 			JSON.stringify(userPosition.tripsAtClosestStop)
@@ -124,6 +124,34 @@ export default function MapPage() {
 		setCurrentWindowZoomLevel(zoomLevel);
 		return zoomLevel;
 	}, []);
+
+	const handleTripSelect = useCallback(
+		(tripId: string) => {
+			const vehicle = filteredVehicles.find((v) => v.trip.tripId === tripId);
+			if (vehicle) {
+				setInfoWindowActive(false);
+				setActiveMarkerId(null);
+
+				setTimeout(() => {
+					setActiveMarkerId(vehicle.vehicle.id);
+					setClickedOutside(false);
+					setInfoWindowActive(true);
+
+					if (mapRef.current && vehicle.position) {
+						mapRef.current.panTo({
+							lat: vehicle.position.latitude,
+							lng: vehicle.position.longitude,
+						});
+						mapRef.current.setZoom(17);
+					}
+					if (isMobile) {
+						setShowCurrentTrips(false);
+					}
+				}, 50);
+			}
+		},
+		[filteredVehicles, isMobile],
+	);
 
 	useEffect(() => {
 		window.addEventListener("resize", getWindowZoomLevel);
@@ -205,7 +233,10 @@ export default function MapPage() {
 						/>
 					))}{" "}
 					{filteredVehicles?.length > 0 && showCurrentTrips && userPosition && (
-						<CurrentTrips lastStops={lastStops} />
+						<CurrentTrips
+							lastStops={lastStops}
+							onTripSelect={handleTripSelect}
+						/>
 					)}
 					{filteredVehicles?.length > 0 &&
 						showCurrentTrips &&

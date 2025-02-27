@@ -8,9 +8,13 @@ import { arrow } from "../../../public/icons";
 
 interface ICurrentTripsProps {
 	lastStops: IDbData[];
+	onTripSelect?: (tripId: string) => void;
 }
 
-export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
+export const CurrentTrips = ({
+	lastStops,
+	onTripSelect,
+}: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing } = useOverflow();
 	const { filteredVehicles, cachedDbDataState, filteredTripUpdates } =
 		useDataContext();
@@ -139,7 +143,15 @@ export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 			</div>
 			{notPassedStops?.length > 0 && (
 				<>
-					<div className="next-departure">
+					<div
+						className="next-departure"
+						onClick={() => onTripSelect?.(nextBus.trip_id)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && onTripSelect) {
+								onTripSelect(nextBus.trip_id);
+							}
+						}}
+					>
 						<p>🕒 Nästa avgång:</p>
 						<p className="time">
 							<Icon
@@ -169,7 +181,16 @@ export const CurrentTrips = ({ lastStops }: ICurrentTripsProps) => {
 								const hasUpdate = updatedTime && updatedTime !== scheduledTime;
 
 								return (
-									<tr key={trip?.trip_id}>
+									<tr
+										key={trip?.trip_id}
+										onClick={() => onTripSelect?.(trip.trip_id)}
+										className="trip-row"
+										onKeyDown={(e) => {
+											if (e.key === "Enter" && onTripSelect) {
+												onTripSelect(trip.trip_id);
+											}
+										}}
+									>
 										<td>{trip?.stop_headsign}</td>
 										<td>
 											{hasUpdate && <span>{updatedTime}</span>}

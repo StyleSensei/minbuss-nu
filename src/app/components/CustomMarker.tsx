@@ -8,7 +8,13 @@ import {
 	useAdvancedMarkerRef,
 	Map as GoogleMap,
 } from "@vis.gl/react-google-maps";
-import { type MutableRefObject, useCallback, useEffect, useState } from "react";
+import {
+	type MutableRefObject,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "../models/IDbData";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
@@ -16,6 +22,7 @@ import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { z } from "zod";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -59,6 +66,7 @@ export default function CustomMarker({
 	);
 	const isMobile = useIsMobile();
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
+	const zoomRef = useRef<number>(8);
 
 	useGSAP(() => {
 		if (marker) {
@@ -95,11 +103,8 @@ export default function CustomMarker({
 		if (stopsOnTrip.length === 0) return null;
 
 		const closestStop = getClosest(stopsOnTrip, busLat, busLon) as IDbData;
-		console.log("closest stop", closestStop);
-		console.log("currentbus", currentBus);
 
 		const isMovingAway = checkIfFurtherFromStop(currentBus, closestStop, true);
-		console.log("isMovingAway", isMovingAway);
 
 		const nextStop = stopsOnTrip.find(
 			(stop) => stop.stop_sequence > closestStop.stop_sequence,
@@ -205,11 +210,32 @@ export default function CustomMarker({
 	useEffect(() => {
 		if (!currentBus || !infoWindowActive) return;
 		const closestOrNextStop = findClosestOrNextStop();
-		console.log("closestOrNextStop", closestOrNextStop);
 		if (closestOrNextStop?.closestStop) {
 			setClosestStop(closestOrNextStop.closestStop);
 		}
 	}, [currentBus, infoWindowActive, findClosestOrNextStop]);
+
+	useEffect(() => {
+		if (filteredVehicles.length) {
+			if (googleMapRef.current) {
+				google.maps.event.addListener(
+					googleMapRef.current,
+					"zoom_changed",
+					() => {
+						zoomRef.current = googleMapRef.current?.getZoom() || 8;
+					},
+				);
+			}
+			return () => {
+				if (googleMapRef.current) {
+					google.maps.event.clearListeners(
+						googleMapRef.current,
+						"zoom_changed",
+					);
+				}
+			};
+		}
+	}, [filteredVehicles, googleMapRef]);
 
 	return (
 		<>
@@ -220,14 +246,28 @@ export default function CustomMarker({
 				className={isActive ? "custom-marker --active" : "custom-marker"}
 				title={`${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.route_short_name} ,${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.stop_headsign}`}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
+				style={
+					zoomRef?.current < 11
+						? {
+								width: zoomRef.current,
+								height: zoomRef.current,
+							}
+						: undefined
+				}
 			>
 				<div> </div> {/* prevent standard marker from rendering */}
 			</AdvancedMarker>
 			{isActive && !showCurrentTrips && isMobile && (
-				<InfoWindow closestStopState={closestStopState} />
+				<InfoWindow
+					closestStopState={closestStopState}
+					tripId={currentBus?.trip.tripId ?? undefined}
+				/>
 			)}
 			{isActive && !isMobile && (
-				<InfoWindow closestStopState={closestStopState} />
+				<InfoWindow
+					closestStopState={closestStopState}
+					tripId={currentBus?.trip.tripId ?? undefined}
+				/>
 			)}
 		</>
 	);

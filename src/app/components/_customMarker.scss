@@ -46,6 +46,7 @@ $userColor: rgb(0, 149, 255);
     width: $userSize;
     background: $userColor;
     animation: pulse .5s 3s ease-out 2;
+    cursor: default;
 }
 
 @keyframes pulse {
