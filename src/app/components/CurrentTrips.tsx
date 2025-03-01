@@ -4,7 +4,7 @@ import useUserPosition from "../hooks/useUserPosition";
 import { useDataContext } from "../context/DataContext";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { Icon } from "./Icon";
-import { arrow } from "../../../public/icons";
+import { arrow, earth } from "../../../public/icons";
 
 interface ICurrentTripsProps {
 	lastStops: IDbData[];
@@ -165,7 +165,14 @@ export const CurrentTrips = ({
 							{hasUpdate && <span>{nextBusUpdatedTime} </span>}
 							<span className={hasUpdate ? "updated-time" : "scheduled-time"}>
 								{nextBusScheduledTime}
-							</span>
+							</span>{" "}
+							<Icon
+								path={earth.pathD}
+								title="Visa på karta"
+								iconSize="1rem"
+								fill="black"
+								className="icon-earth--next-trip"
+							/>
 						</p>
 					</div>
 					{/*  */}
@@ -196,7 +203,14 @@ export const CurrentTrips = ({
 											{hasUpdate && <span>{updatedTime}</span>}
 											<span className={hasUpdate ? "updated-time" : ""}>
 												{" "}
-												{scheduledTime}
+												{scheduledTime}{" "}
+												<Icon
+													path={earth.pathD}
+													title="Visa på karta"
+													iconSize="1rem"
+													fill="white"
+													className="icon-earth"
+												/>
 											</span>
 										</td>
 									</tr>

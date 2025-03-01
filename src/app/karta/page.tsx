@@ -142,12 +142,12 @@ export default function MapPage() {
 							lat: vehicle.position.latitude,
 							lng: vehicle.position.longitude,
 						});
-						mapRef.current.setZoom(17);
 					}
 					if (isMobile) {
 						setShowCurrentTrips(false);
 					}
 				}, 50);
+				mapRef?.current?.setZoom(17);
 			}
 		},
 		[filteredVehicles, isMobile],
