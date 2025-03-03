@@ -181,6 +181,16 @@ export default function CustomMarker({
 	}, []);
 
 	useEffect(() => {
+		if (isActive && currentBus) {
+			const closestOrNextStop = findClosestOrNextStop();
+
+			if (closestOrNextStop?.closestStop) {
+				setClosestStop(closestOrNextStop.closestStop);
+			}
+		}
+	}, [isActive, currentBus, findClosestOrNextStop]);
+
+	useEffect(() => {
 		if (infoWindowActive) {
 			setInfoWindowActiveExternal(true);
 		}

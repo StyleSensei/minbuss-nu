@@ -13,10 +13,11 @@ import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "../models/IDbData";
-import { CurrentTrips } from "../components/CurrentTrips";
 import useUserPosition from "../hooks/useUserPosition";
 import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { CurrentTrips } from "../components/CurrentTrips";
+import { CurrentTripsLoader } from "../components/CurrentTripsLoader";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -28,9 +29,16 @@ export default function MapPage() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+	const [showLoadingTrips, setShowLoadingTrips] = useState(false);
 
 	const { userPosition, setUserPosition } = useUserPosition();
 	const isMobile = useIsMobile();
+
+	useEffect(() => {
+		if (showCurrentTrips || !showCurrentTrips) {
+			setShowLoadingTrips(showCurrentTrips);
+		}
+	}, [showCurrentTrips]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -53,18 +61,6 @@ export default function MapPage() {
 			main?.classList.remove("follow-bus-active");
 		};
 	}, [followBus]);
-
-	const getMaxObjectsById = useCallback((array: IDbData[]) => {
-		const map = new Map();
-
-		for (const item of array) {
-			const current = map.get(item.trip_id);
-			if (!current || item.stop_sequence > current.stop_sequence) {
-				map.set(item.trip_id, item);
-			}
-		}
-		return Array.from(map.values());
-	}, []);
 
 	const getTripsByStopId = useCallback(
 		(array: IDbData[]) => {
@@ -96,15 +92,6 @@ export default function MapPage() {
 			});
 		}
 	}, [cachedDbDataState, getTripsByStopId, userPosition, setUserPosition]);
-
-	useEffect(() => {
-		if (filteredVehicles.length === 0) {
-			setLastStops([]);
-			setShowCurrentTrips(false);
-		}
-		const lastStops = getMaxObjectsById(cachedDbDataState);
-		setLastStops(lastStops);
-	}, [cachedDbDataState, getMaxObjectsById, filteredVehicles]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
@@ -232,10 +219,11 @@ export default function MapPage() {
 							}}
 						/>
 					))}{" "}
+					{showLoadingTrips && userPosition && <CurrentTripsLoader />}
 					{filteredVehicles?.length > 0 && showCurrentTrips && userPosition && (
 						<CurrentTrips
-							lastStops={lastStops}
 							onTripSelect={handleTripSelect}
+							setShowLoadingTrips={setShowLoadingTrips}
 						/>
 					)}
 					{filteredVehicles?.length > 0 &&

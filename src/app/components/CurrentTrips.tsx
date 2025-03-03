@@ -5,23 +5,42 @@ import { useDataContext } from "../context/DataContext";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { Icon } from "./Icon";
 import { arrow, earth } from "../../../public/icons";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface ICurrentTripsProps {
-	lastStops: IDbData[];
 	onTripSelect?: (tripId: string) => void;
+	setShowLoadingTrips: (value: boolean) => void;
 }
 
 export const CurrentTrips = ({
-	lastStops,
 	onTripSelect,
+	setShowLoadingTrips,
 }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing } = useOverflow();
 	const { filteredVehicles, cachedDbDataState, filteredTripUpdates } =
 		useDataContext();
 
 	const { userPosition } = useUserPosition();
+	const [dataReady, setDataReady] = useState(false);
+	const calculationsCompleteRef = useRef(false);
+	useLayoutEffect(() => {
+		if (calculationsCompleteRef.current && !dataReady) {
+			const rafId = requestAnimationFrame(() => {
+				setDataReady(true);
+			});
+
+			return () => cancelAnimationFrame(rafId);
+		}
+	});
+
+	useEffect(() => {
+		if (dataReady) {
+			setShowLoadingTrips(false);
+		}
+	}, [dataReady, setShowLoadingTrips]);
 
 	if (!userPosition?.closestStop) return null;
+
 	const userStopSeqs = cachedDbDataState
 		.filter((stop) => stop.stop_name === userPosition?.closestStop?.stop_name)
 		.map((stop) => stop.stop_sequence);
@@ -125,6 +144,8 @@ export const CurrentTrips = ({
 	const hasUpdate =
 		nextBusUpdatedTime && nextBusUpdatedTime !== nextBusScheduledTime;
 
+	calculationsCompleteRef.current = !!notPassedStops;
+
 	return (
 		<div
 			className={`table-container ${isOverflowing ? "--overflowing" : ""}`}
@@ -133,7 +154,7 @@ export const CurrentTrips = ({
 		>
 			{" "}
 			<div className="trips-header">
-				<h2>Linje: {lastStops[0].route_short_name}</h2>
+				<h2>Linje: {cachedDbDataState[0].route_short_name}</h2>
 				{userPosition && (
 					<p className="station-name">
 						Din närmaste hållplats:{" "}

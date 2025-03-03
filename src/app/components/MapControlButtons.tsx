@@ -39,6 +39,10 @@ export const MapControlButtons = ({
 		};
 	}, [setFollowBus]);
 
+	const handleOnClick = () => {
+		setShowCurrentTrips(!showCurrentTrips);
+	};
+
 	return (
 		<div className="map-control-buttons">
 			<div className="map-control-button-container">
@@ -84,7 +88,7 @@ export const MapControlButtons = ({
 							showCurrentTrips ? colors.primaryColor : colors.secondaryColor
 						}
 						className={showCurrentTrips ? "--table --active" : "--table"}
-						onClick={() => setShowCurrentTrips(!showCurrentTrips)}
+						onClick={handleOnClick}
 					/>
 				</div>
 			)}
