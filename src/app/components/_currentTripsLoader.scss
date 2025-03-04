@@ -7,10 +7,12 @@
     overflow: auto;
     z-index: 2;
     transition: all .5s ease;
+    width: 250px;
+    justify-content: center;
 }
 
 .skeleton-text {
-    width: 250px;
+    width: 80%;
     height: .5rem;
     background-color: v.$tertiary-color;
     animation: fade infinite 2s ease;
@@ -45,7 +47,7 @@
     }
 }
 
-.next-departure {
+.next-departure .container {
     & .skeleton-text {
         background-color: v.$tertiary-color;
     }
