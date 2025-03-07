@@ -43,7 +43,7 @@ const useUserPosition = () => {
 		};
 
 		const errorHandler = (error: GeolocationPositionError) => {
-			console.error("Error getting location:", error.message);
+			console.warn("Error getting location:", error.message);
 		};
 
 		const watchId = navigator.geolocation.watchPosition(

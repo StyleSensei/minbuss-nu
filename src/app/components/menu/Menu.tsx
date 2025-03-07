@@ -12,7 +12,6 @@ export default function Menu() {
 				<div className="inner-container">
 					<MenuItem
 						title="Hem"
-						
 						href="/"
 						iconSize={iconSize}
 						className="link__home"

@@ -1,0 +1,31 @@
+@use '../variables' as v;
+
+.error-message {
+    color: v.$secondary-color;
+    transition: all .3s ease;
+    font-size: .9rem;
+    margin-top: .5rem;
+    text-align: left;
+    position: absolute;
+    bottom: -4.2rem;
+    left: 0;
+    background-color: v.$not-valid;
+    padding: .5rem 1rem;
+    width: 100%;
+    animation: drop ease .3s;
+    transform-origin: top;
+    overflow: hidden;
+}
+
+.warn-message {
+    @extend .error-message;
+    background-color: v.$accent-color;
+    color: v.$primary-color;
+    border-radius: 5px;
+    bottom: 60px;
+    bottom: 0;
+
+    .no-position-icon {
+        transform: translate(-4px, 4px);
+    }
+}

@@ -18,6 +18,7 @@ import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { CurrentTripsLoader } from "../components/CurrentTripsLoader";
+import UserMessage from "../components/UserMessage";
 
 export default function MapPage() {
 	const { filteredVehicles, cachedDbDataState } = useDataContext();
@@ -204,7 +205,6 @@ export default function MapPage() {
 							clickedOutside={clickedOutside}
 							setClickedOutside={setClickedOutside}
 							currentVehicle={vehicle}
-							lastStops={lastStops}
 							setInfoWindowActiveExternal={setInfoWindowActive}
 							infoWindowActiveExternal={infoWindowActive}
 							followBus={followBus}
@@ -226,9 +226,9 @@ export default function MapPage() {
 							setShowLoadingTrips={setShowLoadingTrips}
 						/>
 					)}
-					{filteredVehicles?.length > 0 &&
+					{/* {filteredVehicles?.length > 0 &&
 						showCurrentTrips &&
-						!userPosition && <CurrentTripsNoGeo lastStops={lastStops} />}
+						!userPosition && <CurrentTripsNoGeo lastStops={lastStops} />} */}
 					{userPosition && google.maps.LatLng && (
 						<AdvancedMarker
 							className="user-location"
@@ -245,6 +245,7 @@ export default function MapPage() {
 					)}
 				</GoogleMap>
 			</APIProvider>
+			{!userPosition && <UserMessage />}
 		</div>
 	);
 }

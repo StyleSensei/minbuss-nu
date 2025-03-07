@@ -22,7 +22,6 @@ import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { z } from "zod";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -30,7 +29,6 @@ interface ICustomMarkerProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
 	clickedOutside: boolean;
 	setClickedOutside: (value: boolean) => void;
-	lastStops: IDbData[];
 	infoWindowActiveExternal: boolean;
 	setInfoWindowActiveExternal: (value: boolean) => void;
 	followBus: boolean;
@@ -46,7 +44,6 @@ export default function CustomMarker({
 	currentVehicle,
 	clickedOutside,
 	setClickedOutside,
-	lastStops,
 	infoWindowActiveExternal,
 	setInfoWindowActiveExternal,
 	followBus,
@@ -254,13 +251,13 @@ export default function CustomMarker({
 				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 				className={isActive ? "custom-marker --active" : "custom-marker"}
-				title={`${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.route_short_name} ,${lastStops.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.stop_headsign}`}
+				title={`${cachedDbDataState.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.route_short_name} ,${cachedDbDataState.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.stop_headsign}`}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 				style={
 					zoomRef?.current < 11
 						? {
-								width: zoomRef.current,
-								height: zoomRef.current,
+								width: zoomRef.current * 1.5,
+								height: zoomRef.current * 1.5,
 							}
 						: undefined
 				}

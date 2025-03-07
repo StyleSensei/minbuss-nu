@@ -3,6 +3,7 @@ import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import colors from "../colors.module.scss";
+import useUserPosition from "../hooks/useUserPosition";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
@@ -27,6 +28,8 @@ export const MapControlButtons = ({
 	followBus,
 	activeMarker,
 }: MapControlButtonsProps) => {
+	const { userPosition } = useUserPosition();
+
 	useEffect(() => {
 		const inputContainer = document.getElementById("searchbar");
 		inputContainer?.addEventListener("focus", () => {
@@ -78,7 +81,7 @@ export const MapControlButtons = ({
 				</div>
 			</div>
 
-			{filteredVehicles.length > 0 && (
+			{filteredVehicles.length > 0 && userPosition && (
 				<div className="map-control-button-container">
 					<p className="label table-label">Tabell</p>
 					<Button
