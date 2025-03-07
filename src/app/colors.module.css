@@ -1,0 +1,9 @@
+:export {
+	primaryColor: #111111;
+	secondaryColor: whitesmoke;
+	secondaryColorHover: rgb(189, 189, 189);
+	tertiaryColor: #9ca3af;
+	accentColor: #00ffb3;
+	notValid: rgb(161, 20, 20);
+	active: #eab308;
+} /*# sourceMappingURL=colors.module.css.map */

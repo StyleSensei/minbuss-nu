@@ -1,4 +1,5 @@
 @use '../variables' as v;
+@use '../mixins' as m;
 
 .error-message {
     color: v.$secondary-color;
@@ -23,7 +24,10 @@
     color: v.$primary-color;
     border-radius: 5px;
     bottom: 60px;
-    bottom: 0;
+
+    @include m.desktop {
+        bottom: 0;
+    }
 
     .no-position-icon {
         transform: translate(-4px, 4px);
