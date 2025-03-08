@@ -119,7 +119,7 @@
   left: 5vw;
   width: 90vw;
   border-radius: 100px;
-  bottom: 5px;
+  bottom: 23px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -453,9 +453,6 @@ main {
   background-blend-mode: overlay;
   transition: border 0.3s ease;
 }
-main.follow-bus-active {
-  border: #EAB308 1px solid;
-}
 
 button {
   border: none;
@@ -477,6 +474,20 @@ button {
 
 .--hidden {
   display: none;
+}
+
+.follow-bus-active {
+  transition: border 0.8s ease;
+  width: 100vw;
+  height: 100dvh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border: #EAB308 2px solid;
+  border-top: #EAB308 3px solid;
+  border-bottom: #EAB308 3px solid;
+  z-index: 100;
+  pointer-events: none;
 }
 
 .header__container {
@@ -612,9 +623,9 @@ button {
 }
 .info-window {
   position: absolute;
-  bottom: 20vh;
+  top: 12vh;
   left: 2vw;
-  width: 250px;
+  max-width: 250px;
   max-width: 70vw;
   z-index: 2;
   max-height: 50vh;
@@ -871,7 +882,7 @@ button {
   background-color: #00ffb3;
   color: #111111;
   border-radius: 5px;
-  bottom: 60px;
+  bottom: 75px;
 }
 @media screen and (min-width: 1200px) {
   .warn-message {

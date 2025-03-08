@@ -25,7 +25,6 @@ export default function MapPage() {
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
-	const [lastStops, setLastStops] = useState<IDbData[]>([]);
 	const [showCurrentTrips, setShowCurrentTrips] = useState(false);
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
@@ -54,7 +53,7 @@ export default function MapPage() {
 	}, []);
 
 	useEffect(() => {
-		const main = document.getElementById("main");
+		const main = document.getElementById("follow-bus-border");
 		if (followBus) {
 			main?.classList.add("follow-bus-active");
 		}
@@ -246,6 +245,7 @@ export default function MapPage() {
 				</GoogleMap>
 			</APIProvider>
 			{!userPosition && <UserMessage />}
+			<div id="follow-bus-border" />
 		</div>
 	);
 }

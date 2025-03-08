@@ -4,9 +4,9 @@
 
 .info-window {
     position: absolute;
-    bottom: 20vh;
+    top: 12vh;
     left: 2vw;
-    width: 250px;
+    max-width: 250px;
     max-width: 70vw;
     z-index: 2;
     max-height: 50vh;

@@ -22,6 +22,7 @@ import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useSetZoom } from "../hooks/useSetZoom";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -63,6 +64,7 @@ export default function CustomMarker({
 	);
 	const isMobile = useIsMobile();
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
+	const setZoom = useSetZoom();
 	const zoomRef = useRef<number>(8);
 
 	useGSAP(() => {
@@ -172,10 +174,6 @@ export default function CustomMarker({
 		},
 		[marker],
 	);
-
-	const setZoom = useCallback((GoogleMap: google.maps.Map) => {
-		GoogleMap.setZoom(17);
-	}, []);
 
 	useEffect(() => {
 		if (isActive && currentBus) {
