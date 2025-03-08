@@ -157,7 +157,7 @@ export default function MapPage() {
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
-					style={{ width: "100vw", height: "100vh", zIndex: "unset" }}
+					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
 					defaultZoom={10}
 					defaultCenter={{ lat: 59.33258, lng: 18.0649 }}
 					gestureHandling={"greedy"}

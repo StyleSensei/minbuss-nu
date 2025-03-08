@@ -44,7 +44,7 @@ dd {
 html,
 body {
   max-width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   overflow-x: hidden;
 }
 
@@ -127,14 +127,14 @@ textarea:not([rows]) {
 
 main {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   position: relative;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: linear-gradient(to right, rgba(0, 0, 0, .8) 0%, rgba(0, 0, 0, .1) 100%);
   background-blend-mode: overlay;
   transition: border .3s ease;
