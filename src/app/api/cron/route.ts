@@ -17,15 +17,15 @@ export async function GET(request: NextRequest) {
 		console.timeEnd("extractZip");
 
 		try {
-			await saveToDatabase(trips, "trips");
-		} catch (error) {
-			console.error("Error saving trips to database:", error);
-		}
-
-		try {
 			await saveToDatabase(routes, "routes");
 		} catch (error) {
 			console.error("Error saving routes to database:", error);
+		}
+
+		try {
+			await saveToDatabase(trips, "trips");
+		} catch (error) {
+			console.error("Error saving trips to database:", error);
 		}
 
 		try {

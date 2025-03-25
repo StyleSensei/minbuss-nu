@@ -223,22 +223,23 @@ export default function CustomMarker({
 	useEffect(() => {
 		if (filteredVehicles.length) {
 			if (googleMapRef.current) {
-				google.maps.event.addListener(
+				const listener = google.maps.event.addListener(
 					googleMapRef.current,
 					"zoom_changed",
 					() => {
-						zoomRef.current = googleMapRef.current?.getZoom() || 8;
+						const newZoom = googleMapRef.current?.getZoom() || 8;
+						if (newZoom !== zoomRef.current) {
+							zoomRef.current = newZoom;
+						}
 					},
 				);
+
+				return () => {
+					if (listener) {
+						google.maps.event.removeListener(listener);
+					}
+				};
 			}
-			return () => {
-				if (googleMapRef.current) {
-					google.maps.event.clearListeners(
-						googleMapRef.current,
-						"zoom_changed",
-					);
-				}
-			};
 		}
 	}, [filteredVehicles, googleMapRef]);
 

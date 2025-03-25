@@ -22,7 +22,7 @@ const db = drizzle({ client: queryClient });
 
 const calculateBatchSize = (columns: number) => {
 	const maxParameters = 65534;
-	return Math.floor(maxParameters / columns);
+	return Math.floor((maxParameters / columns) * 0.8); // 80% of maxParameters for extra margin
 };
 
 const checkTripIdsExist = async (tripIds: string[]) => {

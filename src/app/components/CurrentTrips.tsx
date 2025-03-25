@@ -124,6 +124,13 @@ export const CurrentTrips = ({
 			return a.arrival_time.localeCompare(b.arrival_time);
 		});
 
+	const notPassedStopsMap = new Map<string, IDbData>();
+	for (const stop of notPassedStops) {
+		notPassedStopsMap.set(stop.trip_id, stop);
+	}
+
+	const filteredStops = Array.from(notPassedStopsMap.values());
+
 	function getUpdatedArrivalTime(tripId: string) {
 		if (!filteredTripUpdates.length || !notPassedStops?.length) return;
 		const updatedTrip = filteredTripUpdates.find(
@@ -138,14 +145,13 @@ export const CurrentTrips = ({
 		return arrivalTime.slice(0, 5);
 	}
 
-	const [nextBus, ...rest] = notPassedStops;
+	const [nextBus, ...rest] = filteredStops;
 	const nextBusUpdatedTime = getUpdatedArrivalTime(nextBus?.trip_id);
 	const nextBusScheduledTime = nextBus?.arrival_time?.slice(0, 5);
 	const hasUpdate =
 		nextBusUpdatedTime && nextBusUpdatedTime !== nextBusScheduledTime;
 
 	calculationsCompleteRef.current = !!notPassedStops;
-
 	return (
 		<div
 			className={`table-container ${isOverflowing ? "--overflowing" : ""}`}
@@ -162,7 +168,7 @@ export const CurrentTrips = ({
 					</p>
 				)}
 			</div>
-			{notPassedStops?.length > 0 && (
+			{filteredStops?.length > 0 && (
 				<>
 					<div
 						className="next-departure"
@@ -190,7 +196,7 @@ export const CurrentTrips = ({
 							<Icon
 								path={earth.pathD}
 								title="Visa på karta"
-								iconSize="1rem"
+								iconSize="16px"
 								fill="black"
 								className="icon-earth--next-trip"
 							/>
@@ -203,14 +209,15 @@ export const CurrentTrips = ({
 						</caption>
 
 						<tbody>
-							{rest.map((trip) => {
+							{rest.map((trip, i) => {
 								const updatedTime = getUpdatedArrivalTime(trip?.trip_id);
 								const scheduledTime = trip?.arrival_time?.slice(0, 5);
 								const hasUpdate = updatedTime && updatedTime !== scheduledTime;
 
 								return (
 									<tr
-										key={trip?.trip_id}
+										// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+										key={trip?.trip_id + i}
 										onClick={() => onTripSelect?.(trip.trip_id)}
 										className="trip-row"
 										onKeyDown={(e) => {
@@ -219,7 +226,7 @@ export const CurrentTrips = ({
 											}
 										}}
 									>
-										<td>{trip?.stop_headsign}</td>
+										<td key={trip.trip_id}>{trip?.stop_headsign}</td>
 										<td>
 											{hasUpdate && <span>{updatedTime}</span>}
 											<span className={hasUpdate ? "updated-time" : ""}>
@@ -228,7 +235,7 @@ export const CurrentTrips = ({
 												<Icon
 													path={earth.pathD}
 													title="Visa på karta"
-													iconSize="1rem"
+													iconSize="16px"
 													fill="white"
 													className="icon-earth"
 												/>
