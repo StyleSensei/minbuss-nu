@@ -1,0 +1,43 @@
+@use 'textblock' as tb;
+@use '../variables' as v;
+@use '../mixins' as m;
+
+.presentation {
+    background-color: v.$active;
+    border-radius: v.$border-radius-standard;
+    width: 80vw;
+    margin: 10vw auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1rem 0;
+
+    @include m.tablet {
+        padding: 3rem 0;
+    }
+
+    &__text {
+        padding-top: unset;
+        color: v.$primary-color;
+    }
+}
+
+.contact-links {
+    padding-top: unset;
+    @extend .text-block;
+    color: v.$primary-color;
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+
+    p {
+        text-decoration: underline;
+        padding: unset;
+
+        &:hover {
+            color: v.$not-valid;
+        }
+
+    }
+
+}

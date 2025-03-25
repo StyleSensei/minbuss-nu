@@ -1,75 +1,70 @@
-import { bus } from "../../../public/icons";
-import { LinkButton } from "../components/LinkButton";
+import React from "react";
 import TextBlock from "../components/Textblock";
 import Image from "next/image";
+import { Contact } from "../components/Contact";
 
 export default async function InfoPage() {
-	const description = {
-		part1: `Den här tjänsten är skapad för att göra bussresandet med SL, Storstockholms Lokaltrafik, lite smidigare och mer förutsägbart./ 
+	const descriptions = [
+		{
+			text: `Den här tjänsten är skapad för att göra bussresandet med SL, Storstockholms Lokaltrafik, lite smidigare och mer förutsägbart./ 
 		Den är särskilt användbar när du står vid en hållplats och väntar på din buss, kanske under rusningstid eller i områden där bussarna inte går lika frekvent./
 		Tjänsten är tänkt att ge dig en mer avslappnad och effektiv vardag som resenär – oavsett om du pendlar dagligen eller bara reser då och då./`,
+			image: {},
+		},
 
-		part2: `
+		{
+			text: `
 	Det är enkelt att använda tjänsten. Du söker bara på vilken busslinje du vill resa med och ser sedan var bussarna från den linjen befinner sig just nu. Bussarna representeras av gröna markörer på kartan.`,
-		part3: `
-	Klicka på valfri buss för att se detaljer som slutstation, nästa stopp, samt schemalagd ankomst till det stoppet./ `,
-		part4: `
-	Du kan även klicka på "tabell" för att se en tabell över alla bussar på linjen och när de beräknas anlända till sin slutdestination./`,
-		part5: `
-	Om du vill låsa positionen till din markerade buss, klicka på "följ buss"./
-	`,
-	};
+			image: { src: "/markers.png", alt: "visar bussmarkörer" },
+		},
+		{
+			text: ` 
+	Klicka på valfri buss för att se detaljer som slutstation, nästa stopp, samt schemalagd ankomst till det stoppet. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemlagda tiden blir då överstruken./ `,
+			image: { src: "/details.png", alt: "visar bussdetaljer" },
+		},
+		{
+			text: `
+Om du vill låsa positionen till din markerade buss, klicka på "Följ buss"./
+`,
+			image: { src: "/follow.png", alt: "visar funktionen följ buss" },
+		},
+		{
+			text: `
+	Du kan också klicka på “Tabell” för att visa en översikt över alla pågående resor för den valda linjen som ännu inte har passerat din närmaste busshållplats. Här ser du även den beräknade ankomsttiden för varje buss./`,
+			image: { src: "/table.png", alt: "visar pågående resor" },
+		},
+	];
 
 	return (
 		<>
 			<div className="wrapper__info">
-				<TextBlock
-					title="Om oss"
-					description={description.part1}
-					className="info"
-				/>
+				{descriptions.map((description, index) => {
+					return (
+						<React.Fragment key={`description-${index}`}>
+							<TextBlock description={description.text} className="info" />
 
-				<TextBlock description={description.part2} className="info" />
-				<div className="info__image">
-					<Image
-						src="/markers.png"
-						alt="visar bussmarkörer"
-						fill
-						objectFit="contain"
-						objectPosition="left"
+							{description.image.src && (
+								<div className="info__image">
+									<Image
+										src={description.image.src}
+										alt={description.image.alt}
+										fill
+										objectFit="contain"
+										objectPosition="left"
+									/>
+								</div>
+							)}
+						</React.Fragment>
+					);
+				})}
+				<section className="presentation">
+					<TextBlock
+						className="presentation__text"
+						description={`Jag heter Patrik Arell och detta är mitt examensprojekt för utbildningen Frontend Developer på Medieinstitutet i Stockholm. /
+						`}
 					/>
-				</div>
-
-				<TextBlock description={description.part3} className="info" />
-				<div className="info__image">
-					<Image
-						src="/details.png"
-						alt="visar bussdetaljer"
-						fill
-						objectFit="contain"
-						objectPosition="left"
-					/>
-				</div>
-				<TextBlock description={description.part4} className="info" />
-				<div className="info__image">
-					<Image
-						src="/table.png"
-						alt="visar pågående resor"
-						fill
-						objectFit="contain"
-						objectPosition="left"
-					/>
-				</div>
-				<TextBlock description={description.part5} className="info" />
-				<div className="info__image">
-					<Image
-						src="/follow.png"
-						alt="visar funktionen följ buss"
-						fill
-						objectFit="contain"
-						objectPosition="left"
-					/>
-				</div>
+					<Contact />
+				</section>
 			</div>
 		</>
 	);

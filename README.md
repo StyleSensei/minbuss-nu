@@ -228,3 +228,4 @@ Check out [Next.js deployment documentation](https://nextjs.org/docs/app/buildin
 Got questions? Reach out!
 - Email: hello@patrikarell.se
 - GitHub: [@StyleSensei](https://github.com/StyleSensei)
+- Linkedin: https://www.linkedin.com/in/patrikarell/ 

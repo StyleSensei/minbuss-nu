@@ -60,7 +60,7 @@
   }
 }
 
-.text-block {
+.text-block, .contact-links {
   position: relative;
   padding: 0 10vw;
   text-align: left;
@@ -71,35 +71,36 @@
   color: whitesmoke;
   overflow: hidden;
 }
-.text-block h1,
-.text-block p {
+.text-block h1, .contact-links h1,
+.text-block p,
+.contact-links p {
   max-width: 80vw;
 }
-.text-block h1 {
+.text-block h1, .contact-links h1 {
   font-family: "MyFontBold";
   font-size: 20vw;
   font-weight: 700;
   padding-bottom: 2rem;
 }
-.text-block p {
+.text-block p, .contact-links p {
   font-size: 1.2rem;
   padding-bottom: 2rem;
 }
 @media only screen and (min-device-width: 375px) and (max-device-width: 950px) and (-webkit-min-device-pixel-ratio: 3) and (orientation: landscape) {
-  .text-block {
+  .text-block, .contact-links {
     padding-top: 20vh;
   }
 }
 @media screen and (min-width: 1200px) {
-  .text-block {
+  .text-block, .contact-links {
     padding-top: 10vh;
     max-height: 92vh;
   }
-  .text-block h1 {
+  .text-block h1, .contact-links h1 {
     font-size: 6rem;
     font-weight: 700;
   }
-  .text-block p {
+  .text-block p, .contact-links p {
     font-size: 2rem;
     max-width: 880px;
   }
@@ -891,4 +892,39 @@ button {
 }
 .warn-message .no-position-icon {
   transform: translate(-4px, 4px);
+}
+
+.presentation {
+  background-color: #EAB308;
+  border-radius: 20px;
+  width: 80vw;
+  margin: 10vw auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1rem 0;
+}
+@media screen and (min-width: 768px) {
+  .presentation {
+    padding: 3rem 0;
+  }
+}
+.presentation__text {
+  padding-top: unset;
+  color: #111111;
+}
+
+.contact-links {
+  padding-top: unset;
+  color: #111111;
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+.contact-links p {
+  text-decoration: underline;
+  padding: unset;
+}
+.contact-links p:hover {
+  color: rgb(161, 20, 20);
 }/*# sourceMappingURL=index.css.map */
