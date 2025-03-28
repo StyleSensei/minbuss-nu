@@ -37,7 +37,8 @@ Om du vill låsa positionen till din markerade buss, klicka på "Följ buss"./
 
 	return (
 		<>
-			<div className="wrapper__info">
+			<section className="wrapper__info">
+				<h2>Om tjänsten</h2>
 				{descriptions.map((description, index) => {
 					return (
 						<React.Fragment key={`description-${index}`}>
@@ -65,7 +66,7 @@ Om du vill låsa positionen till din markerade buss, klicka på "Följ buss"./
 					/>
 					<Contact />
 				</section>
-			</div>
+			</section>
 		</>
 	);
 }

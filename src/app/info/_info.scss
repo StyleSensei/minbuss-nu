@@ -1,3 +1,5 @@
+@use '../mixins' as m;
+
 .wrapper__info {
     height: 100dvh;
     width: 100vw;
@@ -6,6 +8,23 @@
     animation: fadeInBlur 1s ease both;
     -webkit-animation: fadeInBlur 1s ease both;
     opacity: 1;
+
+    h2 {
+        font-size: 2.4rem;
+        margin: 0 10vw;
+        color: white;
+
+        @include m.desktop {
+            font-size: 3rem;
+        }
+    }
+}
+
+.info {
+
+    &__image {
+        margin-bottom: 4rem;
+    }
 }
 
 

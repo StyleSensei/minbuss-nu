@@ -2,8 +2,23 @@
 import { MenuItem } from "./MenuItem";
 import { houseDoorFill, info, search } from "../../../../public/icons";
 import { MenuBarSelection } from "./MenuBarSelection";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Menu() {
+	const router = useRouter();
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (!document.hidden) {
+				router.refresh();
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, [router]);
+
 	const iconSize = "18";
 
 	return (

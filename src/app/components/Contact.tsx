@@ -2,22 +2,22 @@ import Link from "next/link";
 
 export const Contact = () => {
 	return (
-		<div className="contact-links">
-			<p>
+		<ul className="contact-links">
+			<li>
 				<Link href={"https://www.linkedin.com/in/patrikarell/"} target="_blank">
 					Linkedin
 				</Link>
-			</p>
-			<p>
+			</li>
+			<li>
 				<Link href={"https://github.com/StyleSensei"} target="_blank">
 					Github
 				</Link>
-			</p>
-			<p>
+			</li>
+			<li>
 				<Link href={"https://www.patrikarell.se"} target="_blank">
 					Portfolio
 				</Link>
-			</p>
-		</div>
+			</li>
+		</ul>
 	);
 };
