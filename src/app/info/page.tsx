@@ -15,12 +15,18 @@ export default async function InfoPage() {
 		{
 			text: `
 	Det är enkelt att använda tjänsten. Du söker bara på vilken busslinje du vill resa med och ser sedan var bussarna från den linjen befinner sig just nu. Bussarna representeras av gröna markörer på kartan.`,
-			image: { src: "/markers.png", alt: "visar bussmarkörer" },
+			image: {
+				src: "/markers.png",
+				alt: "Karta med bussmarkörer som visar bussarnas position i realtid.",
+			},
 		},
 		{
 			text: ` 
 	Klicka på valfri buss för att se detaljer som slutstation, nästa stopp, samt schemalagd ankomst till det stoppet. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemlagda tiden blir då överstruken./ `,
-			image: { src: "/details.png", alt: "visar bussdetaljer" },
+			image: {
+				src: "/details.png",
+				alt: "informationsruta som visar bussdetaljer",
+			},
 		},
 		{
 			text: `
@@ -31,7 +37,10 @@ Om du vill låsa positionen till din markerade buss, klicka på "Följ buss"./
 		{
 			text: `
 	Du kan också klicka på “Tabell” för att visa en översikt över alla pågående resor för den valda linjen som ännu inte har passerat din närmaste busshållplats. Här ser du även den beräknade ankomsttiden för varje buss./`,
-			image: { src: "/table.png", alt: "visar pågående resor" },
+			image: {
+				src: "/table.png",
+				alt: "visar en tabell med pågående resor för vald linje samt när de kommer till din närmaste hållplats.",
+			},
 		},
 	];
 

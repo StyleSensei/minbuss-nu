@@ -11,7 +11,7 @@
 
     h2 {
         font-size: 2.4rem;
-        margin: 0 10vw;
+        margin: 1rem 10vw;
         color: white;
 
         @include m.desktop {
@@ -21,6 +21,8 @@
 }
 
 .info {
+
+    padding-top: 0;
 
     &__image {
         margin-bottom: 4rem;
