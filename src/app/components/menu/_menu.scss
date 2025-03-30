@@ -8,9 +8,10 @@ $outerPadding: 5px;
 $barHeight: 4px;
 $menuItemWidth: 8rem;
 $menuBarWidth: 2rem;
+$menuMaxWidth: 440px;
 
 
-.wrapper {
+nav.wrapper {
     position: fixed;
     left: calc(50vw - ($containerWidth-small / 2));
     width: $containerWidth-small;
@@ -27,7 +28,11 @@ $menuBarWidth: 2rem;
     @include m.desktop {
         left: calc(50vw - ($containerWidth-desktop / 2));
         width: $containerWidth-desktop;
+        left: calc(50vw - ($menuMaxWidth / 2));
+        max-width: $menuMaxWidth;
     }
+
+    @include m.desktopXXL {}
 }
 
 .outer-container {

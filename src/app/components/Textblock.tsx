@@ -1,12 +1,14 @@
 interface TextBlockProps {
 	title?: string;
 	h2?: string;
+	h3?: string;
 	description?: string;
 	className?: string;
 }
 export default function TextBlock({
 	title,
 	h2,
+	h3,
 	description,
 	className,
 }: TextBlockProps) {
@@ -14,9 +16,10 @@ export default function TextBlock({
 		?.split("/")
 		.filter((sentence) => sentence.trim());
 	return (
-		<section className={`text-block ${className || ""}`}>
+		<div className={`text-block ${className || ""}`}>
 			{title && <h1>{title}</h1>}
 			{h2 && <h2>{h2}</h2>}
+			{h3 && <h3>{h3}</h3>}
 			{sentences?.map((sentence, i) => {
 				if (sentence) {
 					return (
@@ -25,6 +28,6 @@ export default function TextBlock({
 					);
 				}
 			})}
-		</section>
+		</div>
 	);
 }

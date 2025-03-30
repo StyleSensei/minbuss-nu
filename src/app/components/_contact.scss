@@ -16,7 +16,13 @@
         padding: 3rem 0;
     }
 
+    @include m.desktopXXL {
+        width: 40vw;
+        margin: auto;
+    }
+
     &__text {
+        width: auto;
         padding-top: unset;
         color: v.$primary-color;
     }

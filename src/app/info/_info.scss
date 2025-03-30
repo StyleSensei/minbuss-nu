@@ -1,4 +1,5 @@
 @use '../mixins' as m;
+@use '../variables' as v;
 
 .wrapper__info {
     height: 100dvh;
@@ -8,26 +9,67 @@
     animation: fadeInBlur 1s ease both;
     -webkit-animation: fadeInBlur 1s ease both;
     opacity: 1;
+    overflow: scroll;
+    padding: 10vh 0 20vh;
+
+
 
     h2 {
         font-size: 2.4rem;
-        margin: 1rem 10vw;
+        margin: 3rem 10vw;
         color: white;
 
         @include m.desktop {
-            font-size: 3rem;
+            font-size: 3.4rem;
+        }
+
+        @include m.desktopXXL {
+            margin-left: v.$XXL-padding;
         }
     }
+
+    h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: white;
+
+        @include m.desktop {
+            font-size: 2.4rem;
+        }
+    }
+
 }
 
-.info {
+.text-block.info {
 
     padding-top: 0;
 
-    &__image {
-        margin-bottom: 4rem;
+    @include m.desktopXXL {
+        padding-left: v.$XXL-padding;
     }
+
 }
+
+.info__image {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding-left: 10vw;
+    margin-bottom: 10vh;
+
+
+    img {
+        position: relative !important;
+    }
+
+    margin-bottom: 4rem;
+
+    @include m.desktopXXL {
+        padding-left: v.$XXL-padding;
+    }
+
+}
+
 
 
 
