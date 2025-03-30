@@ -28,9 +28,16 @@
     }
 }
 
+.text-block.presentation__text {
+    @include m.desktopXXL {
+        padding-left: 10vw;
+    }
+}
+
 .contact-links {
     padding-top: unset;
     @extend .text-block;
+    padding-left: 10vw;
     color: v.$primary-color;
     display: flex;
     flex-direction: row;

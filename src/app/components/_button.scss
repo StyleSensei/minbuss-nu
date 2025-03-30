@@ -43,7 +43,9 @@ $buttonWidthDesktop: 20vw;
         }
 
         @include m.desktopXXL {
-            margin-left: v.$XXL-padding;
+            margin-left: calc(v.$XXL-padding - 15rem);
+
+
             width: $buttonWidthDesktop / 2;
         }
 
