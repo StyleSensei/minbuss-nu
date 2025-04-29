@@ -114,6 +114,13 @@ input::-webkit-search-cancel-button {
   display: none;
 }
 
+a,
+button {
+  &:focus-visible {
+    outline-color: v.$accent-color;
+  }
+}
+
 
 /* Make sure textareas without a rows attribute are not tiny */
 textarea:not([rows]) {

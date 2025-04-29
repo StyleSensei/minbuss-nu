@@ -53,6 +53,10 @@
             color: v.$not-valid;
         }
 
+        a:focus-visible {
+            outline-color: v.$not-valid;
+        }
+
     }
 
 }

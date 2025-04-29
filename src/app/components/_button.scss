@@ -57,6 +57,10 @@ $buttonWidthDesktop: 20vw;
             }
         }
 
+        &:focus-visible {
+            outline-color: v.$primary-color;
+        }
+
     }
 
     &.--zoom {

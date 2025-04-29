@@ -18,7 +18,7 @@ $containerWidth: 278px;
     @include m.backdropFilter;
 
     &.--active {
-        border: 3px v.$secondary-color solid;
+        border: 3px v.$accent-color solid;
         top: calc(50vh - 4rem);
         margin-top: calc(50vh - 4rem);
         transform: scale(1.2);
@@ -36,7 +36,7 @@ $containerWidth: 278px;
         pointer-events: all;
         gap: 4px;
         border-radius: 100px;
-        padding: 0.3rem 1rem;
+        padding: 0 1rem;
         background: v.$primary-color;
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
@@ -47,6 +47,7 @@ $containerWidth: 278px;
             background: v.$primary-color;
             color: v.$secondary-color;
             border: none;
+            border-radius: inherit;
             padding: 1rem;
             font-size: 1rem;
             font-weight: 700;
@@ -55,13 +56,14 @@ $containerWidth: 278px;
             transition: all .3s ease;
             max-width: 51vw;
             max-height: 18vw;
+            height: 52px;
 
             &::placeholder {
                 color: v.$tertiary-color;
             }
 
             &:focus {
-                outline-color: v.$accent-color;
+                outline: none;
             }
 
             &:not(:valid) {

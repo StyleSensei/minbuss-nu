@@ -50,7 +50,7 @@ export const MapControlButtons = ({
 		<div className="map-control-buttons">
 			<div className="map-control-button-container">
 				<div className="zoom-buttons">
-					<p className="label zoom-label">Zoom</p>
+					<p className="label zoom-label sr-only">Zoom</p>
 
 					<Button
 						className="--zoom"
