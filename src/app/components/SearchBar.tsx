@@ -20,6 +20,7 @@ import colors from "../colors.module.scss";
 import { usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import type { ITripUpdate } from "../models/ITripUpdate";
+import { Button } from "./Button";
 const RouteNotFound = lazy(() => import("./RouteNotFound"));
 const NotInTraffic = lazy(() => import("./NotInTraffic"));
 
@@ -192,6 +193,7 @@ export const SearchBar = ({
 
 	return (
 		<>
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
 			<div
 				ref={inputContainerRef}
 				className={
@@ -199,9 +201,21 @@ export const SearchBar = ({
 						? "search-bar__container --active"
 						: "search-bar__container"
 				}
+				// onClick={() => {
+				// 	inputRef.current?.focus();
+				// 	handleFocus();
+				// }}
 			>
 				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
-					<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
+					<button
+						type="button"
+						onClick={() => {
+							inputRef.current?.focus();
+							handleFocus();
+						}}
+					>
+						<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
+					</button>
 					<label htmlFor="searchbar" className="sr-only">
 						Sök busslinje
 					</label>
@@ -214,6 +228,7 @@ export const SearchBar = ({
 						pattern="[A-Z]{0,2}[0-9]{1,3}[A-Z]{0,2}"
 						placeholder="Sök busslinje..."
 						className="search-bar__input"
+						autoComplete="off"
 						onChange={(e) => {
 							setUserInput(e.target.value.toUpperCase());
 							handleOnChange(e.target.value.toUpperCase());
@@ -230,7 +245,10 @@ export const SearchBar = ({
 						<button
 							className="reset-button"
 							type="reset"
-							onClick={() => setUserInput("")}
+							onClick={() => {
+								setUserInput("");
+								handleBlur();
+							}}
 						>
 							<Icon
 								path={path2}
