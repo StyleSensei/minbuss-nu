@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface MenuItemProps {
 	title: string;
@@ -17,8 +18,14 @@ export const MenuItem = ({
 	path,
 	fill,
 }: MenuItemProps) => {
+	const pathname = usePathname();
+
 	return (
-		<Link href={href} tabIndex={0} className={`menu-item ${className}`}>
+		<Link
+			href={href}
+			tabIndex={0}
+			className={`menu-item ${className} ${pathname === href ? "active" : ""}`}
+		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < button is described by button text > */}
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

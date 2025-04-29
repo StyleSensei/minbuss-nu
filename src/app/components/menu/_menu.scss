@@ -37,7 +37,7 @@ nav.wrapper {
 
 .outer-container {
     width: 100%;
-    padding: 3px 2px 0px 2px;
+    padding: $barHeight;
     background-color: v.$primary-color;
     border-radius: 24.5px + $outerPadding;
     display: flex;
@@ -67,11 +67,15 @@ nav.wrapper {
     height: 40px;
     padding: 1.4rem auto;
     gap: 8px;
-    color: v.$secondary-color;
+    color: v.$tertiary-color;
 
     &:nth-child(2) {
         border-right: 1px solid v.$tertiary-color;
         border-left: 1px solid v.$tertiary-color;
+    }
+
+    &.active {
+        color: v.$secondary-color;
     }
 }
 
@@ -81,6 +85,9 @@ nav.wrapper {
     height: $barHeight;
     justify-content: center;
     align-items: center;
+    position: absolute;
+    bottom: 2.7px;
+    left: 0;
 
     .menu-bar__inner-container {
         transition: padding-left .5s cubic-bezier(0.375, 1.650, 0.180, 0.805);
@@ -103,6 +110,7 @@ nav.wrapper {
             width: $menuBarWidth;
             height: $barHeight;
             border-radius: 50px;
+
 
         }
     }
