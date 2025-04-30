@@ -4,6 +4,7 @@ import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import colors from "../colors.module.scss";
 import useUserPosition from "../hooks/useUserPosition";
+import { useResetClicked } from "../hooks/useResetClicked";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;

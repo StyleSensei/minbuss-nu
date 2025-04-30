@@ -24,7 +24,18 @@ nav.wrapper {
     flex-direction: column;
     background: transparent;
     z-index: 1;
-    @include m.backdropFilter;
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+        border-radius: inherit;
+        @include m.backdropFilter;
+    }
 
     @include m.desktop {
         left: calc(50vw - ($containerWidth-desktop / 2));
@@ -45,9 +56,7 @@ nav.wrapper {
     align-items: center;
     flex-direction: column;
     opacity: 80%;
-
 }
-
 
 .inner-container {
     display: flex;
@@ -69,10 +78,14 @@ nav.wrapper {
     padding: 1.4rem auto;
     gap: 8px;
     color: v.$tertiary-color;
+    will-change: transform;
 
 
     &.active {
         color: v.$secondary-color;
+    }
+
+    &.clicked {
         @include k.sizeBlink;
     }
 }

@@ -29,7 +29,7 @@ $buttonWidthDesktop: 20vw;
         background-color: color.adjust(v.$accent-color, $lightness: 30%);
     }
 
-    &:active {
+    &.clicked {
         @include k.sizeBlink;
     }
 
@@ -65,6 +65,11 @@ $buttonWidthDesktop: 20vw;
 
         &:focus-visible {
             outline-color: v.$primary-color;
+        }
+
+        &:active {
+            @include k.sizeBlink;
+
         }
 
     }

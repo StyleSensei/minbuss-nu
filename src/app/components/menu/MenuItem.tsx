@@ -1,5 +1,7 @@
+import { useResetClicked } from "@/app/hooks/useResetClicked";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface MenuItemProps {
 	title: string;
@@ -9,7 +11,6 @@ interface MenuItemProps {
 	path: string;
 	fill: string;
 	viewBox?: string;
-	pathname?: string;
 }
 
 export const MenuItem = ({
@@ -20,13 +21,17 @@ export const MenuItem = ({
 	path,
 	fill,
 	viewBox = "0 0 16 16",
-	pathname = "",
 }: MenuItemProps) => {
+	const pathname = usePathname();
+	const isActive = pathname === href;
+	const { isClicked, setIsClicked } = useResetClicked();
+
 	return (
 		<Link
 			href={href}
 			tabIndex={0}
-			className={`menu-item ${className} ${pathname === href ? "active" : ""}`}
+			className={`menu-item ${className} ${isActive ? "active" : ""} ${isClicked ? "clicked" : ""}`}
+			onClick={() => setIsClicked(true)}
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < button is described by button text > */}
 			<svg

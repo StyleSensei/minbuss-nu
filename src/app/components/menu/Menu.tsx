@@ -47,7 +47,6 @@ export default function Menu() {
 						className="link__home"
 						path={pathname === HREF.home ? houseDoorFill : houseDoor}
 						fill="currentColor"
-						pathname={pathname}
 					/>
 					<MenuItem
 						title="Sök"
@@ -56,7 +55,6 @@ export default function Menu() {
 						className="link__map"
 						path={pathname === HREF.search ? searchFill : search}
 						fill="currentColor"
-						pathname={pathname}
 					/>
 					<MenuItem
 						title="Info"
@@ -65,7 +63,6 @@ export default function Menu() {
 						className="link__info"
 						path={pathname === HREF.info ? infoCircleFill : infoCircle}
 						fill="currentColor"
-						pathname={pathname}
 					/>
 				</div>
 				<MenuBarSelection />

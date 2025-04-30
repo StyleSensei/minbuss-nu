@@ -1,3 +1,6 @@
+import { is } from "drizzle-orm";
+import { useResetClicked } from "../hooks/useResetClicked";
+
 interface ButtonProps {
 	title?: string;
 	text?: string;
@@ -23,12 +26,20 @@ export const Button = ({
 	iconSize = "18",
 	fill,
 }: ButtonProps) => {
+	const { isClicked, setIsClicked } = useResetClicked();
+	const handleOnClick = () => {
+		if (onClick) {
+			onClick();
+		}
+		setIsClicked(true);
+	};
+
 	return (
 		<button
-			className={className ? `button ${className}` : "button"}
+			className={`${className ? `button ${className}` : "button"} ${isClicked ? "clicked" : ""}`}
 			type="button"
 			id={id}
-			onClick={onClick}
+			onClick={handleOnClick}
 			tabIndex={0}
 			// area-label={title}
 		>
