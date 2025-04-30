@@ -107,6 +107,7 @@ $buttonWidthDesktop: 20vw;
     display: flex;
     flex-direction: column;
     border-radius: calc(20px + .5rem);
+    gap: 1rem;
     @include m.backdropFilter;
 
 }
