@@ -8,6 +8,8 @@ interface MenuItemProps {
 	className: string;
 	path: string;
 	fill: string;
+	viewBox?: string;
+	pathname?: string;
 }
 
 export const MenuItem = ({
@@ -17,9 +19,9 @@ export const MenuItem = ({
 	className,
 	path,
 	fill,
+	viewBox = "0 0 16 16",
+	pathname = "",
 }: MenuItemProps) => {
-	const pathname = usePathname();
-
 	return (
 		<Link
 			href={href}
@@ -32,7 +34,7 @@ export const MenuItem = ({
 				width={iconSize}
 				height={iconSize}
 				fill={fill}
-				viewBox="0 0 16 16"
+				viewBox={viewBox}
 				area-hidden="true"
 				focusable="false"
 			>

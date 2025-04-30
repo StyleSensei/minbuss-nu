@@ -1,12 +1,27 @@
 "use client";
 import { MenuItem } from "./MenuItem";
-import { houseDoorFill, info, search } from "../../../../public/icons";
+import {
+	houseDoor,
+	houseDoorFill,
+	infoCircle,
+	infoCircleFill,
+	search,
+	searchFill,
+} from "../../../../public/icons";
 import { MenuBarSelection } from "./MenuBarSelection";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Menu() {
 	const router = useRouter();
+	const pathname = usePathname();
+
+	enum HREF {
+		home = "/",
+		search = "/karta",
+		info = "/info",
+	}
+
 	useEffect(() => {
 		const handleVisibilityChange = () => {
 			if (!document.hidden) {
@@ -30,24 +45,27 @@ export default function Menu() {
 						href="/"
 						iconSize={iconSize}
 						className="link__home"
-						path={houseDoorFill}
+						path={pathname === HREF.home ? houseDoorFill : houseDoor}
 						fill="currentColor"
+						pathname={pathname}
 					/>
 					<MenuItem
 						title="Sök"
 						href="/karta"
 						iconSize={iconSize}
 						className="link__map"
-						path={search}
+						path={pathname === HREF.search ? searchFill : search}
 						fill="currentColor"
+						pathname={pathname}
 					/>
 					<MenuItem
 						title="Info"
 						href="/info"
 						iconSize={iconSize}
 						className="link__info"
-						path={info}
+						path={pathname === HREF.info ? infoCircleFill : infoCircle}
 						fill="currentColor"
+						pathname={pathname}
 					/>
 				</div>
 				<MenuBarSelection />

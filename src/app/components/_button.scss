@@ -1,5 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use '../keyframes' as k;
 @use 'sass:color';
 
 $buttonWidth: 80vw;
@@ -28,6 +29,11 @@ $buttonWidthDesktop: 20vw;
         background-color: color.adjust(v.$accent-color, $lightness: 30%);
     }
 
+    &:active {
+        @include k.sizeBlink;
+    }
+
+
     &.--cta {
         margin-bottom: v.$large-margin-bottom;
         margin-left: calc(50% - #{$buttonWidth / 2});
@@ -46,7 +52,7 @@ $buttonWidthDesktop: 20vw;
             margin-left: calc(v.$XXL-padding - 15rem);
 
 
-            width: $buttonWidthDesktop / 2;
+            width: calc($buttonWidthDesktop / 2);
         }
 
         &.--info {

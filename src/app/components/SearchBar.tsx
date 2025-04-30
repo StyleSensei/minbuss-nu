@@ -193,7 +193,6 @@ export const SearchBar = ({
 
 	return (
 		<>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
 			<div
 				ref={inputContainerRef}
 				className={
@@ -201,10 +200,6 @@ export const SearchBar = ({
 						? "search-bar__container --active"
 						: "search-bar__container"
 				}
-				// onClick={() => {
-				// 	inputRef.current?.focus();
-				// 	handleFocus();
-				// }}
 			>
 				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
 					<button

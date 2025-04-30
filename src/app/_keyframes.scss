@@ -1,0 +1,17 @@
+@keyframes sizeBlink {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(.9);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@mixin sizeBlink {
+    animation: sizeBlink 0.3s ease-in-out;
+}

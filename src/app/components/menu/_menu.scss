@@ -1,5 +1,6 @@
 @use '../../variables' as v;
 @use '../../mixins' as m;
+@use '../../keyframes' as k;
 
 $containerWidth-small: 90vw;
 $containerWidth-desktop: 25vw;
@@ -69,13 +70,10 @@ nav.wrapper {
     gap: 8px;
     color: v.$tertiary-color;
 
-    &:nth-child(2) {
-        border-right: 1px solid v.$tertiary-color;
-        border-left: 1px solid v.$tertiary-color;
-    }
 
     &.active {
         color: v.$secondary-color;
+        @include k.sizeBlink;
     }
 }
 
