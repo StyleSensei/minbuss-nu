@@ -30,6 +30,7 @@ export default function MapPage() {
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 	const [showLoadingTrips, setShowLoadingTrips] = useState(false);
+	const [mapReady, setMapReady] = useState(false);
 
 	const { userPosition, setUserPosition } = useUserPosition();
 	const isMobile = useIsMobile();
@@ -97,14 +98,14 @@ export default function MapPage() {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
 	}
 
-	const zoomIn = (GoogleMap: google.maps.Map) => {
+	const zoomIn = useCallback((GoogleMap: google.maps.Map) => {
 		// biome-ignore lint/style/noNonNullAssertion: <Returns the zoom of the map. If the zoom has not been set then the result is undefined.>
 		GoogleMap.setZoom(GoogleMap.getZoom()! + 1);
-	};
-	const zoomOut = (GoogleMap: google.maps.Map) => {
+	}, []);
+	const zoomOut = useCallback((GoogleMap: google.maps.Map) => {
 		// biome-ignore lint/style/noNonNullAssertion: <Returns the zoom of the map. If the zoom has not been set then the result is undefined.>
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
-	};
+	}, []);
 
 	const getWindowZoomLevel = useCallback(() => {
 		const zoomLevel = ((window.outerWidth - 10) / window.innerWidth) * 100;
@@ -163,6 +164,7 @@ export default function MapPage() {
 					onTilesLoaded={(e: MapEvent) => {
 						const map = e.map as google.maps.Map;
 						mapRef.current = map;
+						setMapReady(true);
 					}}
 					mapId={"SHOW_BUSES"}
 					onZoomChanged={() => setFollowBus(false)}
@@ -196,6 +198,7 @@ export default function MapPage() {
 							setFollowBus={setFollowBus}
 							followBus={activeMarkerId ? followBus : false}
 							activeMarker={activeMarkerId !== null}
+							mapReady={mapReady}
 						/>
 					</MapControl>
 					{filteredVehicles?.map((vehicle) => (

@@ -16,6 +16,7 @@ interface MapControlButtonsProps {
 	setFollowBus: (followBus: boolean) => void;
 	followBus: boolean;
 	activeMarker: boolean;
+	mapReady: boolean;
 }
 
 export const MapControlButtons = ({
@@ -28,6 +29,7 @@ export const MapControlButtons = ({
 	setFollowBus,
 	followBus,
 	activeMarker,
+	mapReady,
 }: MapControlButtonsProps) => {
 	const { userPosition } = useUserPosition();
 
@@ -61,9 +63,10 @@ export const MapControlButtons = ({
 						pathFillRule1={zoomInIcon.pathFillRuleD1}
 						pathFillRule2={zoomInIcon.pathFillRuleD2}
 						fill="whitesmoke"
-						onClick={() =>
-							googleMapRef.current ? zoomIn(googleMapRef.current) : null
-						}
+						onClick={() => {
+							if (mapReady)
+								googleMapRef.current ? zoomIn(googleMapRef.current) : null;
+						}}
 					/>
 				</div>
 				<div className="map-control-button-container">
@@ -75,9 +78,10 @@ export const MapControlButtons = ({
 						pathFillRule1={zoomOutIcon.pathFillRuleD1}
 						pathFillRule2={zoomOutIcon.pathFillRuleD2}
 						fill="whitesmoke"
-						onClick={() =>
-							googleMapRef.current ? zoomOut(googleMapRef.current) : null
-						}
+						onClick={() => {
+							if (mapReady)
+								googleMapRef.current ? zoomOut(googleMapRef.current) : null;
+						}}
 					/>
 				</div>
 			</div>

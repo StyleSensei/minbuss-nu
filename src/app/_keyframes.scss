@@ -13,6 +13,6 @@
 }
 
 @mixin sizeBlink {
-    animation: sizeBlink 0.3s ease-in-out;
+    animation: sizeBlink 0.3s ease-in-out forwards;
     will-change: transform;
 }
