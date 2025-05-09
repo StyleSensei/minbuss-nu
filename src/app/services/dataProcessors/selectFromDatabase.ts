@@ -9,6 +9,7 @@ import type { IDbData } from "@/app/models/IDbData";
 import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import { selectAllSchema } from "@/app/db/schema/selectAll";
 import { z } from "zod";
+import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -18,6 +19,7 @@ const queryClient = postgres(process.env.DATABASE_URL);
 const db = drizzle({ client: queryClient });
 
 export const selectFromDatabase = async (busLine: string) => {
+	MetricsTracker.trackDbQuery();
 	const { filteredTripIds } = await getCurrentTripIds();
 
 	try {

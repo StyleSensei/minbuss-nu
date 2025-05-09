@@ -1,8 +1,16 @@
 import { useCallback, useRef } from "react";
 
+interface ResponseWithData<T> {
+	data: T[];
+	error?: {
+		type: string;
+		message: string;
+	};
+}
+
 export const usePoll = <T>(
 	setState: (data: T[]) => void,
-	funcToPoll: (query: string) => Promise<T[]>,
+	funcToPoll: (query: string) => Promise<ResponseWithData<T>>,
 	intervalMs: number,
 ) => {
 	const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -12,7 +20,8 @@ export const usePoll = <T>(
 				clearInterval(intervalRef.current);
 			}
 			intervalRef.current = setInterval(async () => {
-				setState(await funcToPoll(query));
+				const response = await funcToPoll(query);
+				setState(response.data);
 			}, intervalMs);
 		},
 		[setState, funcToPoll, intervalMs],

@@ -16,6 +16,12 @@
     animation: drop ease .3s;
     transform-origin: top;
     overflow: hidden;
+    pointer-events: auto;
+
+    a {
+        text-decoration: underline;
+        font-weight: 700;
+    }
 }
 
 .warn-message {

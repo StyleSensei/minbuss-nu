@@ -2,11 +2,13 @@
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import { get } from "../serviceBase";
 import type { ITripUpdate } from "@/app/models/ITripUpdate";
+import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 
 export const getTripUpdates = async (): Promise<ITripUpdate[]> => {
 	try {
 		const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/TripUpdates.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
 		const response = await get<ArrayBuffer>(url, "arraybuffer");
+		MetricsTracker.trackApiCall();
 
 		const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
 			new Uint8Array(response),

@@ -20,9 +20,7 @@ import colors from "../colors.module.scss";
 import { usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import type { ITripUpdate } from "../models/ITripUpdate";
-import { Button } from "./Button";
-const RouteNotFound = lazy(() => import("./RouteNotFound"));
-const NotInTraffic = lazy(() => import("./NotInTraffic"));
+import SearchError from "./SearchError";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -48,6 +46,7 @@ export const SearchBar = ({
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
 	const overlayRef = useRef<HTMLDivElement | null>(null);
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	const {
 		setFilteredVehicles,
@@ -74,7 +73,16 @@ export const SearchBar = ({
 			const routeExists = checkIfRouteExists(query);
 			if (!routeExists) setLoading(false);
 
-			setFilteredVehicles(await getFilteredVehiclePositions(query));
+			const result = await getFilteredVehiclePositions(query);
+			setFilteredVehicles(result.data);
+
+			if (result.error) {
+				console.warn(
+					result.error.message,
+					"Läs mer: https://status.trafiklab.se/sv",
+				);
+				setErrorMessage(result.error.message);
+			}
 			setLoading(false);
 		}, 500),
 		[checkIfRouteExists],
@@ -87,11 +95,8 @@ export const SearchBar = ({
 			2000,
 		);
 
-	const { pollOnInterval: pollTripUpdates } = usePoll(
-		setFilteredTripUpdates as (data: ITripUpdate[]) => void,
-		getFilteredTripUpdates,
-		40000,
-	);
+	const { pollOnInterval: pollTripUpdates, stopPolling: stopPollingUpdates } =
+		usePoll(setFilteredTripUpdates, getFilteredTripUpdates, 40000);
 
 	const handleCachedDbData = useCallback(async () => {
 		const cachedDbData = await getCachedDbData(userInput);
@@ -138,6 +143,7 @@ export const SearchBar = ({
 
 		return () => {
 			stopPolling();
+			stopPollingUpdates();
 		};
 	}, [
 		userInput,
@@ -147,11 +153,12 @@ export const SearchBar = ({
 		routeExists,
 		findClosestRoute,
 		stopPolling,
+		stopPollingUpdates,
 		pollTripUpdates,
 	]);
 
 	useEffect(() => {
-		if (filteredVehicles.length) {
+		if (filteredVehicles?.length) {
 			handleCachedDbData();
 		}
 	}, [handleCachedDbData, filteredVehicles]);
@@ -257,12 +264,21 @@ export const SearchBar = ({
 				</Form>
 				{!routeExists && userInput && proposedRoute && !loading && (
 					<Suspense fallback={<p className="error-message">Laddar...</p>}>
-						<RouteNotFound proposedRoute={proposedRoute} />
+						<SearchError proposedRoute={proposedRoute} />
 					</Suspense>
 				)}
-				{routeExists && userInput && !filteredVehicles.length && !loading && (
+				{routeExists &&
+					userInput &&
+					!filteredVehicles?.length &&
+					!errorMessage &&
+					!loading && (
+						<Suspense fallback={<p className="error-message">Laddar...</p>}>
+							<SearchError userInput={userInput} />
+						</Suspense>
+					)}
+				{errorMessage && routeExists && userInput && !loading && (
 					<Suspense fallback={<p className="error-message">Laddar...</p>}>
-						<NotInTraffic userInput={userInput} />
+						<SearchError errorText={errorMessage} />
 					</Suspense>
 				)}{" "}
 			</div>

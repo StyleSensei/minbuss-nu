@@ -86,7 +86,7 @@ export const MapControlButtons = ({
 				</div>
 			</div>
 
-			{filteredVehicles.length > 0 && userPosition && (
+			{filteredVehicles?.length > 0 && userPosition && (
 				<div className="map-control-button-container">
 					<p className="label table-label">Tabell</p>
 					<Button
@@ -100,7 +100,7 @@ export const MapControlButtons = ({
 					/>
 				</div>
 			)}
-			{filteredVehicles.length > 0 && activeMarker && (
+			{filteredVehicles?.length > 0 && activeMarker && (
 				<div className="map-control-button-container">
 					<p className="label follow-label">Följ buss</p>
 					<Button

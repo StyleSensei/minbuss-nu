@@ -7,6 +7,6 @@ export const getAllRoutes = async () => {
 	const allRoutes = data
 		.map((route) => route.line)
 		.filter((route) => route !== null);
-	console.log("all routes has been fetched");
+
 	return allRoutes;
 };
