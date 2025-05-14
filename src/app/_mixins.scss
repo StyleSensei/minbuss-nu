@@ -47,9 +47,9 @@ $desktopXXL: 2000px;
   }
 }
 
-@mixin backdropFilter {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+@mixin backdropFilter($amount: 10) {
+  backdrop-filter: blur(#{$amount}px);
+  -webkit-backdrop-filter: blur(#{$amount}px);
 }
 
 @mixin overFlowing($length: 20) {

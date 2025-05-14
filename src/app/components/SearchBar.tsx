@@ -19,8 +19,9 @@ import { debounce } from "../utilities/debounce";
 import colors from "../colors.module.scss";
 import { usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
-import type { ITripUpdate } from "../models/ITripUpdate";
 import SearchError from "./SearchError";
+import { alphabet } from "../../../public/icons";
+import { set } from "zod";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -47,6 +48,11 @@ export const SearchBar = ({
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
 	const overlayRef = useRef<HTMLDivElement | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [isTextMode, setIsTextMode] = useState<boolean>(false);
+	const [isKeyboardLikelyOpen, setIsKeyboardLikelyOpen] = useState(false);
+	const initialHeight = useRef<number | null>(null);
+	const [isActive, setIsActive] = useState(false);
+	const [isBlurring, setIsBlurring] = useState(false);
 
 	const {
 		setFilteredVehicles,
@@ -173,40 +179,61 @@ export const SearchBar = ({
 			handleBlur();
 		}
 	};
-	useEffect(() => {
-		if (inputContainerRef.current?.classList.contains("--active")) {
-			overlayRef.current?.classList.add("--active");
-		}
-	});
+
 	useEffect(() => {
 		if (inputRef.current) {
 			inputRef.current.setAttribute("readonly", "readonly");
 			const timeout = setTimeout(() => {
 				inputRef.current?.removeAttribute("readonly");
 				inputRef.current?.focus();
-			}, 300);
+			}, 700);
 			return () => clearTimeout(timeout);
 		}
 	}, []);
 
+	const handleVisualViewPortResize = useCallback(() => {
+		if (!initialHeight.current || !window.visualViewport) return;
+		const keyboardOpen =
+			window?.innerHeight > window?.visualViewport.height + 150;
+
+		setIsKeyboardLikelyOpen(keyboardOpen);
+	}, []);
+
+	useEffect(() => {
+		if (typeof window === "undefined" || !window.visualViewport) return;
+
+		window.visualViewport.addEventListener(
+			"resize",
+			handleVisualViewPortResize,
+		);
+		return () =>
+			window?.removeEventListener("resize", handleVisualViewPortResize);
+	}, [handleVisualViewPortResize]);
+
 	const handleFocus = () => {
-		inputContainerRef.current?.classList.add("--active");
-		overlayRef.current?.classList.add("--active");
+		setIsActive(true);
+
+		const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+		if (isMobile) {
+			setIsKeyboardLikelyOpen(true);
+		}
 	};
 	const handleBlur = () => {
-		inputContainerRef.current?.classList.remove("--active");
-		overlayRef.current?.classList.remove("--active");
+		setIsBlurring(true);
+
+		setTimeout(() => {
+			setIsActive(false);
+			setIsBlurring(false);
+			setIsKeyboardLikelyOpen(false);
+		}, 100);
 	};
 
 	return (
 		<>
 			<div
 				ref={inputContainerRef}
-				className={
-					inputRef.current?.focus
-						? "search-bar__container --active"
-						: "search-bar__container"
-				}
+				className={`search-bar__container ${isActive ? "--active" : ""}`}
 			>
 				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
 					<button
@@ -224,6 +251,7 @@ export const SearchBar = ({
 					<input
 						id="searchbar"
 						name="searchbar"
+						inputMode={isTextMode ? "text" : "numeric"}
 						ref={inputRef}
 						type="search"
 						maxLength={5}
@@ -243,6 +271,28 @@ export const SearchBar = ({
 							outlineColor: routeExists ? colors.accentColor : colors.notValid,
 						}}
 					/>
+					{isKeyboardLikelyOpen && (
+						<button
+							type="button"
+							className={
+								isTextMode ? "button text-mode --active" : "button text-mode"
+							}
+							onMouseDown={(e) => {
+								e.preventDefault();
+							}}
+							onClick={() => {
+								setIsTextMode(!isTextMode);
+								inputRef.current?.focus();
+							}}
+						>
+							<Icon
+								path={alphabet}
+								fill={fill}
+								iconSize={iconSize}
+								title="Ändra till textläge"
+							/>
+						</button>
+					)}
 					{userInput && title2 && path2 && (
 						<button
 							className="reset-button"
@@ -282,7 +332,10 @@ export const SearchBar = ({
 					</Suspense>
 				)}{" "}
 			</div>
-			<div ref={overlayRef} className="overlay">
+			<div
+				ref={overlayRef}
+				className={`overlay ${isActive || isBlurring ? "--active" : ""}`}
+			>
 				{" "}
 			</div>
 		</>

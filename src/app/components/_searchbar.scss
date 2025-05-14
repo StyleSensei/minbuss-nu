@@ -81,6 +81,22 @@ $containerWidth: 278px;
             padding: .2rem;
         }
 
+        .text-mode {
+            background-color: unset;
+            width: auto;
+            gap: unset;
+
+            &.--active {
+                background-color: v.$accent-color;
+                border-color: v.$accent-color;
+
+                svg {
+                    fill: v.$primary-color
+                }
+            }
+
+        }
+
         button[type="submit"] {
             display: none;
         }
@@ -103,32 +119,19 @@ $containerWidth: 278px;
 
 .overlay {
     position: absolute;
-    top: -10px;
+    top: -1vh;
     left: 0;
-
     width: 100vw;
-    height: 100dvh;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 0;
-    display: none;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
     pointer-events: none;
-    transition: all .5s ease;
+    transition: opacity .7s ease;
+    opacity: 0;
+    @include m.backdropFilter(2);
+
 
     &.--active {
-        animation: fade 1s ease both;
-        display: block;
-    }
-}
 
-@keyframes fade {
-    from {
-        display: none;
-        opacity: 0;
-    }
-
-    to {
-        display: block;
         opacity: 1;
     }
-
 }
