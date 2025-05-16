@@ -141,6 +141,10 @@ Tech stack
 - Vercel Postgres: Serverless PostgreSQL database for scalability and easy integration
 - Drizzle ORM: For type-safe SQL queries.
 
+<h4>Cache</h4>
+
+- Upstash Redis – Used to avoid unnecessary API calls and improve performance. We cache both real-time data from Trafiklab and static data from the database. 
+
 
 <h4>ProtoBuf parser</h4>
 
@@ -203,6 +207,7 @@ understanding how to decode and use real-time transit data.
 - [Biome](https://biomejs.dev/guides/getting-started/)
 - [Zod](https://zod.dev/)
 - [Axios](https://axios-http.com/docs/intro)
+- [Upstash Redis](https://upstash.com/docs/redis/overall/getstarted)
 - [unzipper](https://www.npmjs.com/package/unzipper)
 - [csv-parser](https://www.npmjs.com/package/csv-parser)
 
