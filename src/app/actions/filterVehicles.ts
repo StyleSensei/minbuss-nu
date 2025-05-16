@@ -37,7 +37,6 @@ export const getFilteredVehiclePositions = async (busline?: string) => {
 				.map((vehicle) => vehicle.trip.tripId),
 		);
 
-		console.log(`Aktiva resor just nu: ${activeTrips.size}`);
 		if (activeTrips.size === 0) {
 			return { data: [] };
 		}

@@ -19,7 +19,7 @@ export default function Menu() {
 	enum HREF {
 		home = "/",
 		search = "/karta",
-		info = "/info",
+		about = "/om",
 	}
 
 	useEffect(() => {
@@ -57,11 +57,11 @@ export default function Menu() {
 						fill="currentColor"
 					/>
 					<MenuItem
-						title="Info"
-						href="/info"
+						title="Om"
+						href="/om"
 						iconSize={iconSize}
 						className="link__info"
-						path={pathname === HREF.info ? infoCircleFill : infoCircle}
+						path={pathname === HREF.about ? infoCircleFill : infoCircle}
 						fill="currentColor"
 					/>
 				</div>

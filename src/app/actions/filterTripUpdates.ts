@@ -12,7 +12,6 @@ export const getFilteredTripUpdates = async (busline?: string) => {
 	filteredData = cachedTripUpdates?.filter((vehicle) =>
 		cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
 	);
-	console.log(filteredData.length);
 
 	return { data: filteredData };
 };

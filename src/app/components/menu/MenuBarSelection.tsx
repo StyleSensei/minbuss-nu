@@ -12,7 +12,7 @@ export const MenuBarSelection = () => {
 				return "home";
 			case "/karta":
 				return "map";
-			case "/info":
+			case "/om":
 				return "info";
 			default:
 				return "home";
