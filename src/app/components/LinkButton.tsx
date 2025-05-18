@@ -31,6 +31,7 @@ export const LinkButton = ({
 			className={className ? `button ${className}` : "button"}
 			id={id}
 			href={href}
+			prefetch
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < the button is described with button text > */}
 			<svg

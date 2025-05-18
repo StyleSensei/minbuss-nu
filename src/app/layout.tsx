@@ -24,9 +24,9 @@ const myFontBold = localFont({
 export const fonts = { myFont, myFontBold };
 
 export const metadata: Metadata = {
-	title: "Var är bussen?",
+	title: "Min buss",
 	description: "Sök efter bussar i realtid",
-	icons: "/icons/bus.png",
+	icons: "/favicon-96x96.png",
 };
 
 export default async function RootLayout({
@@ -45,6 +45,23 @@ export default async function RootLayout({
 
 	return (
 		<html lang="sv">
+			<head>
+				<link
+					rel="icon"
+					type="image/png"
+					href="/favicon-96x96.png"
+					sizes="96x96"
+				/>
+				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+				<link rel="shortcut icon" href="/favicon.ico" />
+				<link
+					rel="apple-touch-icon"
+					sizes="180x180"
+					href="/apple-touch-icon.png"
+				/>
+				<meta name="apple-mobile-web-app-title" content="Min buss" />
+				<link rel="manifest" href="/site.webmanifest" />
+			</head>
 			<body className={`${fonts.myFont.variable} ${fonts.myFontBold.variable}`}>
 				<DataProvider>
 					<Header />

@@ -1,7 +1,6 @@
 "use client";
 import {
 	type KeyboardEvent,
-	lazy,
 	Suspense,
 	useCallback,
 	useEffect,
@@ -21,7 +20,6 @@ import { usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
-import { set } from "zod";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -59,7 +57,6 @@ export const SearchBar = ({
 		filteredVehicles,
 		setCachedDbDataState,
 		setFilteredTripUpdates,
-		filteredTripUpdates,
 	} = useDataContext();
 
 	const checkIfRouteExists = useCallback(
@@ -179,17 +176,6 @@ export const SearchBar = ({
 			handleBlur();
 		}
 	};
-
-	useEffect(() => {
-		if (inputRef.current) {
-			inputRef.current.setAttribute("readonly", "readonly");
-			const timeout = setTimeout(() => {
-				inputRef.current?.removeAttribute("readonly");
-				inputRef.current?.focus();
-			}, 700);
-			return () => clearTimeout(timeout);
-		}
-	}, []);
 
 	const handleVisualViewPortResize = useCallback(() => {
 		if (!initialHeight.current || !window.visualViewport) return;

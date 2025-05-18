@@ -31,6 +31,7 @@ export const MenuItem = ({
 			tabIndex={0}
 			className={`menu-item ${className} ${isActive ? "active" : ""} ${isClicked ? "clicked" : ""}`}
 			onClick={() => setIsClicked(true)}
+			prefetch
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: < button is described by button text > */}
 			<svg
