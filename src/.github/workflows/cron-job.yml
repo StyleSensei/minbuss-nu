@@ -1,0 +1,45 @@
+name: Run GTFS Update Cron Job
+
+on:
+  schedule:
+    - cron: '0 3 1 * *' # En gång i månaden kl 03:00 UTC den första dagen i månaden
+  workflow_dispatch:     # Gör det möjligt att köra manuellt från GitHub
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call Next.js API route
+        run: |
+          curl -X POST "$CRON_ENDPOINT" \
+            -H "Authorization: Bearer $CRON_SECRET"
+        env:
+          CRON_ENDPOINT: https://minbuss.nu/api/cron/populateDb
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          
+      - name: Ping Discord if job failed
+        if: failure()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{
+                "username": "Cron Monitor 🤖",
+                "avatar_url": "https://i.imgur.com/4M34hi2.png",
+                "content": "❌ **GTFS Cron Job Failed**\nCheck the logs here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }' \
+              $DISCORD_WEBHOOK_URL
+          env:
+            DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+            - name: Ping Discord if job completed
+            if: success()
+            run: |
+              curl -X POST -H "Content-Type: application/json" \
+                -d '{
+                  "username": "Cron Monitor 🤖",
+                  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+                  "content": "🎉 **GTFS Cron Job completed**\nCheck the logs here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }' \
+                $DISCORD_WEBHOOK_URL
+            env:
+              DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

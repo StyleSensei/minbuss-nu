@@ -10,15 +10,41 @@ import { DataProvider } from "./context/DataContext";
 import { Analytics } from "@vercel/analytics/react";
 
 const myFont = localFont({
-	src: "/fonts/myfont.woff2",
+	src: [
+		{
+			path: "/fonts/myfont.woff2",
+			weight: "400",
+			style: "normal",
+		},
+		{
+			path: "/fonts/myfont.woff",
+			weight: "400",
+			style: "normal",
+		},
+	],
 	preload: true,
 	variable: "--myfont",
+	display: "swap",
+	fallback: ["Arial", "sans-serif"],
 });
 
 const myFontBold = localFont({
-	src: "/fonts/myfont-bold.woff2",
+	src: [
+		{
+			path: "/fonts/myfont-bold.woff2",
+			weight: "700",
+			style: "normal",
+		},
+		{
+			path: "/fonts/myfont-bold.woff",
+			weight: "700",
+			style: "normal",
+		},
+	],
 	preload: true,
 	variable: "--myfont--bold",
+	display: "swap",
+	fallback: ["Arial", "sans-serif"],
 });
 
 export const fonts = { myFont, myFontBold };

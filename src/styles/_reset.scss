@@ -3,7 +3,6 @@
 :root {
   --myfont: 'MyFont';
   --myfont--bold: 'MyFontBold';
-
 }
 
 /* Box sizing rules */
@@ -19,7 +18,6 @@
 html {
   -moz-text-size-adjust: none;
   -webkit-text-size-adjust: none;
-  -webkit-font-smoothing: antialiased;
   text-size-adjust: none;
   height: 100%;
   width: 100%;
@@ -39,6 +37,24 @@ blockquote,
 dl,
 dd {
   margin: 0;
+}
+
+/* Safari text rendering fixes */
+h1,
+h2 {
+  transform: scale(0.9999);
+  text-shadow: 0 0 1px transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+
+  h1,
+  h2 {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
 }
 
 html,
