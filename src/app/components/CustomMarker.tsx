@@ -129,7 +129,7 @@ export default function CustomMarker({
 		const markerLat = +marker.position.lat;
 		const markerLng = +marker.position.lng;
 		const closestBus = getClosest(
-			filteredVehicles,
+			filteredVehicles.data,
 			markerLat,
 			markerLng,
 		) as IVehiclePosition;
@@ -204,7 +204,7 @@ export default function CustomMarker({
 	}, [clickedOutside, setFollowBus, onActivateMarker]);
 
 	useEffect(() => {
-		if (filteredVehicles.length === 0 || !infoWindowActive) return;
+		if (filteredVehicles.data.length === 0 || !infoWindowActive) return;
 		const updatedBus = findCurrentBus();
 		if (updatedBus && updatedBus.vehicle.id === currentBus?.vehicle.id) {
 			setCurrentBus(updatedBus);
@@ -221,7 +221,7 @@ export default function CustomMarker({
 	}, [currentBus, infoWindowActive, findClosestOrNextStop]);
 
 	useEffect(() => {
-		if (filteredVehicles.length) {
+		if (filteredVehicles.data.length) {
 			if (googleMapRef.current) {
 				const listener = google.maps.event.addListener(
 					googleMapRef.current,
@@ -243,6 +243,14 @@ export default function CustomMarker({
 		}
 	}, [filteredVehicles, googleMapRef]);
 
+	const matchingStop = cachedDbDataState.find(
+		(stop) => stop.trip_id === currentVehicle?.trip?.tripId,
+	);
+
+	const markerTitle = matchingStop
+		? `${matchingStop.route_short_name || "Okänd linje"},${matchingStop.stop_headsign || "Okänd destination"}`
+		: "Fordon";
+
 	return (
 		<>
 			<AdvancedMarker
@@ -250,7 +258,7 @@ export default function CustomMarker({
 				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 				className={isActive ? "custom-marker --active" : "custom-marker"}
-				title={`${cachedDbDataState.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.route_short_name} ,${cachedDbDataState.find((stop) => stop?.trip_id === currentVehicle?.trip?.tripId)?.stop_headsign}`}
+				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 				style={
 					zoomRef?.current < 11

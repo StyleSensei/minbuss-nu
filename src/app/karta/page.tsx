@@ -115,7 +115,9 @@ export default function MapPage() {
 
 	const handleTripSelect = useCallback(
 		(tripId: string) => {
-			const vehicle = filteredVehicles.find((v) => v.trip.tripId === tripId);
+			const vehicle = filteredVehicles.data.find(
+				(v) => v.trip.tripId === tripId,
+			);
 			if (vehicle) {
 				setInfoWindowActive(false);
 				setActiveMarkerId(null);
@@ -201,7 +203,7 @@ export default function MapPage() {
 							mapReady={mapReady}
 						/>
 					</MapControl>
-					{filteredVehicles?.map((vehicle) => (
+					{filteredVehicles?.data.map((vehicle) => (
 						<CustomMarker
 							googleMapRef={mapRef}
 							clickedOutside={clickedOutside}
@@ -222,15 +224,14 @@ export default function MapPage() {
 						/>
 					))}{" "}
 					{showLoadingTrips && userPosition && <CurrentTripsLoader />}
-					{filteredVehicles?.length > 0 && showCurrentTrips && userPosition && (
-						<CurrentTrips
-							onTripSelect={handleTripSelect}
-							setShowLoadingTrips={setShowLoadingTrips}
-						/>
-					)}
-					{/* {filteredVehicles?.length > 0 &&
+					{filteredVehicles?.data.length > 0 &&
 						showCurrentTrips &&
-						!userPosition && <CurrentTripsNoGeo lastStops={lastStops} />} */}
+						userPosition && (
+							<CurrentTrips
+								onTripSelect={handleTripSelect}
+								setShowLoadingTrips={setShowLoadingTrips}
+							/>
+						)}
 					{userPosition && google.maps.LatLng && (
 						<AdvancedMarker
 							className="user-location"

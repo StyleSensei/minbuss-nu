@@ -7,27 +7,61 @@ import { redis } from "../utilities/redis";
 import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import type { IDbData } from "../models/IDbData";
 
-export interface VehicleFilterResult {
+// Define an interface for timestamp age info
+interface ITimestampAge {
+	seconds: number;
+	minutes: number;
+	hours?: number;
+}
+
+// Define specific error types with their unique properties
+interface IBaseError {
+	message: string;
+}
+
+interface IDataTooOldError extends IBaseError {
+	type: "DATA_TOO_OLD";
+	timestampAge: ITimestampAge;
+	isStale?: boolean;
+	message: string;
+}
+
+interface IApiError extends IBaseError {
+	type: "API_ERROR";
+}
+
+interface IParsingError extends IBaseError {
+	type: "PARSING_ERROR";
+}
+
+interface IOtherError extends IBaseError {
+	type: "OTHER";
+}
+
+// Use a union type for all possible errors
+export type VehicleError =
+	| IDataTooOldError
+	| IApiError
+	| IParsingError
+	| IOtherError;
+
+export interface IVehicleFilterResult {
 	data: IVehiclePosition[];
-	error?: {
-		type: "DATA_TOO_OLD" | "API_ERROR" | "PARSING_ERROR" | "OTHER";
-		message: string;
-	};
+	error?: VehicleError;
 }
 
 const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-";
 const FILTERED_VEHICLES_TTL = 2; // 2 sekunder
 
-export const getFilteredVehiclePositions = async (busline?: string) => {
+export const getFilteredVehiclePositions = async (
+	busline?: string,
+): Promise<IVehicleFilterResult> => {
 	if (!busline) return { data: [] };
 
 	const cacheKey = `${FILTERED_VEHICLES_PREFIX}${busline}`;
 
 	try {
 		const cachedVehiclePositions = await getCachedVehiclePositions();
-		if (cachedVehiclePositions.error) {
-			return cachedVehiclePositions;
-		}
 
 		let filteredData: IVehiclePosition[] = [];
 
@@ -52,7 +86,7 @@ export const getFilteredVehiclePositions = async (busline?: string) => {
 					cachedFiltered.data.length > 0 &&
 					Math.abs(cachedFiltered.data.length - activeTrips.size) <= 1
 				) {
-					return cachedFiltered as VehicleFilterResult;
+					return cachedFiltered as IVehicleFilterResult;
 				}
 			}
 			if (Array.isArray(cachedFiltered)) {
@@ -66,7 +100,35 @@ export const getFilteredVehiclePositions = async (busline?: string) => {
 			cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
 		);
 		await redis.set(cacheKey, filteredData, { ex: FILTERED_VEHICLES_TTL });
-		const result: VehicleFilterResult = { data: filteredData };
+
+		let vehicleError: VehicleError | undefined;
+		if (cachedVehiclePositions.error) {
+			const sourceError = cachedVehiclePositions.error;
+
+			if (sourceError.type === "DATA_TOO_OLD" && sourceError.timestampAge) {
+				vehicleError = {
+					type: "DATA_TOO_OLD",
+					message: sourceError.message,
+					timestampAge: sourceError.timestampAge,
+					isStale: sourceError.isStale,
+				};
+			} else if (sourceError.type === "API_ERROR") {
+				vehicleError = {
+					type: "API_ERROR",
+					message: sourceError.message,
+				};
+			} else {
+				vehicleError = {
+					type: "OTHER",
+					message: sourceError.message,
+				};
+			}
+		}
+
+		const result: IVehicleFilterResult = {
+			data: filteredData,
+			error: vehicleError,
+		};
 
 		return result;
 	} catch (error) {

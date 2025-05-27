@@ -1,10 +1,8 @@
 @use '../variables' as v;
 @use '../mixins' as m;
 
-
-
 .wrapper__start {
-    padding: 10vh 0 20vh;
+    padding: 10vh 0 0;
 
     @include m.desktop {
         padding: unset;
@@ -33,6 +31,7 @@
         font-size: 20vw;
         font-weight: 700;
         padding-bottom: 2rem;
+        line-height: 1;
     }
 
     p,
@@ -68,6 +67,8 @@
 }
 
 .start {
+    z-index: 1;
+
     p {
         display: none;
     }

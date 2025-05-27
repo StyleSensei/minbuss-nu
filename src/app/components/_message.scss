@@ -8,7 +8,7 @@
     margin-top: .5rem;
     text-align: left;
     position: absolute;
-    bottom: -4.2rem;
+    top: v.$input-height;
     left: 0;
     background-color: v.$not-valid;
     padding: .5rem 1rem;
@@ -30,6 +30,7 @@
     color: v.$primary-color;
     border-radius: 5px;
     bottom: 75px;
+    top: unset;
 
     @include m.desktop {
         bottom: 0;

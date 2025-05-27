@@ -45,7 +45,7 @@ export const CurrentTrips = ({
 		.filter((stop) => stop.stop_name === userPosition?.closestStop?.stop_name)
 		.map((stop) => stop.stop_sequence);
 
-	const notPassedBuses = filteredVehicles.filter((bus) => {
+	const notPassedBuses = filteredVehicles.data.filter((bus) => {
 		const busStops = cachedDbDataState.filter(
 			(s) => s.trip_id === bus.trip.tripId,
 		);

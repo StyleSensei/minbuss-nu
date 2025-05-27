@@ -1,10 +1,9 @@
 import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import colors from "../colors.module.scss";
 import useUserPosition from "../hooks/useUserPosition";
-import { useResetClicked } from "../hooks/useResetClicked";
+import type { IVehicleFilterResult } from "../actions/filterVehicles";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
@@ -12,7 +11,7 @@ interface MapControlButtonsProps {
 	zoomOut: (GoogleMap: google.maps.Map) => void;
 	setShowCurrentTrips: (showCurrentTrips: boolean) => void;
 	showCurrentTrips: boolean;
-	filteredVehicles: IVehiclePosition[];
+	filteredVehicles: IVehicleFilterResult;
 	setFollowBus: (followBus: boolean) => void;
 	followBus: boolean;
 	activeMarker: boolean;
@@ -86,7 +85,7 @@ export const MapControlButtons = ({
 				</div>
 			</div>
 
-			{filteredVehicles?.length > 0 && userPosition && (
+			{filteredVehicles?.data.length > 0 && userPosition && (
 				<div className="map-control-button-container">
 					<p className="label table-label">Tabell</p>
 					<Button
@@ -100,7 +99,7 @@ export const MapControlButtons = ({
 					/>
 				</div>
 			)}
-			{filteredVehicles?.length > 0 && activeMarker && (
+			{filteredVehicles?.data.length > 0 && activeMarker && (
 				<div className="map-control-button-container">
 					<p className="label follow-label">Följ buss</p>
 					<Button

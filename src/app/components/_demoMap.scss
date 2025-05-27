@@ -1,0 +1,22 @@
+@use '../mixins' as m;
+
+.demo-map {
+    position: absolute;
+    bottom: 10dvh;
+    left: 0px;
+    width: 100vw;
+    height: 40vh;
+    pointer-events: none;
+
+    @include m.desktop {
+        bottom: 40vh;
+    }
+}
+
+.demo-popup {
+    @media screen and (max-width: 768px) {
+        transform: scale(2.5);
+    }
+
+
+}

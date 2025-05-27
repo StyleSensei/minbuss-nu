@@ -4,7 +4,8 @@
 @use 'sass:color';
 
 $buttonWidth: 80vw;
-$buttonWidthDesktop: 20vw;
+$buttonWidthDesktop: 25vw;
+$buttonHeightDesktop: 6vh;
 
 .button {
     display: flex;
@@ -43,9 +44,11 @@ $buttonWidthDesktop: 20vw;
         }
 
         @include m.desktop {
-            margin-bottom: 50vh;
+            margin-bottom: 58vh;
             margin-left: 10vw;
             width: $buttonWidthDesktop;
+            height: $buttonHeightDesktop;
+            font-size: 1.2rem;
         }
 
         @include m.desktopXXL {
@@ -84,7 +87,6 @@ $buttonWidthDesktop: 20vw;
         border-radius: 20px;
         width: fit-content;
         opacity: 80%;
-        // margin-bottom: .5rem;
 
         @include m.desktop {
             padding: 1.5rem;

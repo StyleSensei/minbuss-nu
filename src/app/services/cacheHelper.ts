@@ -13,10 +13,22 @@ import { MetricsTracker } from "../utilities/MetricsTracker";
 
 interface VehiclePositionResult {
 	data: IVehiclePosition[];
-	error?: {
-		type: "DATA_TOO_OLD" | "API_ERROR" | "PARSING_ERROR" | "OTHER";
-		message: string;
-	};
+	error?: IError;
+}
+export interface IError {
+	type: "API_ERROR" | "DATA_TOO_OLD" | "OTHER";
+	message: string;
+	timestampAge?: ITimestampAge;
+	isStale?: boolean;
+}
+interface ITimestampAge {
+	seconds: number;
+	minutes: number;
+	hours?: number;
+}
+
+interface DataTooOldError extends Error {
+	timestampAge?: ITimestampAge;
 }
 
 const VEHICLE_POSITIONS_CACHE_KEY = "vehicle-positions-cache";
@@ -36,9 +48,27 @@ export const getCachedVehiclePositions = cache(
 		}
 		try {
 			MetricsTracker.trackCacheMiss();
-			const data = await getVehiclePositions();
-			const result: VehiclePositionResult = { data };
+			const response = await getVehiclePositions();
 
+			if (response.isStale && response.timestampAge) {
+				const result: VehiclePositionResult = {
+					data: response.data,
+					error: {
+						type: "DATA_TOO_OLD",
+						message: "Saknar aktuell realtidsdata",
+						timestampAge: response.timestampAge,
+						isStale: response.isStale,
+					},
+				};
+
+				await redis.set(VEHICLE_POSITIONS_CACHE_KEY, result, {
+					ex: REALTIME_TTL,
+				});
+				return result;
+			}
+
+			// Normal case - fresh data
+			const result: VehiclePositionResult = { data: response.data };
 			await redis.set(VEHICLE_POSITIONS_CACHE_KEY, result, {
 				ex: REALTIME_TTL,
 			});
@@ -47,11 +77,13 @@ export const getCachedVehiclePositions = cache(
 			console.error("Error fetching vehicle positions:", error);
 			if (error instanceof Error) {
 				if (error.name === "DataTooOld") {
+					const dataError = error as unknown as DataTooOldError;
 					return {
 						data: [],
 						error: {
 							type: "DATA_TOO_OLD",
-							message: "Aktuell realtidsdata saknas.",
+							message: "Aktuell realtidsdata saknas",
+							timestampAge: dataError.timestampAge,
 						},
 					};
 				}
@@ -100,7 +132,6 @@ export const getCachedDbData = cache(
 			}
 		}
 
-		// Cache miss - hämtar nya data
 		MetricsTracker.trackDbQuery();
 		const data = await selectFromDatabase(busLine);
 

@@ -1,19 +1,21 @@
 import { useCallback, useRef } from "react";
+import type { IError } from "../services/cacheHelper";
 
-interface ResponseWithData<T> {
+export interface ResponseWithData<T, E = IError> {
 	data: T[];
-	error?: {
-		type: string;
-		message: string;
-	};
+	error?: E;
 }
 
-export const usePoll = <T>(
-	setState: (data: T[]) => void,
-	funcToPoll: (query: string) => Promise<ResponseWithData<T>>,
+// Make the setState parameter accept either arrays or objects with data property
+export const usePoll = <T, E = IError>(
+	setState:
+		| ((data: T[]) => void)
+		| ((response: ResponseWithData<T, E>) => void),
+	funcToPoll: (query: string) => Promise<ResponseWithData<T, E>>,
 	intervalMs: number,
 ) => {
 	const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
 	const pollOnInterval = useCallback(
 		(query: string) => {
 			if (intervalRef.current) {
@@ -21,7 +23,10 @@ export const usePoll = <T>(
 			}
 			intervalRef.current = setInterval(async () => {
 				const response = await funcToPoll(query);
-				setState(response.data);
+
+				// Pass the entire response object to setState
+				// TypeScript will handle whether it expects just the array or the whole object
+				(setState as (response: ResponseWithData<T, E>) => void)(response);
 			}, intervalMs);
 		},
 		[setState, funcToPoll, intervalMs],
@@ -33,5 +38,6 @@ export const usePoll = <T>(
 			intervalRef.current = null;
 		}
 	}, []);
+
 	return { pollOnInterval, stopPolling };
 };

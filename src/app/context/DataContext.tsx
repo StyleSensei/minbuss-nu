@@ -1,19 +1,19 @@
 "use client";
 import { createContext, useContext, useState } from "react";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
 import type { IDbData } from "../models/IDbData";
 import type { ITripUpdate } from "../models/ITripUpdate";
+import type { IVehicleFilterResult } from "../actions/filterVehicles";
 
 interface IDataContext {
-	filteredVehicles: IVehiclePosition[];
-	setFilteredVehicles: (vehicles: IVehiclePosition[]) => void;
+	filteredVehicles: IVehicleFilterResult;
+	setFilteredVehicles: (vehicles: IVehicleFilterResult) => void;
 	cachedDbDataState: IDbData[];
 	setCachedDbDataState: (data: IDbData[]) => void;
 	filteredTripUpdates: ITripUpdate[];
 	setFilteredTripUpdates: (trips: ITripUpdate[]) => void;
 }
 const DataContext = createContext<IDataContext>({
-	filteredVehicles: [],
+	filteredVehicles: { data: [], error: undefined },
 	setFilteredVehicles: () => {},
 	cachedDbDataState: [],
 	setCachedDbDataState: () => {},
@@ -28,9 +28,8 @@ export const DataProvider = ({
 }: {
 	children: React.ReactNode;
 }) => {
-	const [filteredVehicles, setFilteredVehicles] = useState<IVehiclePosition[]>(
-		[],
-	);
+	const [filteredVehicles, setFilteredVehicles] =
+		useState<IVehicleFilterResult>({ data: [], error: undefined });
 	const [cachedDbDataState, setCachedDbDataState] = useState<IDbData[]>([]);
 	const [filteredTripUpdates, setFilteredTripUpdates] = useState<ITripUpdate[]>(
 		[],

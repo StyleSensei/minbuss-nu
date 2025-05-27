@@ -9,7 +9,11 @@ import {
 } from "react";
 import { Icon } from "./Icon";
 import Form from "next/form";
-import { getFilteredVehiclePositions } from "../actions/filterVehicles";
+import {
+	getFilteredVehiclePositions,
+	type IVehicleFilterResult,
+	type VehicleError,
+} from "../actions/filterVehicles";
 import { getFilteredTripUpdates } from "../actions/filterTripUpdates";
 import { useDataContext } from "../context/DataContext";
 import { getCachedDbData } from "../services/cacheHelper";
@@ -77,13 +81,29 @@ export const SearchBar = ({
 			if (!routeExists) setLoading(false);
 
 			const result = await getFilteredVehiclePositions(query);
-			setFilteredVehicles(result.data);
+			setFilteredVehicles({ data: result.data, error: result.error });
 
 			if (result.error) {
-				console.warn(
-					result.error.message,
-					"Läs mer: https://status.trafiklab.se/sv",
-				);
+				if (
+					result.error.type === "DATA_TOO_OLD" &&
+					"timestampAge" in result.error
+				) {
+					// Now TypeScript knows timestampAge exists
+					const { minutes, seconds, hours } = result.error.timestampAge;
+					const ageDisplay = hours
+						? `${hours}h ${minutes % 60}m ${seconds % 60}s`
+						: `${minutes}m ${seconds % 60}s`;
+
+					console.warn(
+						`${result.error.message} (ålder: ${ageDisplay})`,
+						"Läs mer: https://status.trafiklab.se/sv",
+					);
+				} else {
+					console.warn(
+						result.error.message,
+						"Läs mer: https://status.trafiklab.se/sv",
+					);
+				}
 				setErrorMessage(result.error.message);
 			}
 			setLoading(false);
@@ -92,8 +112,9 @@ export const SearchBar = ({
 	);
 
 	const { pollOnInterval: pollBusPositionsEveryTwoSeconds, stopPolling } =
-		usePoll(
-			setFilteredVehicles as (data: IVehiclePosition[]) => void,
+		usePoll<IVehiclePosition, VehicleError>(
+			(response: IVehicleFilterResult) =>
+				setFilteredVehicles({ data: response.data, error: response.error }),
 			getFilteredVehiclePositions,
 			2000,
 		);
@@ -129,17 +150,17 @@ export const SearchBar = ({
 	});
 
 	useEffect(() => {
-		if (userInput && !filteredVehicles?.length && !routeExists) {
+		if (userInput && !filteredVehicles?.data.length && !routeExists) {
 			if (!routeExists) {
 				const route = findClosestRoute(userInput);
 				setProposedRoute(route);
 				return;
 			}
 		}
-		if (!userInput) {
-			setFilteredVehicles([]);
+		if (!userInput && filteredVehicles?.data.length) {
+			setFilteredVehicles({ data: [] });
 		}
-		if (userInput && filteredVehicles?.length) {
+		if (userInput && filteredVehicles?.data.length) {
 			pollBusPositionsEveryTwoSeconds(userInput);
 			pollTripUpdates(userInput);
 		}
@@ -150,7 +171,7 @@ export const SearchBar = ({
 		};
 	}, [
 		userInput,
-		filteredVehicles?.length,
+		filteredVehicles?.data.length,
 		pollBusPositionsEveryTwoSeconds,
 		setFilteredVehicles,
 		routeExists,
@@ -161,7 +182,7 @@ export const SearchBar = ({
 	]);
 
 	useEffect(() => {
-		if (filteredVehicles?.length) {
+		if (filteredVehicles?.data.length) {
 			handleCachedDbData();
 		}
 	}, [handleCachedDbData, filteredVehicles]);
@@ -305,7 +326,7 @@ export const SearchBar = ({
 				)}
 				{routeExists &&
 					userInput &&
-					!filteredVehicles?.length &&
+					!filteredVehicles?.data.length &&
 					!errorMessage &&
 					!loading && (
 						<Suspense fallback={<p className="error-message">Laddar...</p>}>
