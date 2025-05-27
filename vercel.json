@@ -1,10 +1,6 @@
 {
 	"crons": [
 		{
-			"path": "/api/cron/populateDb",
-			"schedule": "0 3 1 * *"
-		},
-		{
 			"path": "/api/cron/warmup",
 			"schedule": "0 4 * * *"
 		}
