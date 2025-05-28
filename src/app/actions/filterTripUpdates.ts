@@ -1,6 +1,6 @@
 "use server";
 
-import type { ITripUpdate } from "../models/ITripUpdate";
+import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { getCachedDbData, getCachedTripUpdates } from "../services/cacheHelper";
 
 export const getFilteredTripUpdates = async (busline?: string) => {
