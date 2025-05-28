@@ -25,11 +25,20 @@ jobs:
       - name: Clean dist directory
         run: rm -rf dist-cron
 
+      - name: Create dist-cron directory
+        run: mkdir -p dist-cron
+
       - name: Compile TypeScript for cron job
-        run: npx tsc --project tsconfig.cron.json
+        run: |
+          echo "Compiling TypeScript..."
+          npx tsc --project tsconfig.cron.json
+          echo "Compilation completed. Checking dist-cron directory:"
+          ls -la dist-cron/src/app/services/dataProcessors/
+          echo "Checking if extractZip.js exists:"
+          test -f dist-cron/src/app/services/dataProcessors/extractZip.js || echo "File does not exist"
 
       - name: Run GTFS update script
-        run: node scripts/updateGTFSData.cjs
+        run: NODE_PATH=./dist-cron/src node scripts/updateGTFSData.cjs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}

@@ -10,7 +10,12 @@
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/*"]
-		}
+		},
+		"resolveJsonModule": true,
+		"allowJs": true
+	},
+	"ts-node": {
+		"require": ["tsconfig-paths/register"]
 	},
 	"include": [
 		"src/app/services/dataProcessors/extractZip.ts",
@@ -18,6 +23,7 @@
 		"src/app/services/dataSources/gtfsStatic.ts",
 		"src/app/services/serviceBase.ts",
 		"src/app/models/**/*",
-		"src/app/db/schema/**/*"
+		"src/app/db/schema/**/*",
+		"src/app/utilities/**/*"
 	]
 }
