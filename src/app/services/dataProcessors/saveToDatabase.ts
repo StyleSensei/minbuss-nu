@@ -1,14 +1,14 @@
-import { routes, routesInsertSchemaArray } from "@/app/db/schema/routes.js";
+import { routes, routesInsertSchemaArray } from "@/app/db/schema/routes";
 import {
 	stop_times,
 	stopTimesInsertSchemaArray,
-} from "@/app/db/schema/stop_times.js";
-import { stops, stopsInsertSchemaArray } from "@/app/db/schema/stops.js";
-import { trips, tripsInsertSchemaArray } from "@/app/db/schema/trips.js";
-import type { IRoute } from "@/app/models/IRoute.js";
-import type { IStop } from "@/app/models/IStop.js";
-import type { IStopTime } from "@/app/models/IStopTime.js";
-import type { ITrip } from "@/app/models/ITrip.js";
+} from "@/app/db/schema/stop_times";
+import { stops, stopsInsertSchemaArray } from "@/app/db/schema/stops";
+import { trips, tripsInsertSchemaArray } from "@/app/db/schema/trips";
+import type { IRoute } from "@/app/models/IRoute";
+import type { IStop } from "@/app/models/IStop";
+import type { IStopTime } from "@/app/models/IStopTime";
+import type { ITrip } from "@/app/models/ITrip";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";

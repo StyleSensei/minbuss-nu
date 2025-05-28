@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream";
-import { get } from "../serviceBase.js";
+import { get } from "../serviceBase";
 
 export async function getStaticData() {
 	const url = `https://opendata.samtrafiken.se/gtfs/sl/sl.zip?key=${process.env.GTFS_REGIONAL_STATIC}`;

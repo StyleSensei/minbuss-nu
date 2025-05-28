@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream";
-import { getStaticData } from "../dataSources/gtfsStatic.js";
+import { getStaticData } from "../dataSources/gtfsStatic";
 const unzipper = require("unzipper");
 import csvParser from "csv-parser";
 import type { IRoute } from "@/app/models/IRoute";
