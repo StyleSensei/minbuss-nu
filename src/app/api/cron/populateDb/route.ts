@@ -2,13 +2,27 @@ import { extractZip } from "@/app/services/dataProcessors/extractZip";
 import { saveToDatabase } from "@/app/services/dataProcessors/saveToDatabase";
 import type { NextRequest } from "next/server";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
 	const authHeader = request.headers.get("authorization");
-	if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-		return new Response("Unauthorized", {
+	console.log("Received auth header:", authHeader);
+	console.log("Expected auth header:", `Bearer ${process.env.CRON_SECRET}`);
+
+	if (!authHeader) {
+		console.log("No authorization header provided");
+		return new Response("Unauthorized - No header", {
 			status: 401,
 		});
 	}
+
+	if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+		console.log("Authorization header mismatch");
+		return new Response("Unauthorized - Invalid token", {
+			status: 401,
+		});
+	}
+
 	try {
 		console.time("extractZip");
 		const { routes, trips, stops, stopTimes } = await extractZip();

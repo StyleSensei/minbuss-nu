@@ -10,13 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call Next.js API route
-        run: |
-          curl -X POST "$CRON_ENDPOINT" \
-            -H "Authorization: Bearer ${CRON_SECRET}"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GTFS update script
+        run: node scripts/updateGTFSData.mjs
         env:
-          CRON_ENDPOINT: https://www.minbuss.nu/api/cron/populateDb
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GTFS_REGIONAL_REALTIME: ${{ secrets.GTFS_REGIONAL_REALTIME }}
           
       - name: Ping Discord if job failed
         if: failure()
@@ -28,18 +38,18 @@ jobs:
                 "content": "❌ **GTFS Cron Job Failed**\nCheck the logs here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
               }' \
               $DISCORD_WEBHOOK_URL
-          env:
-            DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-            - name: Ping Discord if job completed
-            if: success()
-            run: |
-              curl -X POST -H "Content-Type: application/json" \
-                -d '{
-                  "username": "Cron Monitor 🤖",
-                  "avatar_url": "https://i.imgur.com/4M34hi2.png",
-                  "content": "🎉 **GTFS Cron Job completed**\nCheck the logs here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                }' \
-                $DISCORD_WEBHOOK_URL
-            env:
-              DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: Ping Discord if job completed
+        if: success()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{
+                "username": "Cron Monitor 🤖",
+                "avatar_url": "https://i.imgur.com/4M34hi2.png",
+                "content": "🎉 **GTFS Cron Job completed**\nCheck the logs here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }' \
+              $DISCORD_WEBHOOK_URL
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
