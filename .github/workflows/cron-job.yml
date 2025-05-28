@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Run GTFS update script
-        run: node scripts/updateGTFSData.mjs
+        run: ts-node scripts/updateGTFSData.mjs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
