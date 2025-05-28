@@ -21,7 +21,7 @@ import { getAllRoutes } from "../actions/getAllRoutes";
 import { debounce } from "../utilities/debounce";
 import colors from "../colors.module.scss";
 import { usePoll } from "../hooks/usePoll";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
 

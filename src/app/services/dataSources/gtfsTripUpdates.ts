@@ -1,7 +1,7 @@
 "use server";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import { get } from "../serviceBase";
-import type { ITripUpdate } from "@/app/models/ITripUpdate";
+import { get } from "@shared/services/serviceBase";
+import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 
 export const getTripUpdates = async (): Promise<ITripUpdate[]> => {

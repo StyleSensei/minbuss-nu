@@ -1,26 +1,10 @@
 "use server";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
-import { get } from "../serviceBase";
+import { get } from "@shared/services/serviceBase";
 import { redis } from "@/app/utilities/redis";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { formatTimestampAge } from "@/app/utilities/formatAge";
-
-export interface IVehiclePosition {
-	trip: {
-		tripId: string | null;
-		scheduleRelationship: string | null;
-	};
-	position: {
-		latitude: number;
-		longitude: number;
-		bearing: number | null;
-		speed: number | null;
-	};
-	timestamp: string | null;
-	vehicle: {
-		id: string;
-	};
-}
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 
 const API_LOCK_KEY = "vehicle-positions-api-lock";
 const API_LOCK_TTL = 10; // 10 sek

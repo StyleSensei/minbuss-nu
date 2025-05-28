@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
-import type { IDbData } from "../models/IDbData";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
+import type { IDbData } from "@shared/models/IDbData";
 
 export const useCheckIfFurtherFromStop = () => {
 	const previousDistancesRef = useRef<Map<string, number>>(new Map());

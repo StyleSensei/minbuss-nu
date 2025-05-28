@@ -1,5 +1,5 @@
-import type { IDbData } from "../models/IDbData";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import type { IDbData } from "@shared/models/IDbData";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import { getDistanceFromLatLon } from "./getDistanceFromLatLon";
 
 export const getClosest = (

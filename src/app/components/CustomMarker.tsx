@@ -16,8 +16,8 @@ import {
 	useState,
 } from "react";
 import { useDataContext } from "../context/DataContext";
-import type { IDbData } from "../models/IDbData";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
+import type { IDbData } from "@shared/models/IDbData";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";

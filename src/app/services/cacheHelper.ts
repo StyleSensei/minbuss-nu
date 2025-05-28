@@ -2,13 +2,11 @@
 import { cache } from "react";
 import { redis } from "../utilities/redis";
 import { selectFromDatabase } from "./dataProcessors/selectFromDatabase";
-import {
-	getVehiclePositions,
-	type IVehiclePosition,
-} from "./dataSources/gtfsRealtime";
+import { getVehiclePositions } from "./dataSources/gtfsRealtime";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import { getTripUpdates } from "./dataSources/gtfsTripUpdates";
-import type { IDbData } from "../models/IDbData";
-import type { ITripUpdate } from "../models/ITripUpdate";
+import type { IDbData } from "@shared/models/IDbData";
+import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "../utilities/MetricsTracker";
 
 interface VehiclePositionResult {

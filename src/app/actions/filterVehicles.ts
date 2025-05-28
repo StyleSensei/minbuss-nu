@@ -4,8 +4,8 @@ import {
 	getCachedVehiclePositions,
 } from "../services/cacheHelper";
 import { redis } from "../utilities/redis";
-import type { IVehiclePosition } from "../services/dataSources/gtfsRealtime";
-import type { IDbData } from "../models/IDbData";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
+import type { IDbData } from "@shared/models/IDbData";
 
 // Define an interface for timestamp age info
 interface ITimestampAge {

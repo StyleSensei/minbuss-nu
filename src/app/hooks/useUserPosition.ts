@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { IDbData } from "../models/IDbData";
+import type { IDbData } from "@shared/models/IDbData";
 import { getClosest } from "../utilities/getClosest";
 import { useDataContext } from "../context/DataContext";
 
@@ -37,6 +37,85 @@ const useUserPosition = () => {
 			setGeoState(GeolocationState.Unavailable);
 			return;
 		}
+
+		const updateUserPosition = (pos: GeolocationPosition) => {
+			const { latitude, longitude, accuracy } = pos.coords;
+
+			const newClosestStop =
+				cachedDbDataState.length > 0
+					? (getClosest(cachedDbDataState, latitude, longitude) as IDbData)
+					: null;
+
+			setUserPosition((prev) => {
+				const positionChanged =
+					!prev ||
+					Math.abs(prev.lat - latitude) > 0.0001 ||
+					Math.abs(prev.lng - longitude) > 0.0001;
+
+				if (!prev || positionChanged) {
+					return {
+						lat: latitude,
+						lng: longitude,
+						accuracy,
+						lastUpdated: Date.now(),
+						closestStop: newClosestStop,
+						tripsAtClosestStop: newClosestStop
+							? cachedDbDataState
+									.filter(
+										(stop: IDbData) =>
+											stop.stop_name === newClosestStop.stop_name,
+									)
+									.sort((a: IDbData, b: IDbData) =>
+										a.trip_id.localeCompare(b.trip_id),
+									)
+							: [],
+					};
+				}
+				return prev;
+			});
+		};
+
+		const handlePositionError = (error: GeolocationPositionError) => {
+			switch (error.code) {
+				case error.PERMISSION_DENIED:
+					console.warn("Location access denied by user");
+					setGeoState(GeolocationState.Denied);
+					break;
+
+				case error.POSITION_UNAVAILABLE:
+					errorCount.current += 1;
+
+					if (lastPosition.current) {
+						console.warn(
+							"Position temporarily unavailable, using last known position",
+						);
+						setGeoState(GeolocationState.Recovering);
+
+						const now = Date.now();
+						const posTime = lastPosition.current.timestamp;
+
+						if (now - posTime < 60000) {
+							updateUserPosition(lastPosition.current);
+						}
+					} else if (errorCount.current > 5) {
+						console.error("Failed to get position after multiple attempts");
+						setGeoState(GeolocationState.Error);
+					} else {
+						console.warn("Position unavailable, retrying...");
+						setGeoState(GeolocationState.Recovering);
+					}
+					break;
+
+				case error.TIMEOUT:
+					console.warn("Position request timed out");
+					setGeoState(GeolocationState.Recovering);
+					break;
+
+				default:
+					console.warn("Unknown location error:", error.message);
+					setGeoState(GeolocationState.Recovering);
+			}
+		};
 
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
@@ -76,88 +155,15 @@ const useUserPosition = () => {
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);
-	}, [geoState]);
-
-	const handlePositionError = (error: GeolocationPositionError) => {
-		switch (error.code) {
-			case error.PERMISSION_DENIED:
-				console.warn("Location access denied by user");
-				setGeoState(GeolocationState.Denied);
-				break;
-
-			case error.POSITION_UNAVAILABLE:
-				errorCount.current += 1;
-
-				if (lastPosition.current) {
-					console.warn(
-						"Position temporarily unavailable, using last known position",
-					);
-					setGeoState(GeolocationState.Recovering);
-
-					const now = Date.now();
-					const posTime = lastPosition.current.timestamp;
-
-					if (now - posTime < 60000) {
-						updateUserPosition(lastPosition.current);
-					}
-				} else if (errorCount.current > 5) {
-					console.error("Failed to get position after multiple attempts");
-					setGeoState(GeolocationState.Error);
-				} else {
-					console.warn("Position unavailable, retrying...");
-					setGeoState(GeolocationState.Recovering);
-				}
-				break;
-
-			case error.TIMEOUT:
-				console.warn("Position request timed out");
-				setGeoState(GeolocationState.Recovering);
-				break;
-
-			default:
-				console.warn("Unknown location error:", error.message);
-				setGeoState(GeolocationState.Recovering);
-		}
-	};
-
-	const updateUserPosition = (pos: GeolocationPosition) => {
-		const { latitude, longitude, accuracy } = pos.coords;
-
-		const newClosestStop =
-			cachedDbDataState.length > 0
-				? (getClosest(cachedDbDataState, latitude, longitude) as IDbData)
-				: null;
-
-		setUserPosition((prev) => {
-			const positionChanged =
-				!prev ||
-				Math.abs(prev.lat - latitude) > 0.0001 ||
-				Math.abs(prev.lng - longitude) > 0.0001;
-
-			if (!prev || positionChanged) {
-				return {
-					lat: latitude,
-					lng: longitude,
-					accuracy,
-					lastUpdated: Date.now(),
-					closestStop: newClosestStop,
-					tripsAtClosestStop: newClosestStop
-						? cachedDbDataState
-								.filter((stop) => stop.stop_name === newClosestStop.stop_name)
-								.sort((a, b) => a.trip_id.localeCompare(b.trip_id))
-						: [],
-				};
-			}
-			return prev;
-		});
-	};
+	}, [geoState, cachedDbDataState]);
 
 	return {
 		userPosition,
 		setUserPosition,
 		locationState: geoState,
 		isLocationAvailable:
-			geoState === GeolocationState.Available || GeolocationState.Recovering,
+			geoState === GeolocationState.Available ||
+			geoState === GeolocationState.Recovering,
 	};
 };
 

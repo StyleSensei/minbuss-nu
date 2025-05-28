@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState } from "react";
-import type { IDbData } from "../models/IDbData";
-import type { ITripUpdate } from "../models/ITripUpdate";
+import type { IDbData } from "@shared/models/IDbData";
+import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import type { IVehicleFilterResult } from "../actions/filterVehicles";
 
 interface IDataContext {

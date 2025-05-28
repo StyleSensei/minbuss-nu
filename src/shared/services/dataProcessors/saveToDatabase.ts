@@ -1,14 +1,14 @@
-import { routes, routesInsertSchemaArray } from "@/app/db/schema/routes";
+import { routes, routesInsertSchemaArray } from "../../db/schema/routes";
 import {
 	stop_times,
 	stopTimesInsertSchemaArray,
-} from "@/app/db/schema/stop_times";
-import { stops, stopsInsertSchemaArray } from "@/app/db/schema/stops";
-import { trips, tripsInsertSchemaArray } from "@/app/db/schema/trips";
-import type { IRoute } from "@/app/models/IRoute";
-import type { IStop } from "@/app/models/IStop";
-import type { IStopTime } from "@/app/models/IStopTime";
-import type { ITrip } from "@/app/models/ITrip";
+} from "../../db/schema/stop_times";
+import { stops, stopsInsertSchemaArray } from "../../db/schema/stops";
+import { trips, tripsInsertSchemaArray } from "../../db/schema/trips";
+import type { IRoute } from "../../models/IRoute";
+import type { ITrip } from "../../models/ITrip";
+import type { IStop } from "../../models/IStop";
+import type { IStopTime } from "../../models/IStopTime";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -18,7 +18,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const queryClient = postgres(process.env.DATABASE_URL);
-const db = drizzle({ client: queryClient });
+const db = drizzle(queryClient);
 
 const calculateBatchSize = (columns: number) => {
 	const maxParameters = 65534;

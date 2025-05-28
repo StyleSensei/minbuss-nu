@@ -1,4 +1,4 @@
-import type { IDbData } from "../models/IDbData";
+import type { IDbData } from "@shared/models/IDbData";
 import { useOverflow } from "../hooks/useOverflow";
 import useUserPosition from "../hooks/useUserPosition";
 import { useDataContext } from "../context/DataContext";

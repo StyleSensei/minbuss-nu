@@ -12,7 +12,7 @@ import { useDataContext } from "../context/DataContext";
 import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { IDbData } from "../models/IDbData";
+import type { IDbData } from "@shared/models/IDbData";
 import useUserPosition from "../hooks/useUserPosition";
 import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
 import { useIsMobile } from "../hooks/useIsMobile";

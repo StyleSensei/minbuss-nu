@@ -1,0 +1,20 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"outDir": "./dist-cron",
+		"rootDir": ".",
+		"allowJs": true,
+		"sourceMap": true,
+		"paths": {
+			"@shared/*": ["./src/shared/*"]
+		}
+	},
+	"include": [
+		"scripts/updateGTFSData.mjs",
+		"src/shared/**/*.ts",
+		"src/cron/**/*.ts"
+	],
+	"exclude": ["node_modules", ".next", "dist-cron"]
+}

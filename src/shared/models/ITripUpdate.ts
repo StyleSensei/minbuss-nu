@@ -4,6 +4,7 @@ export interface IStopTimeUpdate {
 	departure: { time: string; delay: number; uncertainty: number } | null;
 	stopSequence: number;
 }
+
 export interface ITripUpdate {
 	trip: {
 		tripId: string | null;
