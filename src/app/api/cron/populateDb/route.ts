@@ -1,5 +1,5 @@
-import { extractZip } from "@/app/services/dataProcessors/extractZip";
-import { saveToDatabase } from "@/app/services/dataProcessors/saveToDatabase";
+import { extractZip } from "@shared/services/dataProcessors/extractZip";
+import { saveToDatabase } from "@shared/services/dataProcessors/saveToDatabase";
 import type { NextRequest } from "next/server";
 
 export const maxDuration = 60;
