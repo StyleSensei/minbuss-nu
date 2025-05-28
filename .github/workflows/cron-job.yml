@@ -30,7 +30,7 @@ jobs:
       - name: List TypeScript files to be compiled
         run: |
           echo "Files to be compiled:"
-          find cron-src -name "*.ts" -not -path "*/node_modules/*"
+          find src/shared -name "*.ts" -not -path "*/node_modules/*"
 
       - name: Compile TypeScript for cron job
         run: |
@@ -39,8 +39,8 @@ jobs:
           echo "Compilation completed. Checking dist-cron directory:"
           ls -R dist-cron/
           echo "Checking specific files:"
-          ls -la dist-cron/cron-src/services/dataProcessors/ || echo "dataProcessors directory not found"
-          ls -la dist-cron/cron-src/services/dataSources/ || echo "dataSources directory not found"
+          ls -la dist-cron/src/shared/services/dataProcessors/ || echo "dataProcessors directory not found"
+          ls -la dist-cron/src/shared/services/dataSources/ || echo "dataSources directory not found"
 
       - name: Run GTFS update script
         run: NODE_PATH=./dist-cron node scripts/updateGTFSData.mjs
