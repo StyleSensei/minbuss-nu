@@ -47,7 +47,7 @@ jobs:
           ls -la dist-cron/src/app/services/dataSources/ || echo "dataSources directory not found"
 
       - name: Run GTFS update script
-        run: NODE_PATH=./dist-cron/src node scripts/updateGTFSData.cjs
+        run: NODE_PATH=./dist-cron/src node scripts/updateGTFSData.mjs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
