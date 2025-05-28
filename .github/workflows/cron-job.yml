@@ -22,8 +22,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Compile TypeScript
+        run: npx tsc
+
       - name: Run GTFS update script
-        run: ts-node scripts/updateGTFSData.mjs
+        run: node scripts/updateGTFSData.mjs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}

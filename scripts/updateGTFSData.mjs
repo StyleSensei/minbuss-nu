@@ -1,5 +1,5 @@
-import { extractZip } from "../src/app/services/dataProcessors/extractZip.ts";
-import { saveToDatabase } from "../src/app/services/dataProcessors/saveToDatabase.ts";
+import { extractZip } from "../src/app/services/dataProcessors/extractZip.js";
+import { saveToDatabase } from "../src/app/services/dataProcessors/saveToDatabase.js";
 
 async function main() {
 	try {
