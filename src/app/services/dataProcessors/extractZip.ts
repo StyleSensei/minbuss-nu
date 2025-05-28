@@ -1,11 +1,11 @@
 import type { Readable } from "node:stream";
-import { getStaticData } from "../dataSources/gtfsStatic";
-const unzipper = require("unzipper");
+import { getStaticData } from "../dataSources/gtfsStatic.js";
+import unzipper from "unzipper";
 import csvParser from "csv-parser";
-import type { IRoute } from "@/app/models/IRoute";
-import type { ITrip } from "@/app/models/ITrip";
-import type { IStop } from "@/app/models/IStop";
-import type { IStopTime } from "@/app/models/IStopTime";
+import type { IRoute } from "../../models/IRoute.js";
+import type { ITrip } from "../../models/ITrip.js";
+import type { IStop } from "../../models/IStop.js";
+import type { IStopTime } from "../../models/IStopTime.js";
 
 export const extractZip = async () => {
 	const routes: IRoute[] = [];
