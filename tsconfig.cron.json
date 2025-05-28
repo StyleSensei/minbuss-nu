@@ -7,23 +7,21 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"outDir": "./dist-cron",
+		"rootDir": ".",
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/*"]
 		},
 		"resolveJsonModule": true,
-		"allowJs": true
+		"allowJs": true,
+		"sourceMap": true,
+		"jsx": "react-jsx",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"noImplicitAny": true
 	},
 	"ts-node": {
 		"require": ["tsconfig-paths/register"]
 	},
-	"include": [
-		"src/app/services/dataProcessors/extractZip.ts",
-		"src/app/services/dataProcessors/saveToDatabase.ts",
-		"src/app/services/dataSources/gtfsStatic.ts",
-		"src/app/services/serviceBase.ts",
-		"src/app/models/**/*",
-		"src/app/db/schema/**/*",
-		"src/app/utilities/**/*"
-	]
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["node_modules", ".next", "dist-cron"]
 }

@@ -22,20 +22,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Clean dist directory
-        run: rm -rf dist-cron
+      - name: Clean and prepare directories
+        run: |
+          rm -rf dist-cron
+          mkdir -p dist-cron/src/app/services/dataProcessors
+          mkdir -p dist-cron/src/app/services/dataSources
+          mkdir -p dist-cron/src/app/models
+          mkdir -p dist-cron/src/app/db/schema
+          mkdir -p dist-cron/src/app/utilities
 
-      - name: Create dist-cron directory
-        run: mkdir -p dist-cron
+      - name: List TypeScript files to be compiled
+        run: |
+          echo "Files to be compiled:"
+          find src/app -name "*.ts" -not -path "*/node_modules/*"
 
       - name: Compile TypeScript for cron job
         run: |
           echo "Compiling TypeScript..."
-          npx tsc --project tsconfig.cron.json
+          npx tsc --project tsconfig.cron.json --listFiles
           echo "Compilation completed. Checking dist-cron directory:"
-          ls -la dist-cron/src/app/services/dataProcessors/
-          echo "Checking if extractZip.js exists:"
-          test -f dist-cron/src/app/services/dataProcessors/extractZip.js || echo "File does not exist"
+          ls -R dist-cron/
+          echo "Checking specific files:"
+          ls -la dist-cron/src/app/services/dataProcessors/ || echo "dataProcessors directory not found"
+          ls -la dist-cron/src/app/services/dataSources/ || echo "dataSources directory not found"
 
       - name: Run GTFS update script
         run: NODE_PATH=./dist-cron/src node scripts/updateGTFSData.cjs

@@ -1,7 +1,9 @@
-const { extractZip } = require("app/services/dataProcessors/extractZip");
+const {
+	extractZip,
+} = require("../dist-cron/src/app/services/dataProcessors/extractZip.cjs");
 const {
 	saveToDatabase,
-} = require("app/services/dataProcessors/saveToDatabase");
+} = require("../dist-cron/src/app/services/dataProcessors/saveToDatabase.cjs");
 
 async function main() {
 	try {
