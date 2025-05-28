@@ -1,5 +1,5 @@
-import { extractZip } from "../dist-cron/src/app/services/dataProcessors/extractZip.js";
-import { saveToDatabase } from "../dist-cron/src/app/services/dataProcessors/saveToDatabase.js";
+import { extractZip } from "../dist-cron/src/shared/services/dataProcessors/extractZip.js";
+import { saveToDatabase } from "../dist-cron/src/shared/services/dataProcessors/saveToDatabase.js";
 
 async function main() {
 	try {

@@ -1,27 +1,15 @@
 {
-	"extends": "./tsconfig.json",
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"module": "ESNext",
-		"moduleResolution": "node",
-		"noEmit": false,
 		"outDir": "./dist-cron",
 		"rootDir": ".",
 		"allowJs": true,
-		"sourceMap": true
+		"sourceMap": true,
+		"paths": {
+			"@shared/*": ["./src/shared/*"]
+		}
 	},
-	"include": [
-		"src/app/services/dataProcessors/extractZip.ts",
-		"src/app/services/dataProcessors/saveToDatabase.ts",
-		"src/app/services/dataSources/gtfsStatic.ts",
-		"src/app/services/serviceBase.ts",
-		"src/app/models/IRoute.ts",
-		"src/app/models/ITrip.ts",
-		"src/app/models/IStop.ts",
-		"src/app/models/IStopTime.ts",
-		"src/app/db/schema/routes.ts",
-		"src/app/db/schema/trips.ts",
-		"src/app/db/schema/stops.ts",
-		"src/app/db/schema/stop_times.ts"
-	],
+	"include": ["scripts/updateGTFSData.mjs", "src/shared/**/*.ts"],
 	"exclude": ["node_modules", ".next", "dist-cron"]
 }

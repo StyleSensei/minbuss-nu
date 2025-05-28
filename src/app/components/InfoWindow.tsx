@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
-import type { IDbData } from "../models/IDbData";
+import type { IDbData } from "@shared/models/IDbData";
 
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;

@@ -2,7 +2,7 @@
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { lineSelectSchema, routes } from "@/app/db/schema/routes";
+import { lineSelectSchema, routes } from "@shared/db/schema/routes";
 import { asc, desc } from "drizzle-orm";
 import { z } from "zod";
 

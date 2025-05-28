@@ -1,13 +1,13 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { trips } from "@/app/db/schema/trips";
-import { routes } from "@/app/db/schema/routes";
+import { trips } from "@shared/db/schema/trips";
+import { routes } from "@shared/db/schema/routes";
 import { eq, inArray, and, desc } from "drizzle-orm";
-import { stop_times } from "@/app/db/schema/stop_times";
-import { stops } from "@/app/db/schema/stops";
-import type { IDbData } from "@/app/models/IDbData";
+import { stop_times } from "@shared/db/schema/stop_times";
+import { stops } from "@shared/db/schema/stops";
+import type { IDbData } from "@shared/models/IDbData";
 import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
-import { selectAllSchema } from "@/app/db/schema/selectAll";
+import { selectAllSchema } from "@shared/db/schema/selectAll";
 import { z } from "zod";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 

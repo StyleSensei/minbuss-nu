@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { IDbData } from "../models/IDbData";
+import type { IDbData } from "@shared/models/IDbData";
 import { getClosest } from "../utilities/getClosest";
 import { useDataContext } from "../context/DataContext";
 
