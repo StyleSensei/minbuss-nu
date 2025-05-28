@@ -22,25 +22,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Clean and prepare directories
-        run: |
-          rm -rf dist-cron
-          mkdir -p dist-cron
-
-      - name: List TypeScript files to be compiled
-        run: |
-          echo "Files to be compiled:"
-          find src/shared -name "*.ts" -not -path "*/node_modules/*"
-
-      - name: Compile TypeScript for cron job
-        run: |
-          echo "Compiling TypeScript..."
-          npx tsc --project tsconfig.cron.json --listFiles
-          echo "Compilation completed. Checking dist-cron directory:"
-          ls -R dist-cron/
-          echo "Checking specific files:"
-          ls -la dist-cron/src/shared/services/dataProcessors/ || echo "dataProcessors directory not found"
-          ls -la dist-cron/src/shared/services/dataSources/ || echo "dataSources directory not found"
+      - name: Build cron job
+        run: npm run build:cron
 
       - name: Run GTFS update script
         run: NODE_PATH=./dist-cron node scripts/updateGTFSData.mjs
