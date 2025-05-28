@@ -13,7 +13,7 @@ jobs:
       - name: Call Next.js API route
         run: |
           curl -X POST "$CRON_ENDPOINT" \
-            -H "Authorization: Bearer $CRON_SECRET"
+            -H "Authorization: Bearer ${CRON_SECRET}"
         env:
           CRON_ENDPOINT: https://www.minbuss.nu/api/cron/populateDb
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
