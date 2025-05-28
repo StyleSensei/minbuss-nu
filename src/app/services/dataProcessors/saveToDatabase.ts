@@ -6,9 +6,9 @@ import {
 import { stops, stopsInsertSchemaArray } from "../../db/schema/stops.js";
 import { trips, tripsInsertSchemaArray } from "../../db/schema/trips.js";
 import type { IRoute } from "../../models/IRoute.js";
+import type { ITrip } from "../../models/ITrip.js";
 import type { IStop } from "../../models/IStop.js";
 import type { IStopTime } from "../../models/IStopTime.js";
-import type { ITrip } from "../../models/ITrip.js";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
