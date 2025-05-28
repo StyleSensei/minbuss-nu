@@ -29,7 +29,6 @@ jobs:
           mkdir -p dist-cron/src/app/services/dataSources
           mkdir -p dist-cron/src/app/models
           mkdir -p dist-cron/src/app/db/schema
-          mkdir -p dist-cron/src/app/utilities
 
       - name: List TypeScript files to be compiled
         run: |

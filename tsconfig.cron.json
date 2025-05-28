@@ -15,13 +15,30 @@
 		"resolveJsonModule": true,
 		"allowJs": true,
 		"sourceMap": true,
-		"jsx": "react-jsx",
-		"lib": ["dom", "dom.iterable", "esnext"],
 		"noImplicitAny": true
 	},
 	"ts-node": {
 		"require": ["tsconfig-paths/register"]
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx"],
-	"exclude": ["node_modules", ".next", "dist-cron"]
+	"include": [
+		"src/app/services/dataProcessors/extractZip.ts",
+		"src/app/services/dataProcessors/saveToDatabase.ts",
+		"src/app/services/dataSources/gtfsStatic.ts",
+		"src/app/services/serviceBase.ts",
+		"src/app/models/IRoute.ts",
+		"src/app/models/ITrip.ts",
+		"src/app/models/IStop.ts",
+		"src/app/models/IStopTime.ts",
+		"src/app/db/schema/routes.ts",
+		"src/app/db/schema/trips.ts",
+		"src/app/db/schema/stops.ts",
+		"src/app/db/schema/stop_times.ts"
+	],
+	"exclude": [
+		"node_modules",
+		".next",
+		"dist-cron",
+		"**/*.test.ts",
+		"**/*.spec.ts"
+	]
 }
