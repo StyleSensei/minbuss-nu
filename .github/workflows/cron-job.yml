@@ -23,10 +23,10 @@ jobs:
         run: npm ci
 
       - name: Clean dist directory
-        run: rm -rf dist
+        run: rm -rf dist-cron
 
-      - name: Compile TypeScript
-        run: npx tsc --project tsconfig.json
+      - name: Compile TypeScript for cron job
+        run: npx tsc --project tsconfig.cron.json
 
       - name: Run GTFS update script
         run: node scripts/updateGTFSData.cjs

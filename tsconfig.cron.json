@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ES2017",
+		"module": "CommonJS",
+		"moduleResolution": "node",
+		"esModuleInterop": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"outDir": "./dist-cron",
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+	"include": [
+		"src/app/services/dataProcessors/extractZip.ts",
+		"src/app/services/dataProcessors/saveToDatabase.ts",
+		"src/app/services/dataSources/gtfsStatic.ts",
+		"src/app/services/serviceBase.ts",
+		"src/app/models/**/*",
+		"src/app/db/schema/**/*"
+	]
+}
