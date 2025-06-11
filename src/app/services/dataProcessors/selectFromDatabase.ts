@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
-import { eq, inArray, and, desc } from "drizzle-orm";
+import { eq, inArray, and, desc, sql } from "drizzle-orm";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import type { IDbData } from "@shared/models/IDbData";
@@ -10,6 +10,8 @@ import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import { selectAllSchema } from "@shared/db/schema/selectAll";
 import { z } from "zod";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
+import { calendarDates } from "@/shared/db/schema/calendar_dates";
+import { calendar } from "@/shared/db/schema/calendar";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -18,7 +20,7 @@ if (!process.env.DATABASE_URL) {
 const queryClient = postgres(process.env.DATABASE_URL);
 const db = drizzle({ client: queryClient });
 
-export const selectFromDatabase = async (busLine: string) => {
+export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	MetricsTracker.trackDbQuery();
 	const { filteredTripIds } = await getCurrentTripIds();
 
@@ -26,10 +28,9 @@ export const selectFromDatabase = async (busLine: string) => {
 		const data = await db
 			.select({
 				trip_id: trips.trip_id,
-				route_id: routes.route_id,
 				route_short_name: routes.route_short_name,
 				stop_headsign: stop_times.stop_headsign,
-				arrival_time: stop_times.arrival_time,
+				departure_time: stop_times.departure_time,
 				stop_name: stops.stop_name,
 				stop_sequence: stop_times.stop_sequence,
 				stop_id: stops.stop_id,
@@ -37,16 +38,98 @@ export const selectFromDatabase = async (busLine: string) => {
 				stop_lon: stops.stop_lon,
 			})
 			.from(trips)
-			.leftJoin(routes, eq(trips.route_id, routes.route_id))
-			.leftJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
-			.leftJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
+			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+
 			.where(
 				and(
 					eq(routes.route_short_name, busLine),
+
 					inArray(trips.trip_id, filteredTripIds),
 				),
 			)
-			.orderBy(desc(trips.trip_id), desc(stop_times.arrival_time));
+			.orderBy(desc(trips.trip_id), desc(stop_times.departure_time))
+			.limit(1000);
+		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
+
+		return parsed;
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+export const selectUpcomingTripsFromDatabase = async (
+	busLine: string,
+	stop_name: string,
+): Promise<IDbData[]> => {
+	MetricsTracker.trackDbQuery();
+	const now = new Date();
+	const todayStr = now.toISOString().split("T")[0]; // '2025-05-29'
+
+	const currentHour = now.getHours();
+	const currentMinutes = now.getMinutes();
+
+	const formatTimeForSQL = (hours: number, minutes: number): string => {
+		return `${hours.toString().padStart(2, "0")}:${minutes
+			.toString()
+			.padStart(2, "0")}:00`;
+	};
+	let fifteenMinBeforeHour = currentHour;
+	let fifteenMinBeforeMinute = currentMinutes - 15;
+
+	if (fifteenMinBeforeMinute < 0) {
+		fifteenMinBeforeMinute += 60;
+		fifteenMinBeforeHour -= 1;
+	}
+
+	if (fifteenMinBeforeHour < 0) {
+		fifteenMinBeforeHour = 23;
+	}
+
+	const timeFifteenMinBeforeDep = formatTimeForSQL(
+		fifteenMinBeforeHour,
+		fifteenMinBeforeMinute,
+	);
+
+	const fourHoursAfterHour = currentHour + 4;
+	const timeFourHoursAfter = formatTimeForSQL(
+		fourHoursAfterHour,
+		currentMinutes,
+	);
+
+	try {
+		const data = await db
+			.select({
+				trip_id: trips.trip_id,
+				route_short_name: routes.route_short_name,
+				stop_headsign: stop_times.stop_headsign,
+				departure_time: stop_times.departure_time,
+				stop_name: stops.stop_name,
+				stop_sequence: stop_times.stop_sequence,
+				stop_id: stops.stop_id,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(trips)
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
+			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+			.leftJoin(calendar, eq(trips.service_id, calendar.service_id))
+			.leftJoin(calendarDates, eq(trips.service_id, calendarDates.service_id))
+			.where(
+				and(
+					eq(routes.route_short_name, busLine),
+					eq(stops.stop_name, stop_name),
+					eq(calendarDates.date, sql`${todayStr}::date`),
+					eq(calendarDates.exception_type, 1),
+					sql`${stop_times.departure_time} >= ${timeFifteenMinBeforeDep}`,
+					sql`${stop_times.departure_time} <= ${timeFourHoursAfter}`,
+				),
+			)
+			.orderBy(desc(trips.trip_id), desc(stop_times.departure_time))
+			.limit(500);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 
 		return parsed;

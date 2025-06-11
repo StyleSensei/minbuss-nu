@@ -3,12 +3,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export const useOverflow = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isOverflowing, setIsOverflowing] = useState(false);
+	const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
 	const checkOverflow = useCallback(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
 		setIsOverflowing(container.scrollHeight > container.clientHeight);
+
+		const isAtBottom =
+			container.scrollHeight - container.scrollTop - container.clientHeight < 5;
+		setIsScrolledToBottom(isAtBottom);
 	}, []);
 
 	useEffect(() => {
@@ -17,5 +22,13 @@ export const useOverflow = () => {
 		return () => window.removeEventListener("resize", checkOverflow);
 	}, [checkOverflow]);
 
-	return { containerRef, isOverflowing };
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		container.addEventListener("scroll", checkOverflow);
+		return () => container.removeEventListener("scroll", checkOverflow);
+	}, [checkOverflow]);
+
+	return { containerRef, isOverflowing, isScrolledToBottom, checkOverflow };
 };

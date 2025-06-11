@@ -1,10 +1,9 @@
 export interface IDbData {
 	trip_id: string;
-	route_id: string;
 	route_short_name: string;
 	stop_headsign: string;
 	stop_id: string;
-	arrival_time: string;
+	departure_time: string;
 	stop_name: string;
 	stop_sequence: number;
 	stop_lat: number;

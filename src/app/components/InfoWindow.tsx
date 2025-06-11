@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
+import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
 
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;
@@ -12,13 +13,13 @@ interface IInfoWindowProps {
 
 export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 	const { containerRef, isOverflowing } = useOverflow();
-	const { filteredTripUpdates, cachedDbDataState } = useDataContext();
+	const { filteredTripUpdates, tripData } = useDataContext();
 	const [localClosestStop, setLocalClosestStop] = useState<IDbData | null>(
 		null,
 	);
 	useEffect(() => {
 		if (!closestStopState && tripId) {
-			const tripStops = cachedDbDataState
+			const tripStops = tripData.currentTrips
 				.filter((stop) => stop.trip_id === tripId)
 				.sort((a, b) => a.stop_sequence - b.stop_sequence);
 
@@ -26,19 +27,22 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 				setLocalClosestStop(tripStops[0]);
 			}
 		}
-	}, [closestStopState, tripId, cachedDbDataState]);
+	}, [closestStopState, tripId, tripData.currentTrips]);
 
 	const effectiveStop = closestStopState || localClosestStop;
 
 	const closestStopTimesStamp = filteredTripUpdates
 		.find((t) => t.trip.tripId === effectiveStop?.trip_id)
 		?.stopTimeUpdate.find((s) => s.stopId === effectiveStop?.stop_id)
-		?.arrival?.time;
-	const scheduledTime = effectiveStop?.arrival_time?.slice(0, 5);
-	const closestStopArrival = closestStopTimesStamp
+		?.departure?.time;
+	const scheduledTime = effectiveStop?.departure_time
+		? normalizeTimeForDisplay(effectiveStop.departure_time.slice(0, 5))
+		: null;
+	const closestStopDeparture = closestStopTimesStamp
 		? new Date(+closestStopTimesStamp * 1000).toLocaleTimeString().slice(0, 5)
 		: null;
-	const hasUpdate = closestStopArrival && closestStopArrival !== scheduledTime;
+	const hasUpdate =
+		closestStopDeparture && closestStopDeparture !== scheduledTime;
 	return (
 		<div
 			className={`info-window ${isOverflowing ? "--overflowing" : ""}`}
@@ -53,7 +57,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 			<p className="next-stop">{effectiveStop?.stop_name}</p>
 			<h2>Ankomst:</h2>
 			<p>
-				{hasUpdate && <span>{closestStopArrival}</span>}
+				{hasUpdate && <span>{closestStopDeparture}</span>}
 				<span className={hasUpdate ? "updated-time" : ""}>
 					{" "}
 					{scheduledTime}

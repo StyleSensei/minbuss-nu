@@ -26,7 +26,7 @@ export const CurrentTripsNoGeo = ({ lastStops }: ICurrentTripsProps) => {
 					{lastStops.map((stop) => (
 						<tr key={stop?.trip_id}>
 							<td>{stop?.stop_headsign}</td>
-							<td>{stop?.arrival_time?.slice(0, 5)}</td>
+							<td>{stop?.departure_time?.slice(0, 5)}</td>
 						</tr>
 					))}
 				</tbody>

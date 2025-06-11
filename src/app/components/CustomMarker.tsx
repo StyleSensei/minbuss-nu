@@ -58,7 +58,7 @@ export default function CustomMarker({
 	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
 		currentVehicle,
 	);
-	const { filteredVehicles, cachedDbDataState } = useDataContext();
+	const { filteredVehicles, tripData } = useDataContext();
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
@@ -66,17 +66,26 @@ export default function CustomMarker({
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 	const setZoom = useSetZoom();
 	const zoomRef = useRef<number>(8);
+	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
+	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
 
 	useGSAP(() => {
 		if (marker) {
+			if (markerAnimationRef.current) {
+				markerAnimationRef.current.kill();
+			}
+
 			const currentPosition = marker.position
 				? { lat: marker.position.lat, lng: marker.position.lng }
 				: position;
-			gsap.to(currentPosition, {
-				duration: 4,
-				ease: "sine",
+
+			markerAnimationRef.current = gsap.to(currentPosition, {
+				duration: 4.5,
+				ease: "linear",
 				lat: position.lat,
 				lng: position.lng,
+				overwrite: "auto",
+				lazy: true,
 				onUpdate: () => {
 					if (marker) {
 						marker.position = new google.maps.LatLng(
@@ -87,6 +96,13 @@ export default function CustomMarker({
 				},
 			});
 		}
+
+		return () => {
+			if (markerAnimationRef.current) {
+				markerAnimationRef.current.kill();
+				markerAnimationRef.current = null;
+			}
+		};
 	}, [position, marker]);
 
 	const findClosestOrNextStop = useCallback(() => {
@@ -95,7 +111,7 @@ export default function CustomMarker({
 		const busLat = currentBus.position.latitude;
 		const busLon = currentBus.position.longitude;
 
-		const stopsOnTrip = cachedDbDataState
+		const stopsOnTrip = tripData.currentTrips
 			.filter((stop) => stop.trip_id === currentBus.trip.tripId)
 			.sort((a, b) => a.stop_sequence - b.stop_sequence);
 
@@ -122,7 +138,7 @@ export default function CustomMarker({
 			closestStop,
 			nextStop,
 		};
-	}, [cachedDbDataState, currentBus, checkIfFurtherFromStop]);
+	}, [tripData.currentTrips, currentBus, checkIfFurtherFromStop]);
 
 	const findCurrentBus = useCallback(() => {
 		if (!infoWindowActive || !marker?.position) return;
@@ -149,14 +165,20 @@ export default function CustomMarker({
 
 	useGSAP(() => {
 		if (marker && followBus && isActive) {
+			if (followAnimationRef.current) {
+				followAnimationRef.current.kill();
+			}
+
 			const currentPosition = marker.position
 				? { lat: marker.position.lat, lng: marker.position.lng }
 				: position;
-			gsap.to(currentPosition, {
-				duration: 4,
-				ease: "sine",
+
+			followAnimationRef.current = gsap.to(currentPosition, {
+				duration: 4.5,
+				ease: "linear",
 				lat: position.lat,
 				lng: position.lng,
+				overwrite: "auto",
 				onUpdate: () => {
 					googleMapRef.current?.setCenter(
 						new google.maps.LatLng(+currentPosition.lat, +currentPosition.lng),
@@ -164,7 +186,36 @@ export default function CustomMarker({
 				},
 			});
 		}
+
+		return () => {
+			if (followAnimationRef.current) {
+				followAnimationRef.current.kill();
+				followAnimationRef.current = null;
+			}
+		};
 	}, [position, marker, isActive, followBus, googleMapRef]);
+
+	useEffect(() => {
+		if (!followBus && followAnimationRef.current) {
+			followAnimationRef.current.kill();
+			followAnimationRef.current = null;
+		}
+	}, [followBus]);
+
+	useEffect(() => {
+		return () => {
+			if (markerAnimationRef.current) {
+				markerAnimationRef.current.kill();
+			}
+			if (followAnimationRef.current) {
+				followAnimationRef.current.kill();
+			}
+
+			if (marker?.position) {
+				gsap.killTweensOf(marker.position);
+			}
+		};
+	}, [marker]);
 
 	const panTo = useCallback(
 		(GoogleMap: google.maps.Map) => {
@@ -243,7 +294,7 @@ export default function CustomMarker({
 		}
 	}, [filteredVehicles, googleMapRef]);
 
-	const matchingStop = cachedDbDataState.find(
+	const matchingStop = tripData.currentTrips.find(
 		(stop) => stop.trip_id === currentVehicle?.trip?.tripId,
 	);
 

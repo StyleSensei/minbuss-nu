@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
-import type { IDbData } from "@shared/models/IDbData.ts";
+import type { IDbData } from "@shared/models/IDbData";
 import { getClosest } from "../utilities/getClosest";
-import { useDataContext } from "../context/DataContext";
 
-interface IUser {
+export interface IUser {
 	lat: number;
 	lng: number;
 	closestStop: IDbData | null;
 	tripsAtClosestStop: IDbData[];
 }
 
-const useUserPosition = () => {
-	const [userPosition, setUserPosition] = useState<IUser | null>(null);
-	const { cachedDbDataState } = useDataContext();
+export function useGeolocation(currentTrips: IDbData[]) {
+	const [position, setPosition] = useState<IUser | null>(null);
+
 	useEffect(() => {
 		if (!navigator.geolocation) {
 			console.error("Geolocation is not supported by this browser.");
@@ -23,17 +22,17 @@ const useUserPosition = () => {
 			const { latitude, longitude } = pos.coords;
 
 			const newClosestStop =
-				cachedDbDataState.length > 0
-					? (getClosest(cachedDbDataState, latitude, longitude) as IDbData)
+				currentTrips.length > 0
+					? (getClosest(currentTrips, latitude, longitude) as IDbData)
 					: null;
 
-			setUserPosition((prev) => {
+			setPosition((prev) => {
 				if (!prev || prev.lat !== latitude || prev.lng !== longitude) {
 					return {
 						lat: latitude,
 						lng: longitude,
 						closestStop: newClosestStop,
-						tripsAtClosestStop: cachedDbDataState
+						tripsAtClosestStop: currentTrips
 							.filter((stop) => stop.stop_name === newClosestStop?.stop_name)
 							.sort((a, b) => a.trip_id.localeCompare(b.trip_id)),
 					};
@@ -44,22 +43,16 @@ const useUserPosition = () => {
 
 		const errorHandler = (error: GeolocationPositionError) => {
 			console.error("Error getting location:", error.message);
-			console.warn("Error getting location:", error.message);
 		};
 
 		const watchId = navigator.geolocation.watchPosition(
 			updateUserPosition,
 			errorHandler,
-			{
-				enableHighAccuracy: true,
-				maximumAge: 0,
-			},
+			{ enableHighAccuracy: true, maximumAge: 0 },
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);
-	}, [cachedDbDataState]);
+	}, [currentTrips]);
 
-	return { userPosition, setUserPosition };
-};
-
-export default useUserPosition;
+	return position;
+}

@@ -6,7 +6,7 @@ export const routes = pgTable("routes", {
 	agency_id: varchar(),
 	route_short_name: varchar(),
 	route_long_name: varchar(),
-	route_type: varchar(),
+	route_type: integer(),
 	route_desc: varchar(),
 });
 

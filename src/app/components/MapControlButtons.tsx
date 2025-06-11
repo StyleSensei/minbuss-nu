@@ -2,8 +2,8 @@ import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
 import colors from "../colors.module.scss";
-import useUserPosition from "../hooks/useUserPosition";
 import type { IVehicleFilterResult } from "../actions/filterVehicles";
+import { useDataContext } from "../context/DataContext";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
@@ -30,7 +30,7 @@ export const MapControlButtons = ({
 	activeMarker,
 	mapReady,
 }: MapControlButtonsProps) => {
-	const { userPosition } = useUserPosition();
+	const { userPosition } = useDataContext();
 
 	useEffect(() => {
 		const inputContainer = document.getElementById("searchbar");

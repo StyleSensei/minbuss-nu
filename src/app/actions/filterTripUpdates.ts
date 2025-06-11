@@ -10,7 +10,9 @@ export const getFilteredTripUpdates = async (busline?: string) => {
 
 	const cachedDbData = await getCachedDbData(busline);
 	filteredData = cachedTripUpdates?.filter((vehicle) =>
-		cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
+		cachedDbData.currentTrips.some(
+			(trip) => trip?.trip_id === vehicle?.trip?.tripId,
+		),
 	);
 
 	return { data: filteredData };

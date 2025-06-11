@@ -13,15 +13,14 @@ import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "@shared/models/IDbData";
-import useUserPosition from "../hooks/useUserPosition";
-import { CurrentTripsNoGeo } from "../components/CurrentTripsNoGeo";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { CurrentTripsLoader } from "../components/CurrentTripsLoader";
 import UserMessage from "../components/UserMessage";
 
 export default function MapPage() {
-	const { filteredVehicles, cachedDbDataState } = useDataContext();
+	const { filteredVehicles, tripData, userPosition, setUserPosition } =
+		useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
@@ -32,7 +31,6 @@ export default function MapPage() {
 	const [showLoadingTrips, setShowLoadingTrips] = useState(false);
 	const [mapReady, setMapReady] = useState(false);
 
-	const { userPosition, setUserPosition } = useUserPosition();
 	const isMobile = useIsMobile();
 
 	useEffect(() => {
@@ -78,7 +76,7 @@ export default function MapPage() {
 	useEffect(() => {
 		if (!userPosition) return;
 
-		const tripsAtClosestStop = getTripsByStopId(cachedDbDataState);
+		const tripsAtClosestStop = getTripsByStopId(tripData.currentTrips);
 
 		if (
 			JSON.stringify(tripsAtClosestStop) !==
@@ -92,7 +90,7 @@ export default function MapPage() {
 				};
 			});
 		}
-	}, [cachedDbDataState, getTripsByStopId, userPosition, setUserPosition]);
+	}, [tripData.currentTrips, getTripsByStopId, userPosition, setUserPosition]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
@@ -223,10 +221,12 @@ export default function MapPage() {
 							}}
 						/>
 					))}{" "}
-					{showLoadingTrips && userPosition && <CurrentTripsLoader />}
-					{filteredVehicles?.data.length > 0 &&
-						showCurrentTrips &&
-						userPosition && (
+					{showLoadingTrips && userPosition && showCurrentTrips && (
+						<CurrentTripsLoader />
+					)}
+					{showCurrentTrips &&
+						userPosition &&
+						filteredVehicles.data.length > 0 && (
 							<CurrentTrips
 								onTripSelect={handleTripSelect}
 								setShowLoadingTrips={setShowLoadingTrips}

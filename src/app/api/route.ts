@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import {
 	// selectAllroutes,
-	selectFromDatabase,
+	selectCurrentTripsFromDatabase,
 } from "../services/dataProcessors/selectFromDatabase";
 import { getVehiclePositions } from "../services/dataSources/gtfsRealtime";
 import { db } from "@vercel/postgres";
@@ -30,7 +30,7 @@ export const GET = async () => {
 	// );
 	// const data = await getFilteredVehiclePositions("177");
 	// const data = await getCachedDbData("177");
-	// const data = await selectFromDatabase("177");
+	// const data = await selectCurrentTripsFromDatabase("177");
 	// console.log("data: ", data);
 	// console.log("correctBus: ", correctBus);
 	// const result = await db.execute('select 1');

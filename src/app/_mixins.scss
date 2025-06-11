@@ -52,8 +52,7 @@ $desktopXXL: 2000px;
   -webkit-backdrop-filter: blur(#{$amount}px);
 }
 
-@mixin overFlowing($length: 20) {
-  &.--overflowing {
-    box-shadow: inset 0 -#{$length}px #{$length}px -#{$length}px rgba($color: v.$secondary-color, $alpha: .4);
-  }
+@mixin overFlowing($length: 50) {
+  box-shadow: inset 0 -#{$length}px #{$length}px -#{$length}px rgba($color: v.$secondary-color, $alpha: 1);
+
 }

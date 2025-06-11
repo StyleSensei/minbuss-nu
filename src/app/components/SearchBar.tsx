@@ -16,7 +16,6 @@ import {
 } from "../actions/filterVehicles";
 import { getFilteredTripUpdates } from "../actions/filterTripUpdates";
 import { useDataContext } from "../context/DataContext";
-import { getCachedDbData } from "../services/cacheHelper";
 import { getAllRoutes } from "../actions/getAllRoutes";
 import { debounce } from "../utilities/debounce";
 import colors from "../colors.module.scss";
@@ -24,6 +23,7 @@ import { usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
+import { fetchCachedDbData } from "../actions/fetchCachedDbData";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -59,7 +59,7 @@ export const SearchBar = ({
 	const {
 		setFilteredVehicles,
 		filteredVehicles,
-		setCachedDbDataState,
+		setTripData,
 		setFilteredTripUpdates,
 	} = useDataContext();
 
@@ -72,6 +72,8 @@ export const SearchBar = ({
 		},
 		[allRoutes, routeExists],
 	);
+
+	const { userPosition } = useDataContext();
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: < didn't work without >
 	const handleOnChange = useCallback(
@@ -88,7 +90,6 @@ export const SearchBar = ({
 					result.error.type === "DATA_TOO_OLD" &&
 					"timestampAge" in result.error
 				) {
-					// Now TypeScript knows timestampAge exists
 					const { minutes, seconds, hours } = result.error.timestampAge;
 					const ageDisplay = hours
 						? `${hours}h ${minutes % 60}m ${seconds % 60}s`
@@ -123,9 +124,26 @@ export const SearchBar = ({
 		usePoll(setFilteredTripUpdates, getFilteredTripUpdates, 40000);
 
 	const handleCachedDbData = useCallback(async () => {
-		const cachedDbData = await getCachedDbData(userInput);
-		setCachedDbDataState(cachedDbData);
-	}, [userInput, setCachedDbDataState]);
+		const { currentTrips, upcomingTrips: initialUpcomingTrips } =
+			await fetchCachedDbData(userInput);
+
+		setTripData({ currentTrips, upcomingTrips: initialUpcomingTrips || [] });
+
+		const closestStopName = userPosition?.closestStop?.stop_name;
+		if (closestStopName) {
+			const { upcomingTrips } = await fetchCachedDbData(
+				userInput,
+				closestStopName,
+			);
+
+			if (upcomingTrips && upcomingTrips.length > 0) {
+				setTripData((prev) => ({
+					...prev,
+					upcomingTrips,
+				}));
+			}
+		}
+	}, [userInput, setTripData, userPosition?.closestStop?.stop_name]);
 
 	const findClosestRoute = useCallback(
 		(query: string) => {
@@ -185,7 +203,17 @@ export const SearchBar = ({
 		if (filteredVehicles?.data.length) {
 			handleCachedDbData();
 		}
-	}, [handleCachedDbData, filteredVehicles]);
+	}, [handleCachedDbData, filteredVehicles.data.length]);
+
+	useEffect(() => {
+		if (userPosition?.closestStop?.stop_name && filteredVehicles?.data.length) {
+			handleCachedDbData();
+		}
+	}, [
+		userPosition?.closestStop?.stop_name,
+		filteredVehicles?.data.length,
+		handleCachedDbData,
+	]);
 
 	const handleKeydown = (event: KeyboardEvent) => {
 		if (

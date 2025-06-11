@@ -5,7 +5,7 @@ import {
 } from "../services/cacheHelper";
 import { redis } from "../utilities/redis";
 import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
-import type { IDbData } from "@shared/models/IDbData";
+import type { ITripData } from "../context/DataContext";
 
 // Define an interface for timestamp age info
 interface ITimestampAge {
@@ -50,8 +50,8 @@ export interface IVehicleFilterResult {
 	error?: VehicleError;
 }
 
-const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-";
-const FILTERED_VEHICLES_TTL = 2; // 2 sekunder
+const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-new-";
+const FILTERED_VEHICLES_TTL = 5;
 
 export const getFilteredVehiclePositions = async (
 	busline?: string,
@@ -94,11 +94,23 @@ export const getFilteredVehiclePositions = async (
 			}
 		}
 
-		const cachedDbData = (await getCachedDbData(busline)) as IDbData[];
+		const cachedDbData = (await getCachedDbData(busline)) as ITripData;
 
-		filteredData = cachedVehiclePositions.data?.filter((vehicle) =>
-			cachedDbData.some((trip) => trip?.trip_id === vehicle?.trip?.tripId),
+		filteredData = cachedVehiclePositions.data?.filter((vehicle) => {
+			if (!vehicle?.trip?.tripId) return false;
+
+			const matchingTrip = cachedDbData.currentTrips.find(
+				(trip) => trip?.trip_id === vehicle.trip.tripId,
+			);
+
+			if (!matchingTrip) return false;
+
+			return true;
+		});
+		filteredData.sort((a, b) =>
+			(a.trip?.tripId || "").localeCompare(b.trip?.tripId || ""),
 		);
+
 		await redis.set(cacheKey, filteredData, { ex: FILTERED_VEHICLES_TTL });
 
 		let vehicleError: VehicleError | undefined;
