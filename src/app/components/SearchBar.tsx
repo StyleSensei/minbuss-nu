@@ -19,7 +19,7 @@ import { useDataContext } from "../context/DataContext";
 import { getAllRoutes } from "../actions/getAllRoutes";
 import { debounce } from "../utilities/debounce";
 import colors from "../colors.module.scss";
-import { usePoll } from "../hooks/usePoll";
+import { type ResponseWithData, usePoll } from "../hooks/usePoll";
 import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
@@ -124,7 +124,7 @@ export const SearchBar = ({
 
 	const { pollOnInterval: pollTripUpdates, stopPolling: stopPollingUpdates } =
 		usePoll<ITripUpdate, IError>(
-			(response) => {
+			(response: ResponseWithData<ITripUpdate, IError>) => {
 				if (response?.data) {
 					setFilteredTripUpdates(response.data);
 				}
