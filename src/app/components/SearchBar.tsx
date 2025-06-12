@@ -24,6 +24,8 @@ import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
 import { fetchCachedDbData } from "../actions/fetchCachedDbData";
+import type { ITripUpdate } from "@/shared/models/ITripUpdate";
+import type { IError } from "../services/cacheHelper";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -121,7 +123,15 @@ export const SearchBar = ({
 		);
 
 	const { pollOnInterval: pollTripUpdates, stopPolling: stopPollingUpdates } =
-		usePoll(setFilteredTripUpdates, getFilteredTripUpdates, 40000);
+		usePoll<ITripUpdate, IError>(
+			(response) => {
+				if (response?.data) {
+					setFilteredTripUpdates(response.data);
+				}
+			},
+			getFilteredTripUpdates,
+			40000,
+		);
 
 	const handleCachedDbData = useCallback(async () => {
 		const { currentTrips, upcomingTrips: initialUpcomingTrips } =
@@ -167,6 +177,8 @@ export const SearchBar = ({
 		}
 	});
 
+	const isTripUpdatesPollingActive = useRef(false);
+
 	useEffect(() => {
 		if (userInput && !filteredVehicles?.data.length && !routeExists) {
 			if (!routeExists) {
@@ -177,27 +189,38 @@ export const SearchBar = ({
 		}
 		if (!userInput && filteredVehicles?.data.length) {
 			setFilteredVehicles({ data: [] });
+			return;
 		}
-		if (userInput && filteredVehicles?.data.length) {
+		if (userInput && filteredVehicles?.data.length > 0) {
 			pollBusPositionsEveryTwoSeconds(userInput);
-			pollTripUpdates(userInput);
+
+			if (!isTripUpdatesPollingActive.current) {
+				isTripUpdatesPollingActive.current = true;
+
+				(async () => {
+					try {
+						const response = await getFilteredTripUpdates(userInput);
+						if (response?.data) {
+							setFilteredTripUpdates(response.data);
+						}
+					} catch (error) {
+						console.error("Error getting initial trip updates:", error);
+					}
+				})();
+
+				pollTripUpdates(userInput);
+			}
 		}
 
 		return () => {
 			stopPolling();
-			stopPollingUpdates();
+
+			if (isTripUpdatesPollingActive.current) {
+				stopPollingUpdates();
+				isTripUpdatesPollingActive.current = false;
+			}
 		};
-	}, [
-		userInput,
-		filteredVehicles?.data.length,
-		pollBusPositionsEveryTwoSeconds,
-		setFilteredVehicles,
-		routeExists,
-		findClosestRoute,
-		stopPolling,
-		stopPollingUpdates,
-		pollTripUpdates,
-	]);
+	}, [userInput, filteredVehicles?.data.length, routeExists]);
 
 	useEffect(() => {
 		if (filteredVehicles?.data.length) {
@@ -266,6 +289,7 @@ export const SearchBar = ({
 
 	return (
 		<>
+			{" "}
 			<div
 				ref={inputContainerRef}
 				className={`search-bar__container ${isActive ? "--active" : ""}`}
