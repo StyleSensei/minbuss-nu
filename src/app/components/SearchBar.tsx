@@ -47,7 +47,6 @@ export const SearchBar = ({
 	const [allRoutes, setAllRoutes] = useState<string[]>([]);
 	const [routeExists, setRouteExists] = useState<boolean>(false);
 	const [proposedRoute, setProposedRoute] = useState<string | undefined>("");
-	const [loading, setLoading] = useState<boolean>(false);
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
 	const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +62,8 @@ export const SearchBar = ({
 		filteredVehicles,
 		setTripData,
 		setFilteredTripUpdates,
+		setIsLoading,
+		isLoading,
 	} = useDataContext();
 
 	const checkIfRouteExists = useCallback(
@@ -80,9 +81,9 @@ export const SearchBar = ({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: < didn't work without >
 	const handleOnChange = useCallback(
 		debounce(async (query: string) => {
-			setLoading(true);
+			setIsLoading(true);
 			const routeExists = checkIfRouteExists(query);
-			if (!routeExists) setLoading(false);
+			if (!routeExists) setIsLoading(false);
 
 			const result = await getFilteredVehiclePositions(query);
 			setFilteredVehicles({ data: result.data, error: result.error });
@@ -109,9 +110,8 @@ export const SearchBar = ({
 				}
 				setErrorMessage(result.error.message);
 			}
-			setLoading(false);
 		}, 500),
-		[checkIfRouteExists],
+		[checkIfRouteExists, setIsLoading],
 	);
 
 	const { pollOnInterval: pollBusPositionsEveryTwoSeconds, stopPolling } =
@@ -179,6 +179,7 @@ export const SearchBar = ({
 
 	const isTripUpdatesPollingActive = useRef(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		if (userInput && !filteredVehicles?.data.length && !routeExists) {
 			if (!routeExists) {
@@ -238,13 +239,12 @@ export const SearchBar = ({
 		handleCachedDbData,
 	]);
 
-	const handleKeydown = (event: KeyboardEvent) => {
+	const handleKeyDown = (event: KeyboardEvent) => {
 		if (
 			event.key === "Escape" ||
 			event.key === "Cancel" ||
 			event.key === "Enter"
 		) {
-			inputRef.current?.blur();
 			handleBlur();
 		}
 	};
@@ -279,7 +279,6 @@ export const SearchBar = ({
 	};
 	const handleBlur = () => {
 		setIsBlurring(true);
-
 		setTimeout(() => {
 			setIsActive(false);
 			setIsBlurring(false);
@@ -292,7 +291,7 @@ export const SearchBar = ({
 			{" "}
 			<div
 				ref={inputContainerRef}
-				className={`search-bar__container ${isActive ? "--active" : ""}`}
+				className={`search-bar__container ${isActive ? "--active" : ""} ${isLoading ? "--loading" : ""} `}
 			>
 				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
 					<button
@@ -316,14 +315,14 @@ export const SearchBar = ({
 						maxLength={5}
 						pattern="[A-Z]{0,2}[0-9]{1,3}[A-Z]{0,2}"
 						placeholder="Sök busslinje..."
-						className="search-bar__input"
+						className={`search-bar__input ${isLoading ? "loading" : ""}`}
 						autoComplete="off"
 						onChange={(e) => {
 							setUserInput(e.target.value.toUpperCase());
 							handleOnChange(e.target.value.toUpperCase());
 						}}
 						value={userInput}
-						onKeyDown={handleKeydown}
+						onKeyDown={handleKeyDown}
 						onFocus={handleFocus}
 						onBlur={handleBlur}
 						style={{
@@ -371,7 +370,7 @@ export const SearchBar = ({
 					)}
 					<button type="submit">Sök</button>
 				</Form>
-				{!routeExists && userInput && proposedRoute && !loading && (
+				{!routeExists && userInput && proposedRoute && !isLoading && (
 					<Suspense fallback={<p className="error-message">Laddar...</p>}>
 						<SearchError proposedRoute={proposedRoute} />
 					</Suspense>
@@ -380,12 +379,12 @@ export const SearchBar = ({
 					userInput &&
 					!filteredVehicles?.data.length &&
 					!errorMessage &&
-					!loading && (
+					!isLoading && (
 						<Suspense fallback={<p className="error-message">Laddar...</p>}>
 							<SearchError userInput={userInput} />
 						</Suspense>
 					)}
-				{errorMessage && routeExists && userInput && !loading && (
+				{errorMessage && routeExists && userInput && !isLoading && (
 					<Suspense fallback={<p className="error-message">Laddar...</p>}>
 						<SearchError errorText={errorMessage} />
 					</Suspense>

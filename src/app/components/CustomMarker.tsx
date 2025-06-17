@@ -37,6 +37,7 @@ interface ICustomMarkerProps {
 	isActive: boolean;
 	showCurrentTrips: boolean;
 	onActivateMarker: (id: string | null) => void;
+	onMarkerRendered: () => void;
 }
 
 export default function CustomMarker({
@@ -52,6 +53,7 @@ export default function CustomMarker({
 	isActive,
 	showCurrentTrips,
 	onActivateMarker,
+	onMarkerRendered,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);

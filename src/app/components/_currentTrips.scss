@@ -1,5 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use '../keyframes' as k;
 
 .current-trips {
     position: absolute;
@@ -42,7 +43,7 @@
         color: v.$tertiary-color;
     }
 
-    &.--overflowing:not(.--at-bottom) {
+    &.--overflowing {
 
         &::after {
             content: '';
@@ -55,9 +56,19 @@
             margin-top: -80px;
             background: linear-gradient(to bottom,
                     rgba(v.$primary-color, 0) 0%,
-                    rgba(v.$primary-color, 0.8) 50%,
+                    rgba(v.$primary-color, .8) 50%,
                     v.$primary-color 100%);
             pointer-events: none;
+        }
+
+        &:not(.--at-bottom)::after {
+            animation: fadeGradientIn 0.25s ease-in-out both;
+            will-change: opacity;
+        }
+
+        &.--at-bottom::after {
+            animation: fadeGradientOut 0.25s ease-in-out both;
+            will-change: opacity;
         }
     }
 

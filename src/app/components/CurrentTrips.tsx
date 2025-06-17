@@ -125,7 +125,6 @@ export const CurrentTrips = ({
 	}
 
 	const allTripsAtUserStop = [...tripData.upcomingTrips];
-
 	const relevantTrips = allTripsAtUserStop
 		.filter(isTripRelevant)
 		.sort((a, b) => {
@@ -137,7 +136,6 @@ export const CurrentTrips = ({
 
 			return a.departure_time.localeCompare(b.departure_time);
 		});
-
 	const uniqueTripsMap = new Map<string, IDbData>();
 	for (const trip of relevantTrips) {
 		if (!uniqueTripsMap.has(trip.trip_id)) {
@@ -186,16 +184,24 @@ export const CurrentTrips = ({
 	const hasUpdate =
 		nextBusUpdatedTime && nextBusUpdatedTime !== nextBusScheduledTime;
 
-	// Ensure data shows even if calculations are slow
 	calculationsCompleteRef.current = true;
 
 	const hasTripsToDisplay = nextBus !== undefined;
 
 	useEffect(() => {
-		if (hasTripsToDisplay && containerRef.current) {
+		if (
+			hasTripsToDisplay &&
+			containerRef.current &&
+			filteredVehicles.data.length > 0
+		) {
 			setTimeout(() => checkOverflow(), 50);
 		}
-	}, [hasTripsToDisplay, checkOverflow, containerRef.current]);
+	}, [
+		hasTripsToDisplay,
+		checkOverflow,
+		containerRef.current,
+		filteredVehicles.data.length,
+	]);
 
 	return (
 		<div className="current-trips">

@@ -1,5 +1,3 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
 import { eq, inArray, and, desc, sql } from "drizzle-orm";
@@ -11,14 +9,9 @@ import { selectAllSchema } from "@shared/db/schema/selectAll";
 import { z } from "zod";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { calendarDates } from "@/shared/db/schema/calendar_dates";
-import { calendar } from "@/shared/db/schema/calendar";
+import { getDb } from "./db";
 
-if (!process.env.DATABASE_URL) {
-	throw new Error("DATABASE_URL is not defined");
-}
-
-const queryClient = postgres(process.env.DATABASE_URL);
-const db = drizzle({ client: queryClient });
+const db = getDb();
 
 export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	MetricsTracker.trackDbQuery();
@@ -66,10 +59,29 @@ export const selectUpcomingTripsFromDatabase = async (
 ): Promise<IDbData[]> => {
 	MetricsTracker.trackDbQuery();
 	const now = new Date();
-	const todayStr = now.toISOString().split("T")[0]; // '2025-05-29'
-
 	const currentHour = now.getHours();
 	const currentMinutes = now.getMinutes();
+	const isEarlyMorning = currentHour < 4;
+
+	const year = now.getFullYear();
+	const month = now.getMonth() + 1;
+	const day = now.getDate();
+	let yesterdayStr = "";
+	if (isEarlyMorning) {
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		const yesterdayYear = yesterday.getFullYear();
+		const yesterdayMonth = (yesterday.getMonth() + 1)
+			.toString()
+			.padStart(2, "0");
+		const yesterdayDay = yesterday.getDate().toString().padStart(2, "0");
+		yesterdayStr = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
+	}
+
+	const todayStr = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+
+	const dateStrings = isEarlyMorning ? [todayStr, yesterdayStr] : [todayStr];
+	const dates = dateStrings.map((dateStr) => new Date(dateStr));
 
 	const formatTimeForSQL = (hours: number, minutes: number): string => {
 		return `${hours.toString().padStart(2, "0")}:${minutes
@@ -78,6 +90,7 @@ export const selectUpcomingTripsFromDatabase = async (
 	};
 	let fifteenMinBeforeHour = currentHour;
 	let fifteenMinBeforeMinute = currentMinutes - 15;
+	let fourHoursAfterHour = currentHour + 4;
 
 	if (fifteenMinBeforeMinute < 0) {
 		fifteenMinBeforeMinute += 60;
@@ -87,13 +100,16 @@ export const selectUpcomingTripsFromDatabase = async (
 	if (fifteenMinBeforeHour < 0) {
 		fifteenMinBeforeHour = 23;
 	}
+	if (isEarlyMorning) {
+		fifteenMinBeforeHour += 24;
+		fourHoursAfterHour += 24;
+	}
 
 	const timeFifteenMinBeforeDep = formatTimeForSQL(
 		fifteenMinBeforeHour,
 		fifteenMinBeforeMinute,
 	);
 
-	const fourHoursAfterHour = currentHour + 4;
 	const timeFourHoursAfter = formatTimeForSQL(
 		fourHoursAfterHour,
 		currentMinutes,
@@ -116,13 +132,12 @@ export const selectUpcomingTripsFromDatabase = async (
 			.innerJoin(routes, eq(trips.route_id, routes.route_id))
 			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
 			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
-			.leftJoin(calendar, eq(trips.service_id, calendar.service_id))
 			.leftJoin(calendarDates, eq(trips.service_id, calendarDates.service_id))
 			.where(
 				and(
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
-					eq(calendarDates.date, sql`${todayStr}::date`),
+					inArray(calendarDates.date, dates),
 					eq(calendarDates.exception_type, 1),
 					sql`${stop_times.departure_time} >= ${timeFifteenMinBeforeDep}`,
 					sql`${stop_times.departure_time} <= ${timeFourHoursAfter}`,

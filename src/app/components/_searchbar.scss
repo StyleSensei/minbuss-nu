@@ -1,5 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use '../keyframes' as k;
 
 $containerWidth: 278px;
 
@@ -27,6 +28,13 @@ $containerWidth: 278px;
         @include m.desktop {
             transform: scale(1.5);
         }
+    }
+
+    &.--loading {
+        box-shadow: 0 0 0 2px transparent;
+        @include k.pulseBorder;
+
+
     }
 
     form {

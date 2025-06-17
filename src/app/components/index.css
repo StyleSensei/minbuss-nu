@@ -135,6 +135,33 @@
     transform: scale(1);
   }
 }
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 0 2px #00ffb3;
+  }
+  50% {
+    box-shadow: 0 0 0 2px #004c35;
+  }
+  100% {
+    box-shadow: 0 0 0 2px #00ffb3;
+  }
+}
+@keyframes fadeGradientIn {
+  0%, 20% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes fadeGradientOut {
+  0% {
+    opacity: 1;
+  }
+  80%, 100% {
+    opacity: 0;
+  }
+}
 nav.wrapper {
   position: fixed;
   left: 5vw;
@@ -609,6 +636,11 @@ button {
     transform: scale(1.5);
   }
 }
+.search-bar__container.--loading {
+  box-shadow: 0 0 0 2px transparent;
+  animation: pulse-border 1.5s linear infinite;
+  will-change: transform;
+}
 .search-bar__container form {
   display: flex;
   position: relative;
@@ -784,7 +816,7 @@ button {
 .table-container h3 {
   color: #9CA3AF;
 }
-.table-container.--overflowing:not(.--at-bottom)::after {
+.table-container.--overflowing::after {
   content: "";
   display: block;
   position: sticky;
@@ -795,6 +827,14 @@ button {
   margin-top: -80px;
   background: linear-gradient(to bottom, rgba(20, 19, 20, 0) 0%, rgba(20, 19, 20, 0.8) 50%, #141314 100%);
   pointer-events: none;
+}
+.table-container.--overflowing:not(.--at-bottom)::after {
+  animation: fadeGradientIn 0.25s ease-in-out both;
+  will-change: opacity;
+}
+.table-container.--overflowing.--at-bottom::after {
+  animation: fadeGradientOut 0.25s ease-in-out both;
+  will-change: opacity;
 }
 .table-container table {
   width: 100%;

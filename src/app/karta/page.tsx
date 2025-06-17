@@ -9,7 +9,6 @@ import {
 } from "@vis.gl/react-google-maps";
 
 import { useDataContext } from "../context/DataContext";
-import CustomMarker from "../components/CustomMarker";
 import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "@shared/models/IDbData";
@@ -17,10 +16,16 @@ import { useIsMobile } from "../hooks/useIsMobile";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { CurrentTripsLoader } from "../components/CurrentTripsLoader";
 import UserMessage from "../components/UserMessage";
+import VehicleMarkers from "../components/VehicleMarkers";
 
 export default function MapPage() {
-	const { filteredVehicles, tripData, userPosition, setUserPosition } =
-		useDataContext();
+	const {
+		filteredVehicles,
+		tripData,
+		userPosition,
+		setUserPosition,
+		setIsLoading,
+	} = useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
@@ -30,7 +35,8 @@ export default function MapPage() {
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 	const [showLoadingTrips, setShowLoadingTrips] = useState(false);
 	const [mapReady, setMapReady] = useState(false);
-
+	const markersRenderedRef = useRef(false);
+	const markersRenderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const isMobile = useIsMobile();
 
 	useEffect(() => {
@@ -38,6 +44,34 @@ export default function MapPage() {
 			setShowLoadingTrips(showCurrentTrips);
 		}
 	}, [showCurrentTrips]);
+
+	useEffect(() => {
+		if (filteredVehicles.data.length > 0) {
+			setIsLoading(true);
+			if (markersRenderTimeoutRef.current) {
+				clearTimeout(markersRenderTimeoutRef.current);
+			}
+			markersRenderedRef.current = false;
+		} else {
+			setIsLoading(false);
+		}
+
+		return () => {
+			if (markersRenderTimeoutRef.current) {
+				clearTimeout(markersRenderTimeoutRef.current);
+			}
+		};
+	}, [filteredVehicles.data.length, setIsLoading]);
+
+	const onMarkerRendered = useCallback(() => {
+		if (!markersRenderedRef.current) {
+			markersRenderedRef.current = true;
+
+			markersRenderTimeoutRef.current = setTimeout(() => {
+				setIsLoading(false);
+			}, 500);
+		}
+	}, [setIsLoading]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -201,26 +235,20 @@ export default function MapPage() {
 							mapReady={mapReady}
 						/>
 					</MapControl>
-					{filteredVehicles?.data.map((vehicle) => (
-						<CustomMarker
-							googleMapRef={mapRef}
-							clickedOutside={clickedOutside}
-							setClickedOutside={setClickedOutside}
-							currentVehicle={vehicle}
-							setInfoWindowActiveExternal={setInfoWindowActive}
-							infoWindowActiveExternal={infoWindowActive}
-							followBus={followBus}
-							setFollowBus={setFollowBus}
-							isActive={activeMarkerId === vehicle?.vehicle?.id}
-							onActivateMarker={(id) => setActiveMarkerId(id)}
-							showCurrentTrips={showCurrentTrips}
-							key={vehicle.vehicle.id}
-							position={{
-								lat: vehicle.position.latitude,
-								lng: vehicle.position.longitude,
-							}}
-						/>
-					))}{" "}
+					<VehicleMarkers
+						googleMapRef={mapRef}
+						clickedOutside={clickedOutside}
+						setClickedOutside={setClickedOutside}
+						vehicles={filteredVehicles.data}
+						setInfoWindowActiveExternal={setInfoWindowActive}
+						infoWindowActiveExternal={infoWindowActive}
+						followBus={followBus}
+						setFollowBus={setFollowBus}
+						activeMarkerId={activeMarkerId}
+						setActiveMarkerId={setActiveMarkerId}
+						showCurrentTrips={showCurrentTrips}
+						onMarkerRendered={onMarkerRendered}
+					/>{" "}
 					{showLoadingTrips && userPosition && showCurrentTrips && (
 						<CurrentTripsLoader />
 					)}

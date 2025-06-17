@@ -1,3 +1,5 @@
+@use 'variables' as v;
+
 @keyframes sizeBlink {
     0% {
         transform: scale(1);
@@ -15,4 +17,46 @@
 @mixin sizeBlink {
     animation: sizeBlink 0.3s ease-in-out forwards;
     will-change: transform;
+}
+
+@keyframes pulse-border {
+    0% {
+        box-shadow: 0 0 0 2px v.$accent-color;
+    }
+
+    50% {
+        box-shadow: 0 0 0 2px v.$accent-color-light;
+    }
+
+    100% {
+        box-shadow: 0 0 0 2px v.$accent-color;
+    }
+}
+
+@mixin pulseBorder {
+    animation: pulse-border 1.5s linear infinite;
+    will-change: transform;
+}
+
+@keyframes fadeGradientIn {
+
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeGradientOut {
+    0% {
+        opacity: 1;
+    }
+
+    80%,
+    100% {
+        opacity: 0;
+    }
 }
