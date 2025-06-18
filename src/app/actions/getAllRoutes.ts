@@ -4,9 +4,17 @@ import { selectAllroutes } from "../services/dataProcessors/selectAllRoutes";
 
 export const getAllRoutes = async () => {
 	const data = await selectAllroutes();
-	const allRoutes = data
+	const routesArray = data
 		.map((route) => route.line)
 		.filter((route) => route !== null);
 
-	return allRoutes;
+	const routesObject: Record<string, boolean> = {};
+	for (const route of routesArray) {
+		routesObject[route] = true;
+	}
+
+	return {
+		asObject: routesObject,
+		asArray: routesArray,
+	};
 };

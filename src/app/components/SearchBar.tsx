@@ -44,7 +44,10 @@ export const SearchBar = ({
 	path2,
 }: SearchBarProps) => {
 	const [userInput, setUserInput] = useState<string>("");
-	const [allRoutes, setAllRoutes] = useState<string[]>([]);
+	const [allRoutes, setAllRoutes] = useState<{
+		asObject: Record<string, boolean>;
+		asArray: string[];
+	}>({ asObject: {}, asArray: [] });
 	const [routeExists, setRouteExists] = useState<boolean>(false);
 	const [proposedRoute, setProposedRoute] = useState<string | undefined>("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
@@ -68,12 +71,11 @@ export const SearchBar = ({
 
 	const checkIfRouteExists = useCallback(
 		(route: string) => {
-			setRouteExists(allRoutes?.some((r) => r === route));
-			if (!routeExists) {
-			}
-			return allRoutes?.some((r) => r === route);
+			const exists = !!allRoutes.asObject[route];
+			setRouteExists(exists);
+			return exists;
 		},
-		[allRoutes, routeExists],
+		[allRoutes],
 	);
 
 	const { userPosition } = useDataContext();
@@ -159,7 +161,7 @@ export const SearchBar = ({
 		(query: string) => {
 			if (!query.length) return;
 			if (!routeExists) {
-				const closestRoute = allRoutes.find((r) =>
+				const closestRoute = allRoutes.asArray.find((r) =>
 					r.includes(query.slice(0, query.length - 1)),
 				);
 				return closestRoute;
@@ -169,10 +171,10 @@ export const SearchBar = ({
 	);
 
 	useEffect(() => {
-		if (!allRoutes?.length) {
+		if (!allRoutes.asArray.length) {
 			(async () => {
-				const allRoutes = await getAllRoutes();
-				setAllRoutes(allRoutes);
+				const routes = await getAllRoutes();
+				setAllRoutes(routes);
 			})();
 		}
 	});
@@ -224,13 +226,7 @@ export const SearchBar = ({
 	}, [userInput, filteredVehicles?.data.length, routeExists]);
 
 	useEffect(() => {
-		if (filteredVehicles?.data.length) {
-			handleCachedDbData();
-		}
-	}, [handleCachedDbData, filteredVehicles.data.length]);
-
-	useEffect(() => {
-		if (userPosition?.closestStop?.stop_name && filteredVehicles?.data.length) {
+		if (userPosition?.closestStop?.stop_name || filteredVehicles?.data.length) {
 			handleCachedDbData();
 		}
 	}, [
