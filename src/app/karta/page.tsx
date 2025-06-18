@@ -260,7 +260,7 @@ export default function MapPage() {
 								setShowLoadingTrips={setShowLoadingTrips}
 							/>
 						)}
-					{userPosition && google.maps.LatLng && (
+					{userPosition && mapRef.current && (
 						<AdvancedMarker
 							className="user-location"
 							title={"Din position"}
