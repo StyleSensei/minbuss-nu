@@ -11,6 +11,8 @@ export default async function Home() {
 					title="Min buss.nu"
 					className="start"
 					description="Undrar du också var bussen är? Vi visar var bussen är i realtid."
+					h1ClassName="text-8xl text-white tracking-tighter text-balance"
+					descriptionClassName="text-xl leading-10 [&:not(:first-child)]:mt-6"
 				/>
 				<DemoMap />
 			</div>

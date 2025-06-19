@@ -10,9 +10,9 @@
     overflow-y: scroll;
     padding: 10vh 0 20vh;
 
-    h2 {
+    h1 {
         font-size: 2.4rem;
-        margin: 3rem 10vw;
+        margin: 2rem 10vw;
         color: white;
 
         @include m.desktop {
@@ -24,7 +24,7 @@
         }
     }
 
-    h3 {
+    h2 {
         font-size: 1.5rem;
         margin-bottom: 1rem;
         color: white;

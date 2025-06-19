@@ -3,6 +3,7 @@
 :root {
   --myfont: 'MyFont';
   --myfont--bold: 'MyFontBold';
+  --Geist: 'Geist';
 }
 
 /* Box sizing rules */
@@ -73,7 +74,7 @@ ol[role='list'] {
 /* Set core body defaults */
 body {
   line-height: 1.5;
-  font-family: 'myFont', Arial, Helvetica, sans-serif;
+  font-family: 'Geist', Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   display: flex;
@@ -89,6 +90,7 @@ button,
 input,
 label {
   line-height: 1.1;
+  font-family: 'Geist', Arial, Helvetica, sans-serif;
 }
 
 /* Balance text wrapping on headings */

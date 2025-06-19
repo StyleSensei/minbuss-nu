@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Menu from "./components/menu/Menu";
 import "./components/index.scss";
+import "./globals.css";
 import Image from "next/image";
 import { userAgent } from "next/server";
 import { headers } from "next/headers";
 import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
 import { Analytics } from "@vercel/analytics/react";
+import { GeistSans } from "geist/font/sans";
 
 const myFont = localFont({
 	src: [
@@ -88,7 +90,9 @@ export default async function RootLayout({
 				<meta name="apple-mobile-web-app-title" content="Min buss" />
 				<link rel="manifest" href="/site.webmanifest" />
 			</head>
-			<body className={`${fonts.myFont.variable} ${fonts.myFontBold.variable}`}>
+			<body
+				className={`${fonts.myFont.variable} ${fonts.myFontBold.variable} ${GeistSans.variable}`}
+			>
 				<DataProvider>
 					<Header />
 					<main id="main" aria-label="Huvudinnehåll">

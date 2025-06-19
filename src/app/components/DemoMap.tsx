@@ -107,7 +107,6 @@ export default function DemoMap() {
 			<svg
 				viewBox="0 0 800 800"
 				preserveAspectRatio="xMidYMid meet"
-				className="w-full h-full"
 				ref={svgRef}
 			>
 				<path
