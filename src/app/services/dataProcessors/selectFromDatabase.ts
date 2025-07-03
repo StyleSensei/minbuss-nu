@@ -13,6 +13,34 @@ import { getDb } from "./db";
 
 const db = getDb();
 
+function getExtendedStartTime(timeWindowStart: {
+	hour: number;
+	minute: number;
+}): string {
+	return formatTimeForSQL(timeWindowStart.hour + 24, timeWindowStart.minute);
+}
+
+function formatTimeForSQL(hours: number, minutes: number): string {
+	return `${hours.toString().padStart(2, "0")}:${minutes
+		.toString()
+		.padStart(2, "0")}:00`;
+}
+
+function getDateArray(isEarlyMorning = false): Date[] {
+	const now = new Date();
+	const today = new Date(now);
+
+	const dates = [today];
+
+	if (isEarlyMorning) {
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		dates.push(yesterday);
+	}
+
+	return dates;
+}
+
 export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	MetricsTracker.trackDbQuery();
 	const { filteredTripIds } = await getCurrentTripIds();
@@ -34,15 +62,13 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 			.innerJoin(routes, eq(trips.route_id, routes.route_id))
 			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
 			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
-
 			.where(
 				and(
 					eq(routes.route_short_name, busLine),
-
 					inArray(trips.trip_id, filteredTripIds),
 				),
 			)
-			.orderBy(desc(trips.trip_id), desc(stop_times.departure_time))
+			.orderBy(trips.trip_id, stop_times.departure_time)
 			.limit(1000);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 
@@ -58,74 +84,26 @@ export const selectUpcomingTripsFromDatabase = async (
 	stop_name: string,
 ): Promise<IDbData[]> => {
 	MetricsTracker.trackDbQuery();
+
 	const now = new Date();
 	const currentHour = now.getHours();
 	const currentMinutes = now.getMinutes();
 	const isEarlyMorning = currentHour < 4;
 
-	const year = now.getFullYear();
-	const month = (now.getMonth() + 1).toString().padStart(2, "0");
-	const day = now.getDate().toString().padStart(2, "0");
+	const timeWindowStartDate = new Date(now);
+	timeWindowStartDate.setMinutes(timeWindowStartDate.getMinutes() - 15);
 
-	// Format today's date as YYYY-MM-DD
-	const todayStr = `${year}-${month}-${day}`;
-
-	// Calculate yesterday's date for early morning hours
-	const yesterday = new Date(now);
-	yesterday.setDate(yesterday.getDate() - 1);
-	const yesterdayYear = yesterday.getFullYear();
-	const yesterdayMonth = (yesterday.getMonth() + 1).toString().padStart(2, "0");
-	const yesterdayDay = yesterday.getDate().toString().padStart(2, "0");
-	const yesterdayStr = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
-
-	// We'll include yesterday's services if it's early morning (midnight to 4 AM)
-	const dateStrings = isEarlyMorning ? [todayStr, yesterdayStr] : [todayStr];
-	const dates = dateStrings.map((dateStr) => new Date(dateStr));
-
-	const formatTimeForSQL = (hours: number, minutes: number): string => {
-		return `${hours.toString().padStart(2, "0")}:${minutes
-			.toString()
-			.padStart(2, "0")}:00`;
-	};
-
-	// Time window calculation
 	const timeWindowStart = {
-		hour: currentHour,
-		minute: currentMinutes - 15, // 15 minutes before current time
+		hour: timeWindowStartDate.getHours() + (isEarlyMorning ? 24 : 0),
+		minute: timeWindowStartDate.getMinutes(),
 	};
-
-	// Handle minute underflow
-	if (timeWindowStart.minute < 0) {
-		timeWindowStart.minute += 60;
-		timeWindowStart.hour -= 1;
-	}
-
-	// Handle hour underflow
-	if (timeWindowStart.hour < 0) {
-		timeWindowStart.hour = 23;
-	}
 
 	const timeWindowEnd = {
-		hour: currentHour + 6,
+		hour: isEarlyMorning ? currentHour + 6 + 24 : currentHour + 6,
 		minute: currentMinutes,
 	};
 
-	// Special handling for after-midnight (0-4 AM)
-	let extendedStartTime = "";
-	if (isEarlyMorning) {
-		// For times between midnight and 4 AM, we also want to include trips with "extended hours" (24+)
-		// from the previous day's schedule
-
-		// For early morning, add extended format start time to catch yesterday's trips
-		extendedStartTime = formatTimeForSQL(
-			timeWindowStart.hour + 24,
-			timeWindowStart.minute,
-		);
-
-		// For the future window, add 24 hours for extended day format comparison
-		// This is needed for GTFS data that uses 24+ hours for early morning times
-		timeWindowEnd.hour += 24;
-	}
+	const extendedStartTime = getExtendedStartTime(timeWindowStart);
 
 	const timeFifteenMinBeforeDep = formatTimeForSQL(
 		timeWindowStart.hour,
@@ -137,16 +115,18 @@ export const selectUpcomingTripsFromDatabase = async (
 		timeWindowEnd.minute,
 	);
 
-	// For early morning hours, we need a special query that handles both regular time format
-	// and extended day format (24+ hours)
 	const timeFilter = isEarlyMorning
 		? sql`(
-			   (${stop_times.departure_time} >= ${timeFifteenMinBeforeDep}) 
+			   (
+			   (${stop_times.departure_time} >= ${timeFifteenMinBeforeDep} AND ${stop_times.departure_time} < '04:00:00') 
 			   OR 
-			   (${stop_times.departure_time} >= ${extendedStartTime} AND ${stop_times.departure_time} < '24:00:00')
-			  )`
+			   (${stop_times.departure_time} >= ${extendedStartTime} AND ${stop_times.departure_time} < '28:00:00')
+			  )
+			 )`
 		: sql`${stop_times.departure_time} >= ${timeFifteenMinBeforeDep} AND 
              ${stop_times.departure_time} <= ${timeSixHoursAfter}`;
+
+	const dates = getDateArray(isEarlyMorning);
 
 	try {
 		const data = await db
@@ -175,7 +155,18 @@ export const selectUpcomingTripsFromDatabase = async (
 					timeFilter,
 				),
 			)
-			.orderBy(desc(trips.trip_id), desc(stop_times.departure_time))
+			.groupBy(
+				trips.trip_id,
+				routes.route_short_name,
+				stop_times.stop_headsign,
+				stop_times.departure_time,
+				stops.stop_name,
+				stop_times.stop_sequence,
+				stops.stop_id,
+				stops.stop_lat,
+				stops.stop_lon,
+			)
+			.orderBy(stop_times.departure_time)
 			.limit(500);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 

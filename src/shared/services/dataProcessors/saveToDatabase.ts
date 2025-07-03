@@ -9,9 +9,14 @@ import type { IRoute } from "../../models/IRoute";
 import type { ITrip } from "../../models/ITrip";
 import type { IStop } from "../../models/IStop";
 import type { IStopTime } from "../../models/IStopTime";
+import type { ICalendarDates } from "@/shared/models/ICalendarDates";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import {
+	calendarDates,
+	calendarDatesInsertSchemaArray,
+} from "@/shared/db/schema/calendar_dates";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -37,7 +42,7 @@ const checkTripIdsExist = async (tripIds: string[]) => {
 };
 
 export const saveToDatabase = async (
-	data: IRoute[] | ITrip[] | IStop[] | IStopTime[],
+	data: IRoute[] | ITrip[] | IStop[] | IStopTime[] | ICalendarDates[],
 	table: string,
 ) => {
 	let batchSize = 10000;
@@ -67,6 +72,21 @@ export const saveToDatabase = async (
 				);
 				break;
 			}
+
+			case "calendar_dates": {
+				const calendarDatesBatch = batch as ICalendarDates[];
+				const calendarDatesBatchParsed =
+					calendarDatesInsertSchemaArray.parse(calendarDatesBatch);
+				await db
+					.insert(calendarDates)
+					.values(calendarDatesBatchParsed)
+					.onConflictDoNothing();
+				console.log(
+					`saved batch ${i + 1} of ${totalBatches} from calendar_dates to database`,
+				);
+				break;
+			}
+
 			case "stops": {
 				const stopsBatch = batch as IStop[];
 				const stopsBatchParsed = stopsInsertSchemaArray.parse(stopsBatch);

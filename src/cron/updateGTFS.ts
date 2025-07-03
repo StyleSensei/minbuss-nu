@@ -4,7 +4,8 @@ import { saveToDatabase } from "../shared/services/dataProcessors/saveToDatabase
 export async function updateGTFSData() {
 	try {
 		console.log("Starting GTFS data update...");
-		const { routes, trips, stops, stopTimes } = await extractZip();
+		const { routes, trips, stops, stopTimes, calendarDates } =
+			await extractZip();
 
 		console.log("Saving routes to database...");
 		await saveToDatabase(routes, "routes");
@@ -17,6 +18,9 @@ export async function updateGTFSData() {
 
 		console.log("Saving stop times to database...");
 		await saveToDatabase(stopTimes, "stop_times");
+
+		console.log("Saving calendar dates to database...");
+		await saveToDatabase(calendarDates, "calendar_dates");
 
 		console.log("GTFS data update completed successfully!");
 	} catch (error) {

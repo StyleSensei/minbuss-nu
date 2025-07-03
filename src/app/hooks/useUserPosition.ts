@@ -32,9 +32,9 @@ export function useGeolocation(currentTrips: IDbData[]) {
 						lat: latitude,
 						lng: longitude,
 						closestStop: newClosestStop,
-						tripsAtClosestStop: currentTrips
-							.filter((stop) => stop.stop_name === newClosestStop?.stop_name)
-							.sort((a, b) => a.trip_id.localeCompare(b.trip_id)),
+						tripsAtClosestStop: currentTrips.filter(
+							(stop) => stop.stop_name === newClosestStop?.stop_name,
+						),
 					};
 				}
 				return prev;

@@ -6,8 +6,8 @@ import type { IRoute } from "../../models/IRoute";
 import type { ITrip } from "../../models/ITrip";
 import type { IStop } from "../../models/IStop";
 import type { IStopTime } from "../../models/IStopTime";
-import type { ICalendar } from "@/shared/models/ICalendar";
-import type { ICalendarDates } from "@/shared/models/ICalendarDates";
+import type { ICalendar } from "../../models/ICalendar";
+import type { ICalendarDates } from "../../models/ICalendarDates";
 
 function normalizeStopTime(stopTime: IStopTime): IStopTime {
 	return {
@@ -36,22 +36,13 @@ export const extractZip = async () => {
 			fileName === "trips.txt" ||
 			fileName === "stops.txt" ||
 			fileName === "stop_times.txt" ||
-			fileName === "calendar.txt" ||
 			fileName === "calendar_dates.txt"
 		) {
 			entry
 				.pipe(csvParser())
 				.on(
 					"data",
-					(
-						data:
-							| IRoute
-							| ITrip
-							| IStop
-							| IStopTime
-							| ICalendar
-							| ICalendarDates,
-					) => {
+					(data: IRoute | ITrip | IStop | IStopTime | ICalendarDates) => {
 						switch (fileName) {
 							case "routes.txt":
 								routes.push(data as IRoute);
@@ -61,9 +52,6 @@ export const extractZip = async () => {
 								break;
 							case "stop_times.txt":
 								stopTimes.push(normalizeStopTime(data as IStopTime));
-								break;
-							case "calendar.txt":
-								calendar.push(data as ICalendar);
 								break;
 							case "calendar_dates.txt":
 								calendarDates.push(data as ICalendarDates);
@@ -86,5 +74,5 @@ export const extractZip = async () => {
 		}
 	}
 
-	return { routes, trips, stops, stopTimes, calendar, calendarDates };
+	return { routes, trips, stops, stopTimes, calendarDates };
 };
