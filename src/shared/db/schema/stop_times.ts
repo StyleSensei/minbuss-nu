@@ -7,12 +7,12 @@ export const stop_times = pgTable("stop_times", {
 	arrival_time: varchar(),
 	departure_time: varchar(),
 	stop_id: varchar(),
-	stop_sequence: varchar(),
+	stop_sequence: integer(),
 	stop_headsign: varchar(),
-	pickup_type: varchar(),
-	drop_off_type: varchar(),
+	pickup_type: integer(),
+	drop_off_type: integer(),
 	shape_dist_traveled: numeric(),
-	timepoint: varchar(),
+	timepoint: integer(),
 });
 
 export const stopTimesInsertSchema = createInsertSchema(stop_times);
