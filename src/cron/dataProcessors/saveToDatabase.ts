@@ -9,14 +9,14 @@ import type { IRoute } from "../../shared/models/IRoute";
 import type { ITrip } from "../../shared/models/ITrip";
 import type { IStop } from "../../shared/models/IStop";
 import type { IStopTime } from "../../shared/models/IStopTime";
-import type { ICalendarDates } from "@/shared/models/ICalendarDates";
+import type { ICalendarDates } from "../../shared/models/ICalendarDates";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
 	calendarDates,
 	calendarDatesInsertSchemaArray,
-} from "@/shared/db/schema/calendar_dates";
+} from "../../shared/db/schema/calendar_dates";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
