@@ -74,5 +74,16 @@ export const extractZip = async () => {
 		}
 	}
 
-	return { routes, trips, stops, stopTimes, calendarDates };
+	const routesWithCorrectTypes = routes.map((route) => ({
+		...route,
+		route_type: Number(route.route_type), // Konvertera till nummer
+	}));
+
+	return {
+		routes: routesWithCorrectTypes,
+		trips,
+		stops,
+		stopTimes,
+		calendarDates,
+	};
 };
