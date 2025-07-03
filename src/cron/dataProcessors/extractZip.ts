@@ -2,12 +2,12 @@ import type { Readable } from "node:stream";
 import { getStaticData } from "../dataSources/gtfsStatic";
 import unzipper from "unzipper";
 import csvParser from "csv-parser";
-import type { IRoute } from "../../models/IRoute";
-import type { ITrip } from "../../models/ITrip";
-import type { IStop } from "../../models/IStop";
-import type { IStopTime } from "../../models/IStopTime";
-import type { ICalendar } from "../../models/ICalendar";
-import type { ICalendarDates } from "../../models/ICalendarDates";
+import type { IRoute } from "../../shared/models/IRoute";
+import type { ITrip } from "../../shared/models/ITrip";
+import type { IStop } from "../../shared/models/IStop";
+import type { IStopTime } from "../../shared/models/IStopTime";
+import type { ICalendar } from "../../shared/models/ICalendar";
+import type { ICalendarDates } from "../../shared/models/ICalendarDates";
 
 function normalizeStopTime(stopTime: IStopTime): IStopTime {
 	return {

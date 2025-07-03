@@ -1,5 +1,5 @@
-import { extractZip } from "../shared/services/dataProcessors/extractZip";
-import { saveToDatabase } from "../shared/services/dataProcessors/saveToDatabase";
+import { extractZip } from "../cron/dataProcessors/extractZip";
+import { saveToDatabase } from "../cron/dataProcessors/saveToDatabase";
 
 export async function updateGTFSData() {
 	try {

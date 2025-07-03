@@ -1,23 +1,29 @@
-import { routes, routesInsertSchemaArray } from "@/shared/db/schema/routes";
+import { routes, routesInsertSchemaArray } from "../../shared/db/schema/routes";
 import {
 	stop_times,
 	stopTimesInsertSchemaArray,
-} from "@/shared/db/schema/stop_times";
-import { stops, stopsInsertSchemaArray } from "@/shared/db/schema/stops";
-import { trips, tripsInsertSchemaArray } from "@/shared/db/schema/trips";
-import type { IRoute } from "@/shared/models/IRoute";
-import type { IStop } from "@/shared/models/IStop";
-import type { IStopTime } from "@/shared/models/IStopTime";
-import type { ITrip } from "@/shared/models/ITrip";
+} from "../../shared/db/schema/stop_times";
+import { stops, stopsInsertSchemaArray } from "../../shared/db/schema/stops";
+import { trips, tripsInsertSchemaArray } from "../../shared/db/schema/trips";
+import type { IRoute } from "../../shared/models/IRoute";
+import type { ITrip } from "../../shared/models/ITrip";
+import type { IStop } from "../../shared/models/IStop";
+import type { IStopTime } from "../../shared/models/IStopTime";
 import type { ICalendarDates } from "@/shared/models/ICalendarDates";
 import { inArray } from "drizzle-orm";
-import { getDb } from "./db";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
 	calendarDates,
 	calendarDatesInsertSchemaArray,
 } from "@/shared/db/schema/calendar_dates";
 
-const db = getDb();
+if (!process.env.DATABASE_URL) {
+	throw new Error("DATABASE_URL is not defined");
+}
+
+const queryClient = postgres(process.env.DATABASE_URL);
+const db = drizzle(queryClient);
 
 const calculateBatchSize = (columns: number) => {
 	const maxParameters = 65534;
@@ -66,6 +72,21 @@ export const saveToDatabase = async (
 				);
 				break;
 			}
+
+			case "calendar_dates": {
+				const calendarDatesBatch = batch as ICalendarDates[];
+				const calendarDatesBatchParsed =
+					calendarDatesInsertSchemaArray.parse(calendarDatesBatch);
+				await db
+					.insert(calendarDates)
+					.values(calendarDatesBatchParsed)
+					.onConflictDoNothing();
+				console.log(
+					`saved batch ${i + 1} of ${totalBatches} from calendar_dates to database`,
+				);
+				break;
+			}
+
 			case "stops": {
 				const stopsBatch = batch as IStop[];
 				const stopsBatchParsed = stopsInsertSchemaArray.parse(stopsBatch);
@@ -93,19 +114,6 @@ export const saveToDatabase = async (
 					.onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from stop_times to database`,
-				);
-				break;
-			}
-			case "calendar_dates": {
-				const calendarDatesBatch = batch as ICalendarDates[];
-				const calendarDatesBatchParsed =
-					calendarDatesInsertSchemaArray.parse(calendarDatesBatch);
-				await db
-					.insert(calendarDates)
-					.values(calendarDatesBatchParsed)
-					.onConflictDoNothing();
-				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from calendar_dates to database`,
 				);
 				break;
 			}
