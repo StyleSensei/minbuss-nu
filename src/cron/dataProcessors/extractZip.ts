@@ -84,7 +84,6 @@ export const extractZip = async () => {
 
 	const stopTimesWithCorrectTypes = stopTimes.map((stopTime) => ({
 		...stopTime,
-		stop_sequence: Number(stopTime.stop_sequence),
 		pickup_type: Number(stopTime.pickup_type),
 		drop_off_type: Number(stopTime.drop_off_type),
 		shape_dist_traveled: Number(stopTime.shape_dist_traveled),
