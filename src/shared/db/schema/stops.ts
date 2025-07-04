@@ -1,4 +1,5 @@
 import {
+	date,
 	doublePrecision,
 	integer,
 	pgTable,
@@ -15,6 +16,7 @@ export const stops = pgTable("stops", {
 	location_type: integer(),
 	parent_station: varchar(),
 	platform_code: varchar(),
+	feed_version: date(),
 });
 
 export const stopsInsertSchema = createInsertSchema(stops);

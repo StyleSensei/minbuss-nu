@@ -68,7 +68,7 @@ export const saveToDatabase = async (
 							route_desc: sql`excluded.route_desc`,
 							route_type: sql`excluded.route_type`,
 							agency_id: sql`excluded.agency_id`,
-							// feed_version uppdateras automatiskt med CURRENT_DATE
+							feed_version: sql`CURRENT_DATE`,
 						},
 					});
 				console.log(
@@ -90,7 +90,7 @@ export const saveToDatabase = async (
 							trip_headsign: sql`excluded.trip_headsign`,
 							direction_id: sql`excluded.direction_id`,
 							shape_id: sql`excluded.shape_id`,
-							// feed_version uppdateras automatiskt
+							feed_version: sql`CURRENT_DATE`,
 						},
 					});
 				console.log(
@@ -110,7 +110,7 @@ export const saveToDatabase = async (
 						target: [calendarDates.service_id, calendarDates.date],
 						set: {
 							exception_type: sql`excluded.exception_type`,
-							// feed_version uppdateras automatiskt
+							feed_version: sql`CURRENT_DATE`,
 						},
 					});
 				console.log(
@@ -134,7 +134,7 @@ export const saveToDatabase = async (
 							location_type: sql`excluded.location_type`,
 							parent_station: sql`excluded.parent_station`,
 							platform_code: sql`excluded.platform_code`,
-							// feed_version uppdateras automatiskt
+							feed_version: sql`CURRENT_DATE`,
 						},
 					});
 				console.log(
@@ -171,7 +171,7 @@ export const saveToDatabase = async (
 							drop_off_type: sql`excluded.drop_off_type`,
 							shape_dist_traveled: sql`excluded.shape_dist_traveled`,
 							timepoint: sql`excluded.timepoint`,
-							// feed_version uppdateras automatiskt
+							feed_version: sql`CURRENT_DATE`,
 						},
 					});
 				console.log(

@@ -1,4 +1,4 @@
-import { integer, line, pgTable, varchar } from "drizzle-orm/pg-core";
+import { date, integer, pgTable, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 export const routes = pgTable("routes", {
@@ -8,6 +8,7 @@ export const routes = pgTable("routes", {
 	route_long_name: varchar(),
 	route_type: integer(),
 	route_desc: varchar(),
+	feed_version: date(),
 });
 
 export const routesSelectSchema = createSelectSchema(routes);

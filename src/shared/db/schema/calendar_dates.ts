@@ -6,6 +6,7 @@ export const calendarDates = pgTable("calendar_dates", {
 	service_id: integer().notNull(),
 	date: date({ mode: "date" }),
 	exception_type: integer(),
+	feed_version: date(),
 });
 export const calendarDatesSelectSchema = createSelectSchema(calendarDates);
 export const calendarDatesInsertSchema = createInsertSchema(

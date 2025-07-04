@@ -1,4 +1,4 @@
-import { integer, numeric, pgTable, varchar } from "drizzle-orm/pg-core";
+import { date, integer, numeric, pgTable, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ export const stop_times = pgTable("stop_times", {
 	drop_off_type: integer(),
 	shape_dist_traveled: numeric(),
 	timepoint: integer(),
+	feed_version: date(),
 });
 
 export const stopTimesInsertSchema = createInsertSchema(stop_times);
