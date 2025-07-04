@@ -22,10 +22,10 @@ export const extractZip = async () => {
 	for await (const entry of zip) {
 		const fileName = entry.path;
 		if (
-			// fileName === "routes.txt" ||
-			// fileName === "trips.txt" ||
-			// fileName === "stops.txt" ||
-			// fileName === "stop_times.txt" || disabled to test calendar_dates.txt only
+			fileName === "routes.txt" ||
+			fileName === "trips.txt" ||
+			fileName === "stops.txt" ||
+			fileName === "stop_times.txt" ||
 			fileName === "calendar_dates.txt"
 		) {
 			entry
