@@ -4,11 +4,23 @@ import { z } from "zod";
 
 export const calendarDates = pgTable("calendar_dates", {
 	service_id: integer().notNull(),
-	date: date({ mode: "date" }), // YYYYMMDD
-	exception_type: integer(), // 1 for added service, 2 for removed service
+	date: date({ mode: "date" }),
+	exception_type: integer(),
 });
 export const calendarDatesSelectSchema = createSelectSchema(calendarDates);
-export const calendarDatesInsertSchema = createInsertSchema(calendarDates);
+export const calendarDatesInsertSchema = createInsertSchema(
+	calendarDates,
+).extend({
+	date: z
+		.string()
+		.regex(/^\d{8}$/, "Date must be in YYYYMMDD format")
+		.transform((dateStr) => {
+			// Konvertera YYYYMMDD till YYYY-MM-DD för PostgreSQL
+			return new Date(
+				`${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`,
+			);
+		}),
+});
 export const calendarDatesInsertSchemaArray = z.array(
 	calendarDatesInsertSchema,
 );
