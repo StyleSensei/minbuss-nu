@@ -158,11 +158,14 @@ export const saveToDatabase = async (
 					.insert(stop_times)
 					.values(stopTimesBatchParsed)
 					.onConflictDoUpdate({
-						target: [stop_times.trip_id, stop_times.stop_sequence],
+						target: [
+							stop_times.trip_id,
+							stop_times.stop_sequence,
+							stop_times.stop_id,
+						],
 						set: {
 							arrival_time: sql`excluded.arrival_time`,
 							departure_time: sql`excluded.departure_time`,
-							stop_id: sql`excluded.stop_id`,
 							stop_headsign: sql`excluded.stop_headsign`,
 							pickup_type: sql`excluded.pickup_type`,
 							drop_off_type: sql`excluded.drop_off_type`,
