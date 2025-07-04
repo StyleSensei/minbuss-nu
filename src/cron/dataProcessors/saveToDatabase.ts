@@ -10,7 +10,7 @@ import type { ITrip } from "../../shared/models/ITrip";
 import type { IStop } from "../../shared/models/IStop";
 import type { IStopTime } from "../../shared/models/IStopTime";
 import type { ICalendarDates } from "../../shared/models/ICalendarDates";
-import { inArray } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -57,18 +57,44 @@ export const saveToDatabase = async (
 			case "routes": {
 				const routesBatch = batch as IRoute[];
 				const routesBatchParsed = routesInsertSchemaArray.parse(routesBatch);
-				await db.insert(routes).values(routesBatchParsed).onConflictDoNothing();
+				await db
+					.insert(routes)
+					.values(routesBatchParsed)
+					.onConflictDoUpdate({
+						target: routes.route_id,
+						set: {
+							route_short_name: sql`excluded.route_short_name`,
+							route_long_name: sql`excluded.route_long_name`,
+							route_desc: sql`excluded.route_desc`,
+							route_type: sql`excluded.route_type`,
+							agency_id: sql`excluded.agency_id`,
+							// feed_version uppdateras automatiskt med CURRENT_DATE
+						},
+					});
 				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from routes to database`,
+					`Updated batch ${i + 1} of ${totalBatches} for routes in database`,
 				);
 				break;
 			}
 			case "trips": {
 				const tripsBatch = batch as ITrip[];
 				const tripsBatchParsed = tripsInsertSchemaArray.parse(tripsBatch);
-				await db.insert(trips).values(tripsBatchParsed).onConflictDoNothing();
+				await db
+					.insert(trips)
+					.values(tripsBatchParsed)
+					.onConflictDoUpdate({
+						target: trips.trip_id,
+						set: {
+							route_id: sql`excluded.route_id`,
+							service_id: sql`excluded.service_id`,
+							trip_headsign: sql`excluded.trip_headsign`,
+							direction_id: sql`excluded.direction_id`,
+							shape_id: sql`excluded.shape_id`,
+							// feed_version uppdateras automatiskt
+						},
+					});
 				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from trips to database`,
+					`Updated batch ${i + 1} of ${totalBatches} for trips in database`,
 				);
 				break;
 			}
@@ -80,9 +106,15 @@ export const saveToDatabase = async (
 				await db
 					.insert(calendarDates)
 					.values(calendarDatesBatchParsed)
-					.onConflictDoNothing();
+					.onConflictDoUpdate({
+						target: [calendarDates.service_id, calendarDates.date],
+						set: {
+							exception_type: sql`excluded.exception_type`,
+							// feed_version uppdateras automatiskt
+						},
+					});
 				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from calendar_dates to database`,
+					`Updated batch ${i + 1} of ${totalBatches} for calendar_dates in database`,
 				);
 				break;
 			}
@@ -90,9 +122,23 @@ export const saveToDatabase = async (
 			case "stops": {
 				const stopsBatch = batch as IStop[];
 				const stopsBatchParsed = stopsInsertSchemaArray.parse(stopsBatch);
-				await db.insert(stops).values(stopsBatchParsed).onConflictDoNothing();
+				await db
+					.insert(stops)
+					.values(stopsBatchParsed)
+					.onConflictDoUpdate({
+						target: stops.stop_id,
+						set: {
+							stop_name: sql`excluded.stop_name`,
+							stop_lat: sql`excluded.stop_lat`,
+							stop_lon: sql`excluded.stop_lon`,
+							location_type: sql`excluded.location_type`,
+							parent_station: sql`excluded.parent_station`,
+							platform_code: sql`excluded.platform_code`,
+							// feed_version uppdateras automatiskt
+						},
+					});
 				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from stops to database`,
+					`Updated batch ${i + 1} of ${totalBatches} for stops in database`,
 				);
 				break;
 			}
@@ -111,9 +157,22 @@ export const saveToDatabase = async (
 				await db
 					.insert(stop_times)
 					.values(stopTimesBatchParsed)
-					.onConflictDoNothing();
+					.onConflictDoUpdate({
+						target: [stop_times.trip_id, stop_times.stop_sequence],
+						set: {
+							arrival_time: sql`excluded.arrival_time`,
+							departure_time: sql`excluded.departure_time`,
+							stop_id: sql`excluded.stop_id`,
+							stop_headsign: sql`excluded.stop_headsign`,
+							pickup_type: sql`excluded.pickup_type`,
+							drop_off_type: sql`excluded.drop_off_type`,
+							shape_dist_traveled: sql`excluded.shape_dist_traveled`,
+							timepoint: sql`excluded.timepoint`,
+							// feed_version uppdateras automatiskt
+						},
+					});
 				console.log(
-					`saved batch ${i + 1} of ${totalBatches} from stop_times to database`,
+					`Updated batch ${i + 1} of ${totalBatches} for stop_times in database`,
 				);
 				break;
 			}

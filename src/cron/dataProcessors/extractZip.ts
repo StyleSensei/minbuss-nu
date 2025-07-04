@@ -87,7 +87,10 @@ export const extractZip = async () => {
 		stop_sequence: Number(stopTime.stop_sequence),
 		pickup_type: Number(stopTime.pickup_type),
 		drop_off_type: Number(stopTime.drop_off_type),
-		shape_dist_traveled: String(stopTime.shape_dist_traveled),
+		shape_dist_traveled:
+			stopTime.shape_dist_traveled === ""
+				? "0"
+				: String(stopTime.shape_dist_traveled),
 		timepoint: Number(stopTime.timepoint),
 	}));
 
