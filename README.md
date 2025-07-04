@@ -187,12 +187,53 @@ objects.
 </details>
 
 ## Cron job for Static Data Updates ♻️
-To ensure the static GTFS data remains up-to-date, you can set up a cron job that makes a HTTP `GET` request to the `/api/cron` endpoint. Trafiklab updates the static data infrequently, so running this job once a month should suffice.
-<h4>Using Vercel</h4> 
+To ensure the static GTFS data remains up-to-date, a GitHub Actions workflow runs the GTFS update script once a month. Trafiklab updates the static data infrequently, so this monthly update is sufficient.
 
-- If you’re deploying on Vercel, you can leverage their built-in scheduler for cron jobs. Check out the official documentation here:<br>
-[Cron Jobs on Vercel](https://vercel.com/docs/cron-jobs)
+<h4>Using GitHub Actions</h4> 
 
+- This project uses GitHub Actions to schedule and run the cron job. The workflow is configured to run monthly and execute the GTFS update script directly.
+- You can find the workflow configuration in the `.github/workflows/cron-job.yml` file.
+
+<details>
+<summary>Example GitHub Actions Workflow</summary>
+
+```yaml
+name: Run GTFS Update Cron Job
+
+on:
+  schedule:
+    - cron: '0 3 1 * *' # Once a month at 03:00 UTC on the first day
+  workflow_dispatch:     # Allow manual triggering from GitHub
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build cron job
+        run: npm run build:cron
+
+      - name: Run GTFS update script
+        run: NODE_PATH=./dist-cron node scripts/updateGTFSData.mjs
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
+```
+
+Replace `${{ secrets.GTFS_UPDATE_URL }}` with your deployed application's cron endpoint URL.
+</details>
 
 ## Resources 📝
 The GTFS Regional API documentation from Trafiklab was a key reference for
@@ -233,4 +274,4 @@ Check out [Next.js deployment documentation](https://nextjs.org/docs/app/buildin
 Got questions? Reach out!
 - Email: hello@patrikarell.se
 - GitHub: [@StyleSensei](https://github.com/StyleSensei)
-- Linkedin: https://www.linkedin.com/in/patrikarell/ 
+- Linkedin: https://www.linkedin.com/in/patrikarell/
