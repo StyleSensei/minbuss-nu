@@ -143,6 +143,7 @@
         align-items: center;
         display: flex;
         gap: .2rem;
+        flex-wrap: wrap;
 
         @include m.desktop {
             font-size: 1.4rem;
