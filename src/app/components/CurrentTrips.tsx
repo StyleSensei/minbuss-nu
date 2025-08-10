@@ -3,25 +3,22 @@ import { useOverflow } from "../hooks/useOverflow";
 import { useDataContext } from "../context/DataContext";
 import { Icon } from "./Icon";
 import { arrow } from "../../../public/icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { MapPinned } from "lucide-react";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import { CurrentTripsLoader } from "./CurrentTripsLoader";
 
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
-	setShowLoadingTrips: (value: boolean) => void;
 }
 
-export const CurrentTrips = ({
-	onTripSelect,
-	setShowLoadingTrips,
-}: ICurrentTripsProps) => {
+export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
 	const { filteredVehicles, tripData, filteredTripUpdates, userPosition } =
 		useDataContext();
-	const [, setDataReady] = useState(false);
+	const [showLoadingTrips, setShowLoadingTrips] = useState(true);
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 
@@ -35,52 +32,55 @@ export const CurrentTrips = ({
 	}
 
 	useEffect(() => {
-		if (
-			(filteredVehicles.data.length > 0 || tripData.upcomingTrips.length > 0) &&
-			userPosition?.closestStop
-		) {
-			setDataReady(true);
+		if (tripsToDisplay.length === 0) {
+			setShowLoadingTrips(true);
+		}
+		if (tripsToDisplay.length > 0) {
 			setShowLoadingTrips(false);
 		}
-	}, [
-		filteredVehicles.data.length,
-		userPosition?.closestStop,
-		tripData.upcomingTrips.length,
-		setShowLoadingTrips,
-	]);
+	}, [tripsToDisplay.length]);
 	useEffect(() => {
-		if (userPosition?.closestStop) {
-			setTripsToDisplay(
-				tripData.upcomingTrips.filter((trip) => {
-					if (trip.stop_name !== userPosition.closestStop?.stop_name) {
-						return false;
-					}
+		filterTrips();
 
-					try {
-						const updatedTimeStr = getUpdatedDepartureTime(trip.trip_id);
-						const departureTime = updatedTimeStr
-							? convertGTFSTimeToDate(updatedTimeStr)
-							: convertGTFSTimeToDate(trip.departure_time);
+		const intervalId = setInterval(() => {
+			filterTrips();
+		}, 30000);
 
-						const minutesSinceScheduledDeparture =
-							(Date.now() - departureTime.getTime()) / (1000 * 60);
+		return () => clearInterval(intervalId);
 
-						if (minutesSinceScheduledDeparture > 0) {
+		function filterTrips() {
+			if (userPosition?.closestStop) {
+				setTripsToDisplay(
+					tripData.upcomingTrips.filter((trip) => {
+						if (trip.stop_name !== userPosition.closestStop?.stop_name) {
 							return false;
 						}
 
-						return true;
-					} catch (error) {
-						console.error(`Error checking trip ${trip.trip_id}:`, error);
-						return true;
-					}
-				}),
-			);
-		} else {
-			setTripsToDisplay(tripData.upcomingTrips);
+						try {
+							const updatedTimeStr = getUpdatedDepartureTime(trip.trip_id);
+							const departureTime = updatedTimeStr
+								? convertGTFSTimeToDate(updatedTimeStr)
+								: convertGTFSTimeToDate(trip.departure_time);
+
+							const minutesSinceScheduledDeparture =
+								(Date.now() - departureTime.getTime()) / (1000 * 60);
+
+							if (minutesSinceScheduledDeparture > 0) {
+								return false;
+							}
+
+							return true;
+						} catch (error) {
+							console.error(`Error checking trip ${trip.trip_id}:`, error);
+							return true;
+						}
+					}),
+				);
+			} else {
+				setTripsToDisplay(tripData.upcomingTrips);
+			}
 		}
 	}, [userPosition?.closestStop, tripData.upcomingTrips]);
-
 	function getUpdatedDepartureTime(tripId: string): string | undefined {
 		if (!filteredTripUpdates.length) return undefined;
 
@@ -133,6 +133,10 @@ export const CurrentTrips = ({
 		containerRef,
 		filteredVehicles.data.length,
 	]);
+
+	if (showLoadingTrips) {
+		return <CurrentTripsLoader />;
+	}
 
 	return (
 		<div className="current-trips">
@@ -232,7 +236,7 @@ export const CurrentTrips = ({
 													}
 												}}
 											>
-												<td className="">
+												<td>
 													<span
 														className={`inline-block w-2 h-2 -translate-y-[1.5px] !mr-1 rounded-full ${isActive ? "bg-accent" : "bg-destructive"}`}
 													/>
@@ -258,7 +262,9 @@ export const CurrentTrips = ({
 								</tbody>
 							</table>
 						) : (
-							<p>Inga kommande avgångar inom 6 timmar</p>
+							<p className="text-muted-foreground dark text-center">
+								Inga fler avgångar inom 6 timmar
+							</p>
 						)}
 					</>
 				) : (

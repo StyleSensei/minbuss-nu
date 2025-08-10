@@ -232,7 +232,6 @@ jobs:
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
 ```
 
-Replace `${{ secrets.GTFS_UPDATE_URL }}` with your deployed application's cron endpoint URL.
 </details>
 
 ## Resources 📝

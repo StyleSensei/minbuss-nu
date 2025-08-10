@@ -1,72 +1,104 @@
 @use '../variables' as v;
 
-.container {
+.skeleton-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    overflow: auto;
-    z-index: 2;
-    transition: all .5s ease;
-    width: 250px;
-    justify-content: center;
+    gap: 0.8rem;
+    width: 300px;
+    padding: 1rem;
+    max-width: 65vw;
 }
 
-.skeleton-text {
+.skeleton {
+    background-color: #3a3a3a;
+    border-radius: 4px;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-title {
+    height: 20px;
+    width: 60%;
+}
+
+.skeleton-subtitle {
+    height: 14px;
+    width: 40%;
+}
+
+.skeleton-subtitle.short {
+    width: 30%;
+}
+
+.skeleton-card {
+    display: flex;
+    gap: 0.8rem;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.skeleton-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.skeleton-card-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.skeleton-line {
+    height: 14px;
     width: 80%;
-    height: .5rem;
-    background-color: v.$tertiary-color;
-    animation: fade infinite 2s ease;
-
-    &:nth-child(1) {
-        animation-delay: 0s;
-    }
-
-    &:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-
-    &:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-
-    &:nth-child(4) {
-        animation-delay: 0.6s;
-    }
-
-    &:nth-child(5) {
-        animation-delay: 0.8s;
-    }
-
-    &:nth-child(6) {
-        animation-delay: 1s;
-    }
-
-
-    &.time {
-        height: 3rem;
-    }
 }
 
-.next-departure .container {
-    & .skeleton-text {
-        background-color: v.$tertiary-color;
-    }
+.skeleton-line.short {
+    width: 50%;
 }
 
-.title {
-    height: 2rem;
+.skeleton-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-@keyframes fade {
+.skeleton-table td {
+    padding: 0.6rem 0;
+}
+
+.td-icon {
+    width: 24px;
+}
+
+.skeleton-circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.td-time {
+    width: 50px;
+    text-align: right;
+}
+
+.skeleton-time {
+    height: 14px;
+    width: 40px;
+    margin-left: auto;
+}
+
+@keyframes pulse {
     0% {
-        opacity: 0.5;
-    }
-
-    50% {
         opacity: 1;
     }
 
+    50% {
+        opacity: 0.4;
+    }
+
     100% {
-        opacity: 0.5;
+        opacity: 1;
     }
 }

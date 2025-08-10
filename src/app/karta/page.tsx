@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { IDbData } from "@shared/models/IDbData";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { CurrentTrips } from "../components/CurrentTrips";
-import { CurrentTripsLoader } from "../components/CurrentTripsLoader";
 import UserMessage from "../components/UserMessage";
 import VehicleMarkers from "../components/VehicleMarkers";
 
@@ -33,17 +32,10 @@ export default function MapPage() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
-	const [showLoadingTrips, setShowLoadingTrips] = useState(false);
 	const [mapReady, setMapReady] = useState(false);
 	const markersRenderedRef = useRef(false);
 	const markersRenderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const isMobile = useIsMobile();
-
-	useEffect(() => {
-		if (showCurrentTrips || !showCurrentTrips) {
-			setShowLoadingTrips(showCurrentTrips);
-		}
-	}, [showCurrentTrips]);
 
 	useEffect(() => {
 		if (filteredVehicles.data.length > 0) {
@@ -249,16 +241,10 @@ export default function MapPage() {
 						showCurrentTrips={showCurrentTrips}
 						onMarkerRendered={onMarkerRendered}
 					/>{" "}
-					{showLoadingTrips && userPosition && showCurrentTrips && (
-						<CurrentTripsLoader />
-					)}
 					{showCurrentTrips &&
 						userPosition &&
 						filteredVehicles.data.length > 0 && (
-							<CurrentTrips
-								onTripSelect={handleTripSelect}
-								setShowLoadingTrips={setShowLoadingTrips}
-							/>
+							<CurrentTrips onTripSelect={handleTripSelect} />
 						)}
 					{userPosition && mapRef.current && (
 						<AdvancedMarker

@@ -35,7 +35,7 @@ interface DataTooOldError extends Error {
 
 const VEHICLE_POSITIONS_CACHE_KEY = "vehicle-positions-cache";
 const TRIP_UPDATES_CACHE_KEY = "trip-updates-cache";
-const DB_DATA_CACHE_KEY_PREFIX = "db-data-cache-new-";
+const DB_DATA_CACHE_KEY_PREFIX = "db-data-cache-";
 
 // TTL i sekunder
 const REALTIME_TTL = 5;

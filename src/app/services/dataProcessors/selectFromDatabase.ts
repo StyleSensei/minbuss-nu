@@ -1,6 +1,6 @@
 import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
-import { eq, inArray, and, desc, sql } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import type { IDbData } from "@shared/models/IDbData";
@@ -10,35 +10,23 @@ import { z } from "zod";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { calendarDates } from "@/shared/db/schema/calendar_dates";
 import { getDb } from "./db";
+import { DateTime } from "luxon";
+import {
+	calculateTimeFilter,
+	createMinutesFilter,
+} from "@/app/utilities/calculateTimeFilter";
 
 const db = getDb();
 
-function getExtendedStartTime(timeWindowStart: {
-	hour: number;
-	minute: number;
-}): string {
-	return formatTimeForSQL(timeWindowStart.hour + 24, timeWindowStart.minute);
-}
-
-function formatTimeForSQL(hours: number, minutes: number): string {
-	return `${hours.toString().padStart(2, "0")}:${minutes
-		.toString()
-		.padStart(2, "0")}:00`;
-}
-
-function getDateArray(isEarlyMorning = false): Date[] {
-	const now = new Date();
-	const today = new Date(now);
-
-	const dates = [today];
-
+function getDateArray(isEarlyMorning = false) {
+	const dt = DateTime.local();
+	const today = dt.toFormat("yyyy-MM-dd");
 	if (isEarlyMorning) {
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		dates.push(yesterday);
-	}
+		const yesterday = dt.minus({ days: 1 }).toFormat("yyyy-MM-dd");
 
-	return dates;
+		return [today, yesterday];
+	}
+	return [today];
 }
 
 export const selectCurrentTripsFromDatabase = async (busLine: string) => {
@@ -85,48 +73,27 @@ export const selectUpcomingTripsFromDatabase = async (
 ): Promise<IDbData[]> => {
 	MetricsTracker.trackDbQuery();
 
-	const now = new Date();
-	const currentHour = now.getHours();
-	const currentMinutes = now.getMinutes();
+	const dt = DateTime.local();
+	const currentHour = dt.hour;
 	const isEarlyMorning = currentHour < 4;
 
-	const timeWindowStartDate = new Date(now);
-	timeWindowStartDate.setMinutes(timeWindowStartDate.getMinutes() - 15);
+	const minutesFilter = createMinutesFilter(stop_times.departure_time);
 
-	const timeWindowStart = {
-		hour: timeWindowStartDate.getHours() + (isEarlyMorning ? 24 : 0),
-		minute: timeWindowStartDate.getMinutes(),
-	};
+	const startTimeMinutes =
+		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
+	const endTimeMinutes =
+		(isEarlyMorning ? dt.hour + 6 + 24 : dt.hour + 6) * 60 + dt.minute;
 
-	const timeWindowEnd = {
-		hour: isEarlyMorning ? currentHour + 6 + 24 : currentHour + 6,
-		minute: currentMinutes,
-	};
+	const timeFilter = calculateTimeFilter({
+		minutesFilter,
+		startTimeMinutes,
+		endTimeMinutes,
+		isEarlyMorning,
+	});
 
-	const extendedStartTime = getExtendedStartTime(timeWindowStart);
-
-	const timeFifteenMinBeforeDep = formatTimeForSQL(
-		timeWindowStart.hour,
-		timeWindowStart.minute,
+	const dates = getDateArray(isEarlyMorning).map(
+		(dateStr) => new Date(dateStr),
 	);
-
-	const timeSixHoursAfter = formatTimeForSQL(
-		timeWindowEnd.hour,
-		timeWindowEnd.minute,
-	);
-
-	const timeFilter = isEarlyMorning
-		? sql`(
-			   (
-			   (${stop_times.departure_time} >= ${timeFifteenMinBeforeDep} AND ${stop_times.departure_time} < '04:00:00') 
-			   OR 
-			   (${stop_times.departure_time} >= ${extendedStartTime} AND ${stop_times.departure_time} < '28:00:00')
-			  )
-			 )`
-		: sql`${stop_times.departure_time} >= ${timeFifteenMinBeforeDep} AND 
-             ${stop_times.departure_time} <= ${timeSixHoursAfter}`;
-
-	const dates = getDateArray(isEarlyMorning);
 
 	try {
 		const data = await db
@@ -167,9 +134,8 @@ export const selectUpcomingTripsFromDatabase = async (
 				stops.stop_lon,
 			)
 			.orderBy(stop_times.departure_time)
-			.limit(500);
+			.limit(100);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
-
 		return parsed;
 	} catch (error) {
 		console.log(error);

@@ -50,7 +50,7 @@ export interface IVehicleFilterResult {
 	error?: VehicleError;
 }
 
-const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-new-";
+const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-";
 const FILTERED_VEHICLES_TTL = 5;
 
 export const getFilteredVehiclePositions = async (
