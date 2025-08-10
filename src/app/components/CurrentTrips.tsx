@@ -123,7 +123,8 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 		if (
 			hasTripsToDisplay &&
 			containerRef.current &&
-			filteredVehicles.data.length > 0
+			filteredVehicles.data.length > 0 &&
+			!showLoadingTrips
 		) {
 			setTimeout(() => checkOverflow(), 50);
 		}
@@ -132,6 +133,7 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 		checkOverflow,
 		containerRef,
 		filteredVehicles.data.length,
+		showLoadingTrips,
 	]);
 
 	if (showLoadingTrips) {
@@ -144,6 +146,7 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 				className={`table-container ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
 				aria-live="polite"
 				ref={containerRef}
+				onScroll={checkOverflow}
 			>
 				<div className="trips-header">
 					<h1 className="text-left text-2xl font-extrabold tracking-tight text-balance">
