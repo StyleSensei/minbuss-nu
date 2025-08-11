@@ -1,4 +1,5 @@
 @use '../variables' as v;
+@use '../keyframes';
 
 .skeleton-wrapper {
     display: flex;
@@ -12,7 +13,7 @@
 .skeleton {
     background-color: #3a3a3a;
     border-radius: 4px;
-    animation: pulse 1.5s infinite ease-in-out;
+    animation: loaderPulse 1.5s infinite ease-in-out;
 }
 
 .skeleton-title {
@@ -87,18 +88,4 @@
     height: 14px;
     width: 40px;
     margin-left: auto;
-}
-
-@keyframes pulse {
-    0% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.4;
-    }
-
-    100% {
-        opacity: 1;
-    }
 }

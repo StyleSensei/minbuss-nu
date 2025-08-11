@@ -1,5 +1,7 @@
 @use '../variables' as v;
 @use 'sass:color';
+@use '../keyframes';
+
 $size: 32px;
 $size-active: 24px;
 $userSize: 24px;
@@ -15,7 +17,7 @@ $userColor: rgb(0, 149, 255);
     border: 2px solid rgb(0, 0, 0);
     backface-visibility: hidden;
     transition: all .3s ease;
-    animation: pulse 2s 0s ease-out infinite;
+    animation: markerPulse 2s 0s ease-out infinite;
 
     &.--active {
         width: $size-active;
@@ -23,7 +25,7 @@ $userColor: rgb(0, 149, 255);
         outline: 7px solid v.$active;
         border: 7px solid v.$active;
         background: v.$primary-color;
-        animation: pulse .7s ease-out infinite;
+        animation: markerPulse 0.7s ease-out infinite;
 
         &::after {
             content: '';
@@ -45,17 +47,6 @@ $userColor: rgb(0, 149, 255);
     height: $userSize;
     width: $userSize;
     background: $userColor;
-    animation: pulse .5s 3s ease-out 2;
+    animation: markerPulse 0.5s 3s ease-out 2;
     cursor: default;
-}
-
-@keyframes pulse {
-
-    10% {
-        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.092), 0 0 12px 10px rgba(0, 153, 255, 0.078), 0 0 12px 14px rgba(0, 153, 255, 0.035);
-    }
-
-    100% {
-        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.213), 0 0 0px 30px rgba(0, 153, 255, 0.046), 0 0 0px 30px rgba(0, 153, 255, 0.036);
-    }
 }

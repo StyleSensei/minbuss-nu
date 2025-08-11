@@ -60,3 +60,28 @@
         opacity: 0;
     }
 }
+
+@keyframes loaderPulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes markerPulse {
+
+    10% {
+        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.092), 0 0 12px 10px rgba(0, 153, 255, 0.078), 0 0 12px 14px rgba(0, 153, 255, 0.035);
+    }
+
+    100% {
+        box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.213), 0 0 0px 30px rgba(0, 153, 255, 0.046), 0 0 0px 30px rgba(0, 153, 255, 0.036);
+    }
+}
