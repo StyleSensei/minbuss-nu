@@ -16,7 +16,7 @@ $containerWidth: 278px;
     pointer-events: none;
     transition: all .5s ease;
     border: 1px v.$tertiary-color solid;
-    will-change: transform;
+    will-change: transform, top;
     @include m.backdropFilter;
 
     &.--active {

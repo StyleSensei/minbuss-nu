@@ -2,6 +2,7 @@ import { bus } from "../../public/icons";
 import DemoMap from "./components/DemoMap";
 import { LinkButton } from "./components/LinkButton";
 import TextBlock from "./components/Textblock";
+import { Paths } from "./paths";
 
 export default async function Home() {
 	return (
@@ -22,7 +23,7 @@ export default async function Home() {
 				fill={"black"}
 				path={bus}
 				className="--cta"
-				href="/karta"
+				href={`${Paths.Search}`}
 				id="cta"
 			/>
 		</>

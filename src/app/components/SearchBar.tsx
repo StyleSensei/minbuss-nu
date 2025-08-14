@@ -1,5 +1,6 @@
 "use client";
 import {
+	type FormEvent,
 	type KeyboardEvent,
 	Suspense,
 	useCallback,
@@ -26,6 +27,8 @@ import { alphabet } from "../../../public/icons";
 import { fetchCachedDbData } from "../actions/fetchCachedDbData";
 import type { ITripUpdate } from "@/shared/models/ITripUpdate";
 import type { IError } from "../services/cacheHelper";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Paths } from "../paths";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -43,7 +46,10 @@ export const SearchBar = ({
 	title2,
 	path2,
 }: SearchBarProps) => {
-	const [userInput, setUserInput] = useState<string>("");
+	const searchParams = useSearchParams();
+	const [userInput, setUserInput] = useState<string>(
+		encodeURIComponent(searchParams.get("linje") || ""),
+	);
 	const [allRoutes, setAllRoutes] = useState<{
 		asObject: Record<string, boolean>;
 		asArray: string[];
@@ -59,6 +65,7 @@ export const SearchBar = ({
 	const initialHeight = useRef<number | null>(null);
 	const [isActive, setIsActive] = useState(false);
 	const [isBlurring, setIsBlurring] = useState(false);
+	const router = useRouter();
 
 	const {
 		setFilteredVehicles,
@@ -235,6 +242,19 @@ export const SearchBar = ({
 		handleCachedDbData,
 	]);
 
+	useEffect(() => {
+		const urlQuery = searchParams.get("linje");
+		if (urlQuery && urlQuery === userInput && userInput.length > 0) {
+			try {
+				handleOnChange(urlQuery);
+			} catch (error) {
+				console.error("Error handling URL query:", error);
+			} finally {
+				setIsLoading(false);
+			}
+		}
+	}, [searchParams, userInput, handleOnChange, setIsLoading]);
+
 	const handleKeyDown = (event: KeyboardEvent) => {
 		if (
 			event.key === "Escape" ||
@@ -281,6 +301,12 @@ export const SearchBar = ({
 			setIsKeyboardLikelyOpen(false);
 		}, 100);
 	};
+	const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		if (userInput.trim()) {
+			router.push(`${Paths.Search}?linje=${encodeURIComponent(userInput)}`);
+		}
+	};
 
 	return (
 		<>
@@ -289,7 +315,7 @@ export const SearchBar = ({
 				ref={inputContainerRef}
 				className={`search-bar__container ${isActive ? "--active" : ""} ${isLoading ? "--loading" : ""} `}
 			>
-				<Form action="/search" onSubmit={(e) => e.preventDefault()}>
+				<Form action="/search" onSubmit={handleSubmit}>
 					<button
 						type="button"
 						onClick={() => {
@@ -314,8 +340,8 @@ export const SearchBar = ({
 						className={`search-bar__input ${isLoading ? "loading" : ""}`}
 						autoComplete="off"
 						onChange={(e) => {
-							setUserInput(e.target.value.toUpperCase());
-							handleOnChange(e.target.value.toUpperCase());
+							setUserInput(e.target.value.toUpperCase().trim());
+							handleOnChange(e.target.value.toUpperCase().trim());
 						}}
 						value={userInput}
 						onKeyDown={handleKeyDown}
@@ -353,6 +379,7 @@ export const SearchBar = ({
 							type="reset"
 							onClick={() => {
 								setUserInput("");
+								router.push(Paths.Search);
 								handleBlur();
 							}}
 						>

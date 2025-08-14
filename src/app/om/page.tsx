@@ -3,6 +3,11 @@ import TextBlock from "../components/Textblock";
 import Image from "next/image";
 import { Contact } from "../components/Contact";
 
+export const metadata = {
+	title: "Om tjänsten",
+	description: "Information om tjänsten för att följa bussar i realtid.",
+};
+
 export default async function InfoPage() {
 	const descriptions = [
 		{

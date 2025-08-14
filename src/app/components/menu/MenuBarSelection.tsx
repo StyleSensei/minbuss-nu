@@ -1,5 +1,6 @@
 "use client";
 
+import { Paths } from "@/app/paths";
 import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 
@@ -10,9 +11,9 @@ export const MenuBarSelection = () => {
 		switch (pathname) {
 			case "/":
 				return "home";
-			case "/karta":
+			case `${Paths.Search}`:
 				return "map";
-			case "/om":
+			case `${Paths.About}`:
 				return "info";
 			default:
 				return "home";

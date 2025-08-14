@@ -52,7 +52,7 @@ const myFontBold = localFont({
 export const fonts = { myFont, myFontBold };
 
 export const metadata: Metadata = {
-	title: "Min buss",
+	title: { default: "Min buss.nu", template: "%s | Min buss.nu" },
 	description: "Sök efter bussar i realtid",
 	icons: "/favicon-96x96.png",
 };

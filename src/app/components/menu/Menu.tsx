@@ -11,16 +11,11 @@ import {
 import { MenuBarSelection } from "./MenuBarSelection";
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Paths } from "@/app/paths";
 
 export default function Menu() {
 	const router = useRouter();
 	const pathname = usePathname();
-
-	enum HREF {
-		home = "/",
-		search = "/karta",
-		about = "/om",
-	}
 
 	useEffect(() => {
 		const handleVisibilityChange = () => {
@@ -45,23 +40,23 @@ export default function Menu() {
 						href="/"
 						iconSize={iconSize}
 						className="link__home"
-						path={pathname === HREF.home ? houseDoorFill : houseDoor}
+						path={pathname === Paths.Home ? houseDoorFill : houseDoor}
 						fill="currentColor"
 					/>
 					<MenuItem
 						title="Sök"
-						href="/karta"
+						href={`${Paths.Search}`}
 						iconSize={iconSize}
 						className="link__map"
-						path={pathname === HREF.search ? searchFill : search}
+						path={pathname === Paths.Search ? searchFill : search}
 						fill="currentColor"
 					/>
 					<MenuItem
 						title="Om"
-						href="/om"
+						href={`${Paths.About}`}
 						iconSize={iconSize}
 						className="link__info"
-						path={pathname === HREF.about ? infoCircleFill : infoCircle}
+						path={pathname === Paths.About ? infoCircleFill : infoCircle}
 						fill="currentColor"
 					/>
 				</div>
