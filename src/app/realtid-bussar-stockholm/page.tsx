@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import { Paths } from "../paths";
 import MapClient from "./MapClient";
-interface Props {
-	searchParams: {
-		linje?: string;
-	};
-}
 
-// Dynamisk metadata-generering med tillgång till searchParams
+type Props = {
+	searchParams: Promise<{ linje?: string }>;
+};
+
 export async function generateMetadata({
 	searchParams,
 }: Props): Promise<Metadata> {
@@ -26,7 +24,6 @@ export async function generateMetadata({
 
 export default async function Page({ searchParams }: Props) {
 	const params = await searchParams;
-	console.log("params", params);
 	const line = params.linje?.trim();
 	const jsonLd = line
 		? {
