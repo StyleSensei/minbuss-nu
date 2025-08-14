@@ -186,7 +186,6 @@ export default function MapClient({ initialLine }: { initialLine?: string }) {
 
 	return (
 		<div>
-			<h1 className="sr-only">Se bussar live i realtid på karta</h1>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
