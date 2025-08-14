@@ -1,7 +1,8 @@
 import React from "react";
 import TextBlock from "../components/Textblock";
-import Image from "next/image";
 import { Contact } from "../components/Contact";
+import ImageClient from "./ImageClient";
+import ImageServer from "./ImageServer";
 
 export const metadata = {
 	title: "Om tjänsten",
@@ -75,17 +76,17 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 								h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
 								h1ClassName="text-4xl font-bold tracking-tight text-balance"
 							/>
-
 							{description.image.src && (
-								<div className="info__image">
-									<Image
-										src={description.image.src}
-										alt={description.image.alt}
-										fill
-										objectFit="contain"
-										objectPosition="left"
-									/>
-								</div>
+								<ImageServer
+									src={description.image.src}
+									alt={description.image.alt}
+								/>
+							)}
+							{description.image.src && (
+								<ImageClient
+									src={description.image.src}
+									alt={description.image.alt}
+								/>
 							)}
 						</React.Fragment>
 					);
