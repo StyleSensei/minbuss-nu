@@ -2,14 +2,22 @@
 @use 'sass:color';
 @use '../keyframes';
 
-$size: 32px;
+$wrapper-size: 80px;
+$marker-size: 32px;
 $size-active: 24px;
 $userSize: 24px;
 $userColor: rgb(0, 149, 255);
 
+.marker-wrapper {
+    width: $wrapper-size;
+    height: $wrapper-size;
+    cursor: pointer;
+}
+
 .custom-marker {
-    width: $size;
-    height: $size;
+    width: $marker-size;
+    height: $marker-size;
+    margin: calc(($wrapper-size - $marker-size) / 2);
     border-radius: 50%;
     cursor: pointer;
     float: left;
@@ -27,18 +35,6 @@ $userColor: rgb(0, 149, 255);
         background: v.$primary-color;
         animation: markerPulse 0.7s ease-out infinite;
 
-        &::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 0;
-            border: v.$accent-color solid 3px;
-            border-radius: 100%;
-
-            top: -10px;
-            left: -10px;
-            transform: translateX(-50%);
-        }
     }
 }
 

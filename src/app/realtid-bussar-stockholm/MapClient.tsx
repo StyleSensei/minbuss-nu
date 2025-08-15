@@ -22,14 +22,9 @@ import { CurrentTrips } from "../components/CurrentTrips";
 import UserMessage from "../components/UserMessage";
 import VehicleMarkers from "../components/VehicleMarkers";
 
-export default function MapClient({ initialLine }: { initialLine?: string }) {
-	const {
-		filteredVehicles,
-		tripData,
-		userPosition,
-		setUserPosition,
-		setIsLoading,
-	} = useDataContext();
+export default function MapClient() {
+	const { filteredVehicles, tripData, userPosition, setUserPosition } =
+		useDataContext();
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
@@ -38,37 +33,7 @@ export default function MapClient({ initialLine }: { initialLine?: string }) {
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 	const [mapReady, setMapReady] = useState(false);
-	const markersRenderedRef = useRef(false);
-	const markersRenderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const isMobile = useIsMobile();
-
-	useEffect(() => {
-		if (filteredVehicles.data.length > 0) {
-			setIsLoading(true);
-			if (markersRenderTimeoutRef.current) {
-				clearTimeout(markersRenderTimeoutRef.current);
-			}
-			markersRenderedRef.current = false;
-		} else {
-			setIsLoading(false);
-		}
-
-		return () => {
-			if (markersRenderTimeoutRef.current) {
-				clearTimeout(markersRenderTimeoutRef.current);
-			}
-		};
-	}, [filteredVehicles.data.length, setIsLoading]);
-
-	const onMarkerRendered = useCallback(() => {
-		if (!markersRenderedRef.current) {
-			markersRenderedRef.current = true;
-
-			markersRenderTimeoutRef.current = setTimeout(() => {
-				setIsLoading(false);
-			}, 500);
-		}
-	}, [setIsLoading]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -190,6 +155,7 @@ export default function MapClient({ initialLine }: { initialLine?: string }) {
 				<GoogleMap
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
 					defaultZoom={10}
+					minZoom={10}
 					defaultCenter={{ lat: 59.33258, lng: 18.0649 }}
 					gestureHandling={"greedy"}
 					onTilesLoaded={(e: MapEvent) => {
@@ -210,7 +176,6 @@ export default function MapClient({ initialLine }: { initialLine?: string }) {
 					restriction={{
 						latLngBounds: { north: 60, south: 58.5, east: 20, west: 16.5 },
 					}}
-					minZoom={8}
 				>
 					<MapControl
 						position={
@@ -244,7 +209,6 @@ export default function MapClient({ initialLine }: { initialLine?: string }) {
 						activeMarkerId={activeMarkerId}
 						setActiveMarkerId={setActiveMarkerId}
 						showCurrentTrips={showCurrentTrips}
-						onMarkerRendered={onMarkerRendered}
 					/>{" "}
 					{showCurrentTrips &&
 						userPosition &&

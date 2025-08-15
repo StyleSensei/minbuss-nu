@@ -37,7 +37,6 @@ interface ICustomMarkerProps {
 	isActive: boolean;
 	showCurrentTrips: boolean;
 	onActivateMarker: (id: string | null) => void;
-	onMarkerRendered: () => void;
 }
 
 export default function CustomMarker({
@@ -53,7 +52,6 @@ export default function CustomMarker({
 	isActive,
 	showCurrentTrips,
 	onActivateMarker,
-	onMarkerRendered,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
@@ -310,19 +308,22 @@ export default function CustomMarker({
 				ref={markerRef}
 				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				className={isActive ? "custom-marker --active" : "custom-marker"}
+				// className={isActive ? "custom-marker --active" : "custom-marker"}
+				className="marker-wrapper"
 				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
-				style={
-					zoomRef?.current < 11
-						? {
-								width: zoomRef.current * 1.5,
-								height: zoomRef.current * 1.5,
-							}
-						: undefined
-				}
 			>
-				<div> </div> {/* prevent standard marker from rendering */}
+				<div
+					className={`custom-marker ${isActive ? "--active" : ""}`}
+					style={
+						zoomRef?.current < 11
+							? {
+									width: zoomRef.current * 1.5,
+									height: zoomRef.current * 1.5,
+								}
+							: undefined
+					}
+				/>
 			</AdvancedMarker>
 			{isActive && !showCurrentTrips && isMobile && (
 				<InfoWindow

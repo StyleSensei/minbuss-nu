@@ -15,21 +15,9 @@ interface IVehicleMarkersProps {
 	activeMarkerId: string | null;
 	setActiveMarkerId: (id: string | null) => void;
 	showCurrentTrips: boolean;
-	onMarkerRendered: () => void;
 }
 
-const VehicleMarkers = ({
-	vehicles,
-	onMarkerRendered,
-	...props
-}: IVehicleMarkersProps) => {
-	useEffect(() => {
-		if (vehicles && vehicles.length > 0) {
-			const timeoutId = setTimeout(onMarkerRendered, 100);
-			return () => clearTimeout(timeoutId);
-		}
-	}, [vehicles, onMarkerRendered]);
-
+const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 	if (!vehicles || vehicles.length === 0) {
 		return null;
 	}
@@ -52,7 +40,6 @@ const VehicleMarkers = ({
 			isActive={props.activeMarkerId === vehicle.vehicle.id}
 			onActivateMarker={(id) => props.setActiveMarkerId(id)}
 			showCurrentTrips={props.showCurrentTrips}
-			onMarkerRendered={onMarkerRendered}
 		/>
 	));
 };

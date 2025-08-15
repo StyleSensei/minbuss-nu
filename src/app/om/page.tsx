@@ -47,9 +47,9 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 		{
 			h2: "Tabell",
 			text: `
-	Du kan också klicka på “Tabell” för att visa en översikt över alla pågående resor för den valda linjen som ännu inte har passerat din närmaste busshållplats. Här ser du även den beräknade ankomsttiden för varje buss./`,
+	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar för den valda linjen, så länge de ännu inte har passerat din närmaste hållplats. Här visas också den beräknade ankomsttiden för varje buss./`,
 			image: {
-				src: "/table.png",
+				src: "/table.webp",
 				alt: "Tabell med pågående resor för vald busslinje och avgångstider från din närmaste hållplats.",
 			},
 		},

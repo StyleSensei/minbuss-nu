@@ -29,6 +29,7 @@ import type { ITripUpdate } from "@/shared/models/ITripUpdate";
 import type { IError } from "../services/cacheHelper";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Paths } from "../paths";
+import { set } from "zod";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -90,34 +91,40 @@ export const SearchBar = ({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: < didn't work without >
 	const handleOnChange = useCallback(
 		debounce(async (query: string) => {
-			setIsLoading(true);
-			const routeExists = checkIfRouteExists(query);
-			if (!routeExists) setIsLoading(false);
+			try {
+				setIsLoading(true);
+				const routeExists = checkIfRouteExists(query);
+				if (!routeExists) setIsLoading(false);
 
-			const result = await getFilteredVehiclePositions(query);
-			setFilteredVehicles({ data: result.data, error: result.error });
+				const result = await getFilteredVehiclePositions(query);
+				setFilteredVehicles({ data: result.data, error: result.error });
 
-			if (result.error) {
-				if (
-					result.error.type === "DATA_TOO_OLD" &&
-					"timestampAge" in result.error
-				) {
-					const { minutes, seconds, hours } = result.error.timestampAge;
-					const ageDisplay = hours
-						? `${hours}h ${minutes % 60}m ${seconds % 60}s`
-						: `${minutes}m ${seconds % 60}s`;
+				if (result.error) {
+					if (
+						result.error.type === "DATA_TOO_OLD" &&
+						"timestampAge" in result.error
+					) {
+						const { minutes, seconds, hours } = result.error.timestampAge;
+						const ageDisplay = hours
+							? `${hours}h ${minutes % 60}m ${seconds % 60}s`
+							: `${minutes}m ${seconds % 60}s`;
 
-					console.warn(
-						`${result.error.message} (ålder: ${ageDisplay})`,
-						"Läs mer: https://status.trafiklab.se/sv",
-					);
-				} else {
-					console.warn(
-						result.error.message,
-						"Läs mer: https://status.trafiklab.se/sv",
-					);
+						console.warn(
+							`${result.error.message} (ålder: ${ageDisplay})`,
+							"Läs mer: https://status.trafiklab.se/sv",
+						);
+					} else {
+						console.warn(
+							result.error.message,
+							"Läs mer: https://status.trafiklab.se/sv",
+						);
+					}
+					setErrorMessage(result.error.message);
 				}
-				setErrorMessage(result.error.message);
+			} catch (error) {
+				console.error("Error fetching vehicle positions:", error);
+			} finally {
+				setIsLoading(false);
 			}
 		}, 500),
 		[checkIfRouteExists, setIsLoading],
@@ -249,11 +256,9 @@ export const SearchBar = ({
 				handleOnChange(urlQuery);
 			} catch (error) {
 				console.error("Error handling URL query:", error);
-			} finally {
-				setIsLoading(false);
 			}
 		}
-	}, [searchParams, userInput, handleOnChange, setIsLoading]);
+	}, [searchParams, userInput, handleOnChange]);
 
 	const handleKeyDown = (event: KeyboardEvent) => {
 		if (
