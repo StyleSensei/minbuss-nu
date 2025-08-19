@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
@@ -28,17 +28,39 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 		null,
 	);
 	const [tripStops, setTripStops] = useState<IDbData[]>([]);
-
-	const [isAnimating, setIsAnimating] = useState(false);
 	const [isTableAnimating, setIsTableAnimating] = useState(false);
 	const [pendingTripStops, setPendingTripStops] = useState<IDbData[] | null>(
 		null,
 	);
 	const prevTripStopsRef = useRef<IDbData[]>([]);
 	const prevEffectiveStopRef = useRef<IDbData | null>(null);
+	const effectiveStop = closestStopState || localClosestStop;
+
+	const getVisibleStops = useCallback(
+		(stops: IDbData[], sequenceNumber?: number) => {
+			const sequence = sequenceNumber ?? effectiveStop?.stop_sequence;
+			if (!sequence) return stops;
+			return stops.filter((stop) => stop.stop_sequence >= sequence);
+		},
+		[effectiveStop?.stop_sequence],
+	);
+
+	const completeAnimation = useCallback(
+		(newStops: IDbData[]) => {
+			setIsTableAnimating(false);
+			setTripStops(newStops);
+			prevTripStopsRef.current = [...newStops];
+
+			if (pendingTripStops) {
+				setTripStops(pendingTripStops);
+				prevTripStopsRef.current = [...pendingTripStops];
+				setPendingTripStops(null);
+			}
+		},
+		[pendingTripStops],
+	);
 
 	useEffect(() => {
-		const effectiveStop = closestStopState || localClosestStop;
 		checkOverflow();
 
 		if (effectiveStop && prevEffectiveStopRef.current && tripStops.length > 0) {
@@ -46,10 +68,6 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 			const currentSequence = effectiveStop.stop_sequence;
 
 			if (currentSequence > prevSequence) {
-				const getVisibleStops = (stops: IDbData[], stopSequence: number) => {
-					return stops.filter((stop) => stop.stop_sequence >= stopSequence);
-				};
-
 				const prevVisibleStops = getVisibleStops(tripStops, prevSequence);
 				const currentVisibleStops = getVisibleStops(tripStops, currentSequence);
 
@@ -63,20 +81,11 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 				if (nowHiddenStops.length > 0) {
 					setIsTableAnimating(true);
 
-					setTimeout(() => {
-						setIsTableAnimating(false);
+					const newFilteredStops = tripStops.filter(
+						(stop) => stop.stop_sequence >= currentSequence,
+					);
 
-						const newFilteredStops = tripStops.filter(
-							(stop) => stop.stop_sequence >= currentSequence,
-						);
-						setTripStops(newFilteredStops);
-
-						if (pendingTripStops) {
-							setTripStops(pendingTripStops);
-							prevTripStopsRef.current = [...pendingTripStops];
-							setPendingTripStops(null);
-						}
-					}, 1000);
+					setTimeout(() => completeAnimation(newFilteredStops), 1000);
 				}
 			}
 		}
@@ -85,66 +94,55 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 	}, [closestStopState, localClosestStop, tripStops, checkOverflow]);
 
 	useEffect(() => {
-		if (tripId) {
-			const newTripStops = tripData.currentTrips
-				.filter((stop) => stop.trip_id === tripId)
-				.sort((a, b) => a.stop_sequence - b.stop_sequence);
+		if (!tripId) return;
 
-			if (newTripStops.length > 0) {
-				const getVisibleStops = (stops: IDbData[]) => {
-					if (!effectiveStop?.stop_sequence) return stops;
-					return stops.filter(
-						(stop) => stop.stop_sequence >= effectiveStop.stop_sequence,
-					);
-				};
+		const newTripStops = tripData.currentTrips
+			.filter((stop) => stop.trip_id === tripId)
+			.sort((a, b) => a.stop_sequence - b.stop_sequence);
 
-				const visibleNewStops = getVisibleStops(newTripStops);
-				const visiblePrevStops = getVisibleStops(prevTripStopsRef.current);
+		if (newTripStops.length === 0) return;
 
-				if (visiblePrevStops.length > 0) {
-					const newStopIds = new Set(
-						visibleNewStops.map((stop) => stop.stop_id),
-					);
+		if (prevTripStopsRef.current.length === 0) {
+			setTripStops(newTripStops);
+			prevTripStopsRef.current = [...newTripStops];
 
-					const removedStops = visiblePrevStops.filter(
-						(stop) => !newStopIds.has(stop.stop_id),
-					);
-
-					if (removedStops.length > 0) {
-						setIsAnimating(true);
-
-						setTimeout(() => {
-							setIsAnimating(false);
-							setTripStops(newTripStops);
-							prevTripStopsRef.current = [...newTripStops];
-
-							if (pendingTripStops) {
-								setTripStops(pendingTripStops);
-								prevTripStopsRef.current = [...pendingTripStops];
-								setPendingTripStops(null);
-							}
-						}, 1200);
-
-						return;
-					}
-				} else {
-				}
-
-				if (!isTableAnimating && !isAnimating) {
-					setTripStops(newTripStops);
-					prevTripStopsRef.current = [...newTripStops];
-
-					if (!closestStopState && newTripStops.length > 0) {
-						setLocalClosestStop(newTripStops[0]);
-					}
-				} else {
-					setPendingTripStops(newTripStops);
-				}
+			if (!closestStopState && newTripStops.length > 0) {
+				setLocalClosestStop(newTripStops[0]);
 			}
+			return;
+		}
+
+		const visibleNewStops = getVisibleStops(newTripStops);
+		const visiblePrevStops = getVisibleStops(prevTripStopsRef.current);
+
+		if (visiblePrevStops.length > 0) {
+			const newStopIds = new Set(visibleNewStops.map((stop) => stop.stop_id));
+			const removedStops = visiblePrevStops.filter(
+				(stop) => !newStopIds.has(stop.stop_id),
+			);
+
+			if (removedStops.length > 0) {
+				setIsTableAnimating(true);
+				setTimeout(() => completeAnimation(newTripStops), 1000);
+				return;
+			}
+		}
+
+		if (!isTableAnimating) {
+			setTripStops(newTripStops);
+			prevTripStopsRef.current = [...newTripStops];
+		} else {
+			setPendingTripStops(newTripStops);
 		}
 	}, [closestStopState, tripId, tripData.currentTrips]);
 
-	const effectiveStop = closestStopState || localClosestStop;
+	const visibleStops = useMemo(() => {
+		return tripStops.filter(
+			(s) =>
+				!effectiveStop?.stop_sequence ||
+				s.stop_sequence >= effectiveStop.stop_sequence,
+		);
+	}, [tripStops, effectiveStop?.stop_sequence]);
 
 	return (
 		<div className="info-window" aria-live="polite">
@@ -156,7 +154,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 					<span id="final-station">{effectiveStop?.stop_headsign}</span>
 				</h2>
 
-				<div className={"table-wrapper"}>
+				<div className="table-wrapper">
 					<Table
 						ref={containerRef}
 						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
@@ -173,12 +171,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 						<TableBody
 							className={`tbody ${isTableAnimating ? "tbody-fade" : ""}`}
 						>
-							{tripStops.map((stop) => {
-								if (
-									effectiveStop?.stop_sequence &&
-									stop.stop_sequence < effectiveStop?.stop_sequence
-								)
-									return null;
+							{visibleStops.map((stop, index) => {
 								const scheduledTime = normalizeTimeForDisplay(
 									stop.departure_time,
 								);
@@ -194,15 +187,6 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 								const hasUpdate =
 									departureTimeString && departureTimeString !== scheduledTime;
 
-								const visibleStops = tripStops.filter(
-									(s) =>
-										!effectiveStop?.stop_sequence ||
-										s.stop_sequence >= effectiveStop.stop_sequence,
-								);
-								const visibleIndex = visibleStops.findIndex(
-									(s) => s.stop_id === stop.stop_id,
-								);
-
 								return (
 									<TableRow
 										key={stop.stop_id}
@@ -211,9 +195,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 												? "bg-muted/10 font-bold text-white"
 												: ""
 										} ${
-											isTableAnimating && visibleIndex >= 0 && visibleIndex <= 9
-												? `row-slide-${visibleIndex}`
-												: ""
+											isTableAnimating && index <= 9 ? `row-slide-${index}` : ""
 										} `}
 									>
 										<TableCell
