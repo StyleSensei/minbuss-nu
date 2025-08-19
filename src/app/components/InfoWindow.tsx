@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import {
+	Table,
+	TableBody,
+	TableCaption,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;
@@ -12,57 +21,202 @@ interface IInfoWindowProps {
 }
 
 export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
-	const { containerRef, isOverflowing } = useOverflow();
+	const { containerRef, isOverflowing, isScrolledToBottom, checkOverflow } =
+		useOverflow<HTMLTableElement>();
 	const { filteredTripUpdates, tripData } = useDataContext();
 	const [localClosestStop, setLocalClosestStop] = useState<IDbData | null>(
 		null,
 	);
-	useEffect(() => {
-		if (!closestStopState && tripId) {
-			const tripStops = tripData.currentTrips
-				.filter((stop) => stop.trip_id === tripId)
-				.sort((a, b) => a.stop_sequence - b.stop_sequence);
+	const [tripStops, setTripStops] = useState<IDbData[]>([]);
+	const [isTableAnimating, setIsTableAnimating] = useState(false);
+	const [pendingTripStops, setPendingTripStops] = useState<IDbData[] | null>(
+		null,
+	);
+	const prevTripStopsRef = useRef<IDbData[]>([]);
+	const prevEffectiveStopRef = useRef<IDbData | null>(null);
+	const effectiveStop = closestStopState || localClosestStop;
 
-			if (tripStops.length > 0) {
-				setLocalClosestStop(tripStops[0]);
+	const getVisibleStops = useCallback(
+		(stops: IDbData[], sequenceNumber?: number) => {
+			const sequence = sequenceNumber ?? effectiveStop?.stop_sequence;
+			if (!sequence) return stops;
+			return stops.filter((stop) => stop.stop_sequence >= sequence);
+		},
+		[effectiveStop?.stop_sequence],
+	);
+
+	const completeAnimation = useCallback(
+		(newStops: IDbData[]) => {
+			setIsTableAnimating(false);
+			setTripStops(newStops);
+			prevTripStopsRef.current = [...newStops];
+
+			if (pendingTripStops) {
+				setTripStops(pendingTripStops);
+				prevTripStopsRef.current = [...pendingTripStops];
+				setPendingTripStops(null);
 			}
+		},
+		[pendingTripStops],
+	);
+
+	useEffect(() => {
+		checkOverflow();
+
+		if (effectiveStop && prevEffectiveStopRef.current && tripStops.length > 0) {
+			const prevSequence = prevEffectiveStopRef.current.stop_sequence;
+			const currentSequence = effectiveStop.stop_sequence;
+
+			if (currentSequence > prevSequence) {
+				const prevVisibleStops = getVisibleStops(tripStops, prevSequence);
+				const currentVisibleStops = getVisibleStops(tripStops, currentSequence);
+
+				const currentVisibleIds = new Set(
+					currentVisibleStops.map((s) => s.stop_id),
+				);
+				const nowHiddenStops = prevVisibleStops.filter(
+					(s) => !currentVisibleIds.has(s.stop_id),
+				);
+
+				if (nowHiddenStops.length > 0) {
+					setIsTableAnimating(true);
+
+					const newFilteredStops = tripStops.filter(
+						(stop) => stop.stop_sequence >= currentSequence,
+					);
+
+					setTimeout(() => completeAnimation(newFilteredStops), 1000);
+				}
+			}
+		}
+
+		prevEffectiveStopRef.current = effectiveStop;
+	}, [closestStopState, localClosestStop, tripStops, checkOverflow]);
+
+	useEffect(() => {
+		if (!tripId) return;
+
+		const newTripStops = tripData.currentTrips
+			.filter((stop) => stop.trip_id === tripId)
+			.sort((a, b) => a.stop_sequence - b.stop_sequence);
+
+		if (newTripStops.length === 0) return;
+
+		if (prevTripStopsRef.current.length === 0) {
+			setTripStops(newTripStops);
+			prevTripStopsRef.current = [...newTripStops];
+
+			if (!closestStopState && newTripStops.length > 0) {
+				setLocalClosestStop(newTripStops[0]);
+			}
+			return;
+		}
+
+		const visibleNewStops = getVisibleStops(newTripStops);
+		const visiblePrevStops = getVisibleStops(prevTripStopsRef.current);
+
+		if (visiblePrevStops.length > 0) {
+			const newStopIds = new Set(visibleNewStops.map((stop) => stop.stop_id));
+			const removedStops = visiblePrevStops.filter(
+				(stop) => !newStopIds.has(stop.stop_id),
+			);
+
+			if (removedStops.length > 0) {
+				setIsTableAnimating(true);
+				setTimeout(() => completeAnimation(newTripStops), 1000);
+				return;
+			}
+		}
+
+		if (!isTableAnimating) {
+			setTripStops(newTripStops);
+			prevTripStopsRef.current = [...newTripStops];
+		} else {
+			setPendingTripStops(newTripStops);
 		}
 	}, [closestStopState, tripId, tripData.currentTrips]);
 
-	const effectiveStop = closestStopState || localClosestStop;
+	const visibleStops = useMemo(() => {
+		return tripStops.filter(
+			(s) =>
+				!effectiveStop?.stop_sequence ||
+				s.stop_sequence >= effectiveStop.stop_sequence,
+		);
+	}, [tripStops, effectiveStop?.stop_sequence]);
 
-	const closestStopTimesStamp = filteredTripUpdates
-		.find((t) => t.trip.tripId === effectiveStop?.trip_id)
-		?.stopTimeUpdate.find((s) => s.stopId === effectiveStop?.stop_id)
-		?.departure?.time;
-	const scheduledTime = effectiveStop?.departure_time
-		? normalizeTimeForDisplay(effectiveStop.departure_time.slice(0, 5))
-		: null;
-	const closestStopDeparture = closestStopTimesStamp
-		? new Date(+closestStopTimesStamp * 1000).toLocaleTimeString().slice(0, 5)
-		: null;
-	const hasUpdate =
-		closestStopDeparture && closestStopDeparture !== scheduledTime;
 	return (
-		<div
-			className={`info-window ${isOverflowing ? "--overflowing" : ""}`}
-			aria-live="polite"
-			ref={containerRef}
-		>
-			<h2>
-				<span className="bus-line">{effectiveStop?.route_short_name}, </span>
-				<span id="final-station">{effectiveStop?.stop_headsign}</span>
-			</h2>
-			<h2 className="next-stop">Nästa stopp: </h2>
-			<p className="next-stop">{effectiveStop?.stop_name}</p>
-			<h2>Ankomst:</h2>
-			<p>
-				{hasUpdate && <span>{closestStopDeparture}</span>}
-				<span className={hasUpdate ? "updated-time" : ""}>
-					{" "}
-					{scheduledTime}
-				</span>
-			</p>
+		<div className="info-window" aria-live="polite">
+			<div className="info-window__inner">
+				<h2>
+					<span className="bus-line">
+						Linje {effectiveStop?.route_short_name},{" "}
+					</span>
+					<span id="final-station">{effectiveStop?.stop_headsign}</span>
+				</h2>
+
+				<div className="table-wrapper">
+					<Table
+						ref={containerRef}
+						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
+					>
+						<TableCaption className="text-left text-zinc-300/80">
+							Kommande hållplatser
+						</TableCaption>
+						<TableHeader className="sticky top-0">
+							<TableRow>
+								<TableHead className="text-white">Hållplats</TableHead>
+								<TableHead className="text-right text-white">Ankomst</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody
+							className={`tbody ${isTableAnimating ? "tbody-fade" : ""}`}
+						>
+							{visibleStops.map((stop, index) => {
+								const scheduledTime = normalizeTimeForDisplay(
+									stop.departure_time,
+								);
+								const updatedTime = filteredTripUpdates
+									.find((t) => t.trip.tripId === stop.trip_id)
+									?.stopTimeUpdate.find((s) => s.stopId === stop.stop_id)
+									?.departure?.time;
+								const departureTimeString = updatedTime
+									? new Date(+updatedTime * 1000)
+											.toLocaleTimeString()
+											.slice(0, 5)
+									: null;
+								const hasUpdate =
+									departureTimeString && departureTimeString !== scheduledTime;
+
+								return (
+									<TableRow
+										key={stop.stop_id}
+										className={`h-[44px] text-muted ${
+											effectiveStop?.stop_sequence === stop.stop_sequence
+												? "bg-muted/10 font-bold text-white"
+												: ""
+										} ${
+											isTableAnimating && index <= 9 ? `row-slide-${index}` : ""
+										} `}
+									>
+										<TableCell
+											className={`font-medium ${effectiveStop?.stop_sequence === stop.stop_sequence ? "font-bold first-cell-pad" : ""}`}
+										>
+											<span>{stop.stop_name}</span>
+										</TableCell>
+										<TableCell className="text-right">
+											{hasUpdate && <span>{departureTimeString}</span>}
+											<span className={hasUpdate ? "updated-time" : ""}>
+												{" "}
+												{scheduledTime}
+											</span>
+										</TableCell>
+									</TableRow>
+								);
+							})}
+						</TableBody>
+					</Table>
+				</div>
+			</div>
 		</div>
 	);
 };

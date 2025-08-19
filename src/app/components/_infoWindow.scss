@@ -1,24 +1,130 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use '../keyframes' as k;
+@use '_currentTrips';
+
 
 
 .info-window {
-    position: absolute;
-    top: 12vh;
-    left: 2vw;
-    max-width: 250px;
-    max-width: 70vw;
-    z-index: 2;
-    max-height: 50vh;
-    overflow: auto;
-    background-color: v.$primary-color;
-    color: v.$secondary-color;
-    border: solid 5px v.$active;
-    padding: v.$padding-textBox;
-    border-radius: v.$border-radius-standard;
+    @extend .current-trips;
 
-    &.--overflowing {
-        @include m.overFlowing;
+    .table-wrapper {
+        max-height: 60dvh;
+        overflow: hidden;
+
+    }
+
+    table {
+        width: 100%;
+        table-layout: fixed;
+        display: block;
+        max-height: 60dvh;
+        overflow-y: auto;
+        scrollbar-width: none;
+        scroll-behavior: smooth;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background-color: v.$primary-color;
+            z-index: 10;
+            display: table-header-group;
+            width: 100%;
+        }
+
+        tbody {
+            display: table-row-group;
+            width: 100%;
+        }
+
+        caption,
+        thead,
+        tbody {
+            width: 100%;
+            display: block;
+        }
+
+        tr {
+            display: table;
+            width: 100%;
+        }
+
+        th:first-child,
+        td:first-child {
+            width: 70%;
+        }
+
+        td {
+            span {
+                overflow: hidden;
+                display: block;
+                max-width: 190px;
+                text-overflow: ellipsis;
+
+            }
+        }
+
+        th:last-child,
+        td:last-child {
+            width: 30%;
+        }
+
+        &.--overflowing {
+
+            &::after {
+                content: '';
+                display: block;
+                position: sticky;
+                bottom: -20px;
+                left: 0;
+                right: 0;
+                height: 80px;
+                margin-top: -80px;
+                background: linear-gradient(to bottom,
+                        rgba(v.$primary-color, 0) 0%,
+                        rgba(v.$primary-color, .8) 50%,
+                        v.$primary-color 100%);
+                pointer-events: none;
+
+            }
+
+            &:not(.--at-bottom)::after {
+                animation: fadeGradientIn 0.25s ease-in-out both;
+                will-change: opacity;
+            }
+        }
+
+        &.--at-bottom::after {
+            animation: fadeGradientOut 0.25s ease-in-out both;
+            will-change: opacity;
+
+        }
+    }
+
+
+    .tbody-fade {
+        animation: fadeTable 1s ease-out forwards;
+        position: relative;
+    }
+
+    &__inner {
+        padding: v.$padding-textBox;
+    }
+
+    .first-cell-pad {
+        padding-left: v.$padding-textBox;
+        transition: padding 1s ease .6s;
+    }
+
+    @for $i from 0 through 9 {
+        .row-slide-#{$i} {
+            $delay: $i * 0.1s;
+            animation: slideUpTableRow 0.8s ease-out $delay forwards;
+        }
     }
 
     @include m.desktop {
@@ -31,7 +137,6 @@
     h2 {
         font-size: 1.3rem;
         line-height: 1.5;
-
     }
 
     #final-station {

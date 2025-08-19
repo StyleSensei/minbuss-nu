@@ -41,3 +41,9 @@ next-env.d.ts
 .env*.local
 
 /dist-cron
+
+# generated css
+colors.module.css
+colors.module.css.map
+index.css
+index.css.map
