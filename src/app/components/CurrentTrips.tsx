@@ -170,7 +170,7 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 				{hasTripsToDisplay ? (
 					<>
 						<div
-							className={`next-departure ${activeVehiclePositions.has(nextBus?.trip_id) ? " --active" : ""}`}
+							className={`next-departure ${activeVehiclePositions.has(nextBus?.trip_id) ? " --active" : ""} sticky`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
 							}}
@@ -212,12 +212,14 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 						</div>
 						{rest.length > 0 ? (
 							<table>
-								<tbody>
+								<thead>
 									<tr key="th-row">
 										<th />
 										<th>Mot</th>
 										<th>Avgår</th>
 									</tr>
+								</thead>
+								<tbody>
 									{rest.map((trip, i) => {
 										const updatedTime = getUpdatedDepartureTime(trip?.trip_id);
 										const scheduledTime = normalizeTimeForDisplay(

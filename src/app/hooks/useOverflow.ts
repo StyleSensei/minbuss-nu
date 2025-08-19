@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const useOverflow = () => {
-	const containerRef = useRef<HTMLDivElement>(null);
+export const useOverflow = <T extends HTMLElement = HTMLDivElement>() => {
+	const containerRef = useRef<T>(null);
 	const [isOverflowing, setIsOverflowing] = useState(false);
 	const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
