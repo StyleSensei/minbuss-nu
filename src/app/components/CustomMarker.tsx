@@ -308,7 +308,6 @@ export default function CustomMarker({
 				ref={markerRef}
 				position={marker?.position}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				// className={isActive ? "custom-marker --active" : "custom-marker"}
 				className="marker-wrapper"
 				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
@@ -325,16 +324,11 @@ export default function CustomMarker({
 					}
 				/>
 			</AdvancedMarker>
-			{isActive && !showCurrentTrips && isMobile && (
+			{isActive && (
 				<InfoWindow
 					closestStopState={closestStopState}
 					tripId={currentBus?.trip.tripId ?? undefined}
-				/>
-			)}
-			{isActive && !isMobile && (
-				<InfoWindow
-					closestStopState={closestStopState}
-					tripId={currentBus?.trip.tripId ?? undefined}
+					googleMapRef={googleMapRef}
 				/>
 			)}
 		</>

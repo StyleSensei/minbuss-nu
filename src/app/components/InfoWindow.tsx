@@ -21,9 +21,14 @@ import { chevronsUpDown } from "public/icons";
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;
 	tripId?: string;
+	googleMapRef?: React.MutableRefObject<google.maps.Map | null>;
 }
 
-export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
+export const InfoWindow = ({
+	closestStopState,
+	tripId,
+	googleMapRef,
+}: IInfoWindowProps) => {
 	const { containerRef, isOverflowing, isScrolledToBottom, checkOverflow } =
 		useOverflow<HTMLTableElement>();
 	const { filteredTripUpdates, tripData } = useDataContext();
@@ -149,6 +154,14 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 		);
 	}, [tripStops, effectiveStop?.stop_sequence]);
 
+	const handleOnClick = (stop: IDbData) => {
+		if (googleMapRef?.current) {
+			const position = new google.maps.LatLng(+stop.stop_lat, +stop.stop_lon);
+			googleMapRef.current.panTo(position);
+			googleMapRef.current.setZoom(20);
+		}
+	};
+
 	return (
 		<div className="info-window" aria-live="polite">
 			<div className="info-window__inner">
@@ -206,6 +219,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 										} ${
 											isTableAnimating && index <= 9 ? `row-slide-${index}` : ""
 										} `}
+										onClick={() => handleOnClick(stop)}
 									>
 										<TableCell
 											className={`font-medium ${effectiveStop?.stop_sequence === stop.stop_sequence ? "font-bold first-cell-pad" : ""}`}
