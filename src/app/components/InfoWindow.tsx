@@ -169,8 +169,12 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 						</TableCaption>
 						<TableHeader className="sticky top-0">
 							<TableRow>
-								<TableHead className="text-white">Hållplats</TableHead>
-								<TableHead className="text-right text-white">Ankomst</TableHead>
+								<TableHead className="text-white font-bold">
+									Hållplats
+								</TableHead>
+								<TableHead className="text-right text-white font-bold">
+									Ankomst
+								</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody

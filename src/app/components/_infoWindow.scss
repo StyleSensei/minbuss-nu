@@ -4,7 +4,7 @@
 @use '_currentTrips';
 
 $max-height-collapsed: 19dvh;
-$max-height: 70dvh;
+$max-height: 63dvh;
 
 .info-window {
     @extend .current-trips;
@@ -42,9 +42,32 @@ $max-height: 70dvh;
             width: 100%;
         }
 
+        thead tr {
+            border-bottom-color: v.$border-color;
+
+            &:hover {
+                background-color: v.$primary-color--muted;
+
+            }
+        }
+
         tbody {
             display: table-row-group;
             width: 100%;
+        }
+
+        tbody tr {
+            border-bottom-color: v.$border-color;
+
+            &:hover {
+                background-color: v.$primary-color--muted;
+
+                filter: brightness(1.1);
+            }
+        }
+
+        tbody tr:first-of-type {
+            background-color: v.$primary-color--muted;
         }
 
         caption,
@@ -147,6 +170,7 @@ $max-height: 70dvh;
     .first-cell-pad {
         padding-left: v.$padding-textBox;
         transition: padding 1s ease .6s;
+        // background-color: v.$primary-color--muted;
     }
 
     @for $i from 0 through 9 {

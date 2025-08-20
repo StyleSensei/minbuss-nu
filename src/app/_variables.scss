@@ -1,5 +1,6 @@
 //colors
 $primary-color: #141314;
+$primary-color--muted: rgb(33, 33, 33);
 $secondary-color: whitesmoke;
 $tertiary-color: #9CA3AF;
 $accent-color: #00ffb3;
@@ -9,6 +10,7 @@ $active: #EAB308;
 $not-valid: rgb(161, 20, 20);
 $updated-time: #EF4444;
 
+$border-color: $primary-color--muted;
 
 //margins & sizes
 $large-margin-top: 20vh;

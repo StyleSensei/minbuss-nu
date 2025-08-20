@@ -212,7 +212,7 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 						</div>
 						{rest.length > 0 ? (
 							<table>
-								<thead>
+								<thead className="px-2">
 									<tr key="th-row">
 										<th />
 										<th>Mot</th>

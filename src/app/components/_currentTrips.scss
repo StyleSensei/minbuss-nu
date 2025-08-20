@@ -15,9 +15,9 @@
     color: v.$secondary-color;
     padding: 0;
     background-color: v.$primary-color;
-    border: solid 5px v.$active;
+    border: solid 5px v.$border-color;
     border-radius: v.$border-radius-standard;
-    transition: all .5s ease
+    transition: all .5s ease;
 }
 
 .table-container {
@@ -88,6 +88,13 @@
         width: 100%;
         border-collapse: collapse;
 
+        th {
+            border-bottom: solid 1px v.$border-color;
+            line-height: 20px;
+            height: 40px;
+
+        }
+
         caption {
             font-size: 1rem;
             font-weight: 700;
@@ -100,7 +107,7 @@
         }
 
         tr {
-            border-bottom: solid 1px v.$active;
+            border-bottom: solid 1px v.$border-color;
         }
 
         tr:last-of-type {
@@ -144,7 +151,7 @@
     font-weight: 700;
     padding: .4rem;
     border-radius: 5px;
-    background-color: rgb(33, 33, 33);
+    background-color: v.$primary-color--muted;
     color: whitesmoke;
     text-align: left;
     font-size: 1rem;
