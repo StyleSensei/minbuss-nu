@@ -112,6 +112,13 @@ $buttonHeightDesktop: 6vh;
         @extend .--follow;
         margin-bottom: unset;
     }
+
+    &.--collapsible {
+        @extend .--table;
+        padding: .8rem;
+        opacity: .6;
+        transition: opacity 0.3s ease-in-out;
+    }
 }
 
 

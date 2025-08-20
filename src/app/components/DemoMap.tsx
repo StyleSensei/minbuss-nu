@@ -125,7 +125,7 @@ export default function DemoMap() {
 						height="40"
 						rx="6"
 						ry="6"
-						fill={colors.primaryColor}
+						fill={colors.primary}
 						stroke="#00ffb3"
 						strokeWidth="2"
 					/>

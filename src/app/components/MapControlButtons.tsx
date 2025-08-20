@@ -91,9 +91,7 @@ export const MapControlButtons = ({
 					<Button
 						title="Visa pågående resor"
 						path={table.path}
-						fill={
-							showCurrentTrips ? colors.primaryColor : colors.secondaryColor
-						}
+						fill={showCurrentTrips ? colors.primary : colors.secondary}
 						className={showCurrentTrips ? "--table --active" : "--table"}
 						onClick={handleOnClick}
 					/>
@@ -105,7 +103,7 @@ export const MapControlButtons = ({
 					<Button
 						title="Följ buss"
 						pathFillRule1={follow.path}
-						fill={followBus ? colors.primaryColor : colors.secondaryColor}
+						fill={followBus ? colors.primary : colors.secondary}
 						className={followBus ? "--follow --active" : "--follow"}
 						onClick={() => {
 							setFollowBus(!followBus);

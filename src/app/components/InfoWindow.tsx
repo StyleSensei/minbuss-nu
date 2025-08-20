@@ -5,6 +5,7 @@ import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import colors from "../colors.module.scss";
 import {
 	Table,
 	TableBody,
@@ -14,6 +15,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Button } from "./Button";
+import { chevronsUpDown } from "public/icons";
 
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;
@@ -35,6 +38,8 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 	const prevTripStopsRef = useRef<IDbData[]>([]);
 	const prevEffectiveStopRef = useRef<IDbData | null>(null);
 	const effectiveStop = closestStopState || localClosestStop;
+
+	const [isCollapsed, setIsCollapsed] = useState(true);
 
 	const getVisibleStops = useCallback(
 		(stops: IDbData[], sequenceNumber?: number) => {
@@ -157,7 +162,7 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 				<div className="table-wrapper">
 					<Table
 						ref={containerRef}
-						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
+						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""} ${isCollapsed ? "--collapsed" : ""}`}
 					>
 						<TableCaption className="text-left text-zinc-300/80">
 							Kommande hållplatser
@@ -215,6 +220,23 @@ export const InfoWindow = ({ closestStopState, tripId }: IInfoWindowProps) => {
 							})}
 						</TableBody>
 					</Table>
+
+					<div
+						className={`button-wrapper ${isScrolledToBottom ? "--hidden" : "--collapsible"}`}
+					>
+						<Button
+							title={isCollapsed ? "Expandera vy" : "Minska vy"}
+							className="--collapsible"
+							path={chevronsUpDown.path}
+							path2={chevronsUpDown.path2}
+							color={colors.secondary}
+							viewBox={chevronsUpDown.viewBox}
+							iconSize={18}
+							onClick={() => {
+								setIsCollapsed(!isCollapsed);
+							}}
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
