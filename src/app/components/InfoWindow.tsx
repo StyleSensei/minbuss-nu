@@ -158,7 +158,7 @@ export const InfoWindow = ({
 		if (googleMapRef?.current) {
 			const position = new google.maps.LatLng(+stop.stop_lat, +stop.stop_lon);
 			googleMapRef.current.panTo(position);
-			googleMapRef.current.setZoom(20);
+			googleMapRef.current.setZoom(18);
 		}
 	};
 
@@ -219,12 +219,24 @@ export const InfoWindow = ({
 										} ${
 											isTableAnimating && index <= 9 ? `row-slide-${index}` : ""
 										} `}
-										onClick={() => handleOnClick(stop)}
+										// onClick={() => handleOnClick(stop)}
 									>
 										<TableCell
 											className={`font-medium ${effectiveStop?.stop_sequence === stop.stop_sequence ? "font-bold first-cell-pad" : ""}`}
 										>
-											<span>{stop.stop_name}</span>
+											<button
+												type="button"
+												className="row-button"
+												onClick={() => handleOnClick(stop)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														handleOnClick(stop);
+													}
+												}}
+												aria-label={`Visa position för hållplats ${stop.stop_name}`}
+											>
+												<span>{stop.stop_name}</span>
+											</button>
 										</TableCell>
 										<TableCell className="text-right">
 											{hasUpdate && <span>{departureTimeString}</span>}

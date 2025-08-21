@@ -37,7 +37,6 @@ $max-height: 63dvh;
             position: sticky;
             top: 0;
             background-color: v.$primary-color;
-            z-index: 10;
             display: table-header-group;
             width: 100%;
         }
@@ -46,7 +45,7 @@ $max-height: 63dvh;
             border-bottom-color: v.$border-color;
 
             &:hover {
-                background-color: v.$primary-color--muted;
+                background-color: v.$primary-color;
 
             }
         }
@@ -61,7 +60,6 @@ $max-height: 63dvh;
 
             &:hover {
                 background-color: v.$primary-color--muted;
-
                 filter: brightness(1.1);
             }
         }
@@ -80,6 +78,7 @@ $max-height: 63dvh;
         tr {
             display: table;
             width: 100%;
+
         }
 
         th:first-child,

@@ -213,7 +213,7 @@ export default function MapClient() {
 					{showCurrentTrips &&
 						userPosition &&
 						filteredVehicles.data.length > 0 && (
-							<CurrentTrips onTripSelect={handleTripSelect} />
+							<CurrentTrips onTripSelect={handleTripSelect} mapRef={mapRef} />
 						)}
 					{userPosition && mapRef.current && (
 						<AdvancedMarker

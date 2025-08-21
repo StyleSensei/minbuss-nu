@@ -11,9 +11,10 @@ import { CurrentTripsLoader } from "./CurrentTripsLoader";
 
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
+	mapRef?: React.MutableRefObject<google.maps.Map | null>;
 }
 
-export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
+export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
 	const { filteredVehicles, tripData, filteredTripUpdates, userPosition } =
@@ -119,6 +120,15 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 
 	const hasTripsToDisplay = nextBus !== undefined;
 
+	const isActive = activeVehiclePositions.has(nextBus?.trip_id);
+	const handleOnStopClick = (stop: IDbData) => {
+		if (mapRef?.current) {
+			const position = new google.maps.LatLng(+stop.stop_lat, +stop.stop_lon);
+			mapRef.current.panTo(position);
+			mapRef.current.setZoom(18);
+		}
+	};
+
 	useEffect(() => {
 		if (
 			hasTripsToDisplay &&
@@ -163,14 +173,24 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 							<span className="text-muted-foreground dark">
 								Din närmaste hållplats:{" "}
 							</span>
-							<strong>{userPosition?.closestStop?.stop_name}</strong>
+							<button
+								type="button"
+								onClick={() => {
+									console.log("Button clicked");
+									userPosition.closestStop &&
+										handleOnStopClick(userPosition.closestStop);
+								}}
+							>
+								<strong>{userPosition?.closestStop?.stop_name}</strong>
+							</button>
 						</p>
 					)}
 				</div>
 				{hasTripsToDisplay ? (
 					<>
-						<div
-							className={`next-departure ${activeVehiclePositions.has(nextBus?.trip_id) ? " --active" : ""} sticky`}
+						<button
+							type="button"
+							className={`next-departure ${isActive} ? " --active" : ""}`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
 							}}
@@ -182,10 +202,10 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 						>
 							<p className="text-sm text-zinc-300/80 !mb-2 flex items-center gap-2">
 								<span
-									className={`${activeVehiclePositions.has(nextBus?.trip_id) ? "w-2 h-2 rounded-full bg-accent" : "w-2 h-2 rounded-full bg-destructive"}`}
+									className={`${isActive ? "w-2 h-2 rounded-full bg-accent" : "w-2 h-2 rounded-full bg-destructive"}`}
 								/>{" "}
 								<span className="">
-									{activeVehiclePositions.has(nextBus?.trip_id)
+									{isActive
 										? "Bussen är i trafik"
 										: "Bussen är inte i trafik än"}
 								</span>
@@ -208,8 +228,13 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 								<span className={hasUpdate ? "updated-time" : "scheduled-time"}>
 									{nextBusScheduledTime}
 								</span>{" "}
+								{isActive && (
+									<span className="inline-block -translate-y-[1px] translate-x-[6px]">
+										<MapPinned className="w-6 h-6" />
+									</span>
+								)}
 							</p>
-						</div>
+						</button>
 						{rest.length > 0 ? (
 							<table>
 								<thead className="px-2">
@@ -233,13 +258,7 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 											<tr
 												// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 												key={trip?.trip_id + i}
-												onClick={() => onTripSelect?.(trip.trip_id)}
 												className={`trip-row  ${isActive ? " --active" : ""}`}
-												onKeyDown={(e) => {
-													if (e.key === "Enter" && onTripSelect) {
-														onTripSelect(trip.trip_id);
-													}
-												}}
 											>
 												<td>
 													<span
@@ -247,12 +266,25 @@ export const CurrentTrips = ({ onTripSelect }: ICurrentTripsProps) => {
 													/>
 												</td>
 												<td key={trip.trip_id} className="align-middle">
-													{trip?.stop_headsign}{" "}
-													{isActive && (
-														<span className="inline-block -translate-y-[1px] translate-x-[6px] absolute">
-															<MapPinned className="w-6 h-6" />
-														</span>
-													)}
+													<button
+														type="button"
+														className="row-button"
+														onClick={() => onTripSelect?.(trip.trip_id)}
+														onKeyDown={(e) => {
+															if (e.key === "Enter" && onTripSelect) {
+																onTripSelect(trip.trip_id);
+															}
+														}}
+														style={!isActive ? { cursor: "auto" } : {}}
+														aria-label={`Visa buss ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
+													>
+														{trip?.stop_headsign}{" "}
+														{isActive && (
+															<span className="inline-block -translate-y-[1px] translate-x-[6px] absolute">
+																<MapPinned className="w-6 h-6" />
+															</span>
+														)}
+													</button>
 												</td>
 												<td>
 													{hasUpdate && <span>{updatedTime}</span>}

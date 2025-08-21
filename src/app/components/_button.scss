@@ -164,3 +164,14 @@ $buttonHeightDesktop: 6vh;
 
     }
 }
+
+.row-button {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
