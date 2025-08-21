@@ -24,17 +24,26 @@ export default async function InfoPage() {
 			text: `
 	Det är enkelt att använda tjänsten. Du söker bara på vilken busslinje du vill resa med och ser sedan var bussarna från den linjen befinner sig just nu. Bussarna representeras av gröna markörer på kartan.`,
 			image: {
-				src: "/markers.png",
+				src: "/markers.webp",
 				alt: "Karta över Stockholm med gröna markörer som visar bussarnas realtidsposition.",
 			},
 		},
 		{
 			h2: "Bussdetaljer",
 			text: ` 
-	Klicka på valfri buss för att se detaljer som slutstation, nästa stopp, samt schemalagd ankomst till det stoppet. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemlagda tiden blir då överstruken./ `,
+	Klicka på valfri buss för att se detaljer som slutstation, kommande stopp, samt schemalagd ankomst till stoppen. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemalagda tiden blir då överstruken./ `,
 			image: {
-				src: "/details.png",
-				alt: "visar detaljer om vald buss, inklusive slutstation och nästa stopp.",
+				src: "/collapsed-info-table.webp",
+				alt: "visar detaljer om vald buss, inklusive slutstation och kommande stopp.",
+			},
+		},
+		{
+			h2: "Expanderad vy",
+			text: ` 
+	Genom att klicka på knappen längst ner i fönstret kan du toggla mellan en expanderad och en kollapsad vy av bussinformationen./ `,
+			image: {
+				src: "/expanded-info-table.webp",
+				alt: "Expanderad vy om vald buss, inklusive slutstation och kommande stopp.",
 			},
 		},
 		{
@@ -42,14 +51,14 @@ export default async function InfoPage() {
 			text: `
 Om du vill låsa positionen till din markerade buss och följa bussen på kartan, klicka på "Följ buss"./
 `,
-			image: { src: "/follow.png", alt: "visar funktionen följ buss" },
+			image: { src: "/follow-bus.webp", alt: "visar funktionen följ buss" },
 		},
 		{
-			h2: "Tabell",
+			h2: "Hållplatstabell",
 			text: `
-	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar för den valda linjen, så länge de ännu inte har passerat din närmaste hållplats. Här visas också den beräknade ankomsttiden för varje buss./`,
+	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar från din närmaste hållplats för den valda linjen, så länge de ännu inte har passerat hållplatsen. Här visas också den beräknade ankomsttiden för varje buss./`,
 			image: {
-				src: "/table.webp",
+				src: "/stop-table.webp",
 				alt: "Tabell med pågående resor för vald busslinje och avgångstider från din närmaste hållplats.",
 			},
 		},
