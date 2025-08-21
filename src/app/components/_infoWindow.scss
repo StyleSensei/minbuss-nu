@@ -169,7 +169,10 @@ $max-height: 63dvh;
     .first-cell-pad {
         padding-left: v.$padding-textBox;
         transition: padding 1s ease .6s;
-        // background-color: v.$primary-color--muted;
+
+        span {
+            max-width: 170px;
+        }
     }
 
     @for $i from 0 through 9 {
