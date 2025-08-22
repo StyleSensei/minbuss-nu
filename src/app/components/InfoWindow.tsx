@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "./Button";
 import { chevronsUpDown } from "public/icons";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface IInfoWindowProps {
 	closestStopState: IDbData | null;
@@ -43,7 +44,7 @@ export const InfoWindow = ({
 	const prevTripStopsRef = useRef<IDbData[]>([]);
 	const prevEffectiveStopRef = useRef<IDbData | null>(null);
 	const effectiveStop = closestStopState || localClosestStop;
-
+	const isMobile = useIsMobile();
 	const [isCollapsed, setIsCollapsed] = useState(true);
 
 	const getVisibleStops = useCallback(
@@ -175,7 +176,7 @@ export const InfoWindow = ({
 				<div className="table-wrapper">
 					<Table
 						ref={containerRef}
-						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""} ${isCollapsed ? "--collapsed" : ""}`}
+						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
 					>
 						<TableCaption className="text-left text-zinc-300/80">
 							Kommande hållplatser

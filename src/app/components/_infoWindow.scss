@@ -31,6 +31,8 @@ $max-height: 63dvh;
             & thead {
                 max-height: 0;
             }
+
+
         }
 
         &::-webkit-scrollbar {
@@ -46,6 +48,7 @@ $max-height: 63dvh;
             max-height: 100%;
             transition: height 1.3s ease-in-out;
             overflow: hidden;
+            z-index: 10;
 
         }
 

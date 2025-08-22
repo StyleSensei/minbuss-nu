@@ -20,7 +20,6 @@ import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
-import { useIsMobile } from "../hooks/useIsMobile";
 import { useSetZoom } from "../hooks/useSetZoom";
 
 interface ICustomMarkerProps {
@@ -49,7 +48,6 @@ export default function CustomMarker({
 	followBus,
 	setFollowBus,
 	isActive,
-	showCurrentTrips,
 	onActivateMarker,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
@@ -61,7 +59,6 @@ export default function CustomMarker({
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
-	const isMobile = useIsMobile();
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 	const setZoom = useSetZoom();
 	const zoomRef = useRef<number>(8);
