@@ -16,13 +16,15 @@ export const MenuBarSelection = () => {
 			case `${Paths.About}`:
 				return "info";
 			default:
-				return "home";
+				return "not-found";
 		}
 	}, []);
 
 	return (
 		<div className="menu-bar__outer-container">
-			<div className={`menu-bar__inner-container ${getClassNames(pathname)}`}>
+			<div
+				className={`menu-bar__inner-container ${getClassNames(pathname) || "not-found"}`}
+			>
 				<div className="menu-bar__selection"> </div>
 			</div>
 		</div>

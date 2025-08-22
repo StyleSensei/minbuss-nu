@@ -116,6 +116,10 @@ nav.wrapper {
             padding-left: calc(100% - ($menuItemWidth / 2) - ($menuBarWidth / 2));
         }
 
+        &.not-found {
+            visibility: hidden;
+        }
+
         .menu-bar__selection {
             background-color: v.$secondary-color;
             width: $menuBarWidth;
