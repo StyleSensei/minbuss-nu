@@ -4,5 +4,12 @@
 			"path": "/api/cron/warmup",
 			"schedule": "0 4 * * *"
 		}
+	],
+	"redirects": [
+		{
+			"source": "/karta",
+			"destination": "/realtid-bussar-stockholm",
+			"permanent": true
+		}
 	]
 }
