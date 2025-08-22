@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type HTMLAttributes,
+} from "react";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
@@ -19,7 +26,7 @@ import { Button } from "./Button";
 import { chevronsUpDown } from "public/icons";
 import { useIsMobile } from "../hooks/useIsMobile";
 
-interface IInfoWindowProps {
+interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
 	closestStopState: IDbData | null;
 	tripId?: string;
 	googleMapRef?: React.MutableRefObject<google.maps.Map | null>;
@@ -29,6 +36,7 @@ export const InfoWindow = ({
 	closestStopState,
 	tripId,
 	googleMapRef,
+	...rest
 }: IInfoWindowProps) => {
 	const { containerRef, isOverflowing, isScrolledToBottom, checkOverflow } =
 		useOverflow<HTMLTableElement>();
@@ -164,7 +172,7 @@ export const InfoWindow = ({
 	};
 
 	return (
-		<div className="info-window" aria-live="polite">
+		<div className="info-window" aria-live="polite" {...rest}>
 			<div className="info-window__inner">
 				<h2>
 					<span className="bus-line">

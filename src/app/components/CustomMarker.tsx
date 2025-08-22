@@ -21,6 +21,8 @@ import { InfoWindow } from "./InfoWindow";
 import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useSetZoom } from "../hooks/useSetZoom";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { is } from "drizzle-orm";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -48,6 +50,7 @@ export default function CustomMarker({
 	followBus,
 	setFollowBus,
 	isActive,
+	showCurrentTrips,
 	onActivateMarker,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
@@ -61,6 +64,7 @@ export default function CustomMarker({
 	);
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 	const setZoom = useSetZoom();
+	const isMobile = useIsMobile();
 	const zoomRef = useRef<number>(8);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
@@ -297,7 +301,9 @@ export default function CustomMarker({
 	const markerTitle = matchingStop
 		? `${matchingStop.route_short_name || "Okänd linje"},${matchingStop.stop_headsign || "Okänd destination"}`
 		: "Fordon";
-
+	console.log("showCurrentTrips:", showCurrentTrips);
+	console.log("isMobile:", isMobile);
+	console.log("isActive:", isActive);
 	return (
 		<>
 			<AdvancedMarker
@@ -325,6 +331,11 @@ export default function CustomMarker({
 					closestStopState={closestStopState}
 					tripId={currentBus?.trip.tripId ?? undefined}
 					googleMapRef={googleMapRef}
+					style={
+						showCurrentTrips && isMobile
+							? { display: "none" }
+							: { display: "block" }
+					}
 				/>
 			)}
 		</>
