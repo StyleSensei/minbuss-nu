@@ -50,17 +50,19 @@ Next, you need to apply for a key from Google for the [Maps Javascript API](http
 
 ## Create Database and Populate Tables 🗃️
 
-To serve the data, you will need a PostgreSQL-compatible database. This project uses Vercel Postgres, a serverless and scalable solution, but you can choose any database you prefer.
+To serve the data, you will need a PostgreSQL-compatible database. This project uses Vercel Postgres, a serverless and scalable solution from Neon, but you can choose any database you prefer.
 
 Currently, database migrations are not set up, so some manual steps are required:
 
 Steps:
 1. <h4>Create the tables</h4>
-Create the following four tables:
+Create the following five tables:
 - routes
 - stop_times
 - stops
 - trips
+- calendar_dates
+
 
 You can find the required table structures and data types in the SQL schema files located in the /schema directory of this project. Use these files to create the tables in your database. You can also have a look at the UML diagram below.
 <details open>
