@@ -1,6 +1,5 @@
 import { useResetClicked } from "../hooks/useResetClicked";
 import type React from "react";
-import type { ReactNode } from "react";
 
 interface ButtonProps {
 	id?: string;
@@ -48,7 +47,6 @@ export const Button = ({
 			id={id}
 			onClick={handleOnClick}
 			tabIndex={0}
-			// area-label={title}
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: <the button is described with button text> */}
 			<svg

@@ -9,7 +9,6 @@ type MetricCounter = {
 	lastReset: number;
 };
 
-// Startläge för räknare
 const metrics: MetricCounter = {
 	apiCalls: 0,
 	redisCacheHits: 0,
@@ -19,10 +18,10 @@ const metrics: MetricCounter = {
 	lastReset: Date.now(),
 };
 
-// Aktivera/inaktivera loggning
 let loggingEnabled = true;
 
 // Funktion för att logga statistik periodiskt (var 60:e sekund)
+const interval = 60000;
 setInterval(() => {
 	if (!loggingEnabled) return;
 
@@ -50,7 +49,6 @@ setInterval(() => {
 
 	console.log("=====================================\n");
 
-	// Återställ räknare
 	// biome-ignore lint/complexity/noForEach: <explanation>
 	Object.keys(metrics).forEach((key) => {
 		if (key !== "lastReset") {
@@ -58,9 +56,8 @@ setInterval(() => {
 		}
 	});
 	metrics.lastReset = now;
-}, 60000); // Var 60:e sekund
+}, interval);
 
-// API för att spåra anrop
 export const MetricsTracker = {
 	trackApiCall: () => {
 		metrics.apiCalls++;

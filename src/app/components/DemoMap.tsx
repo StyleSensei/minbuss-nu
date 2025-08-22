@@ -92,13 +92,6 @@ export default function DemoMap() {
 		tl.add(() => setPopupText("Linje 312", "Nästa, Portugal"), 10);
 		tl.add(() => setPopupText("Linje 312", "Ankommer Portugal"), 17);
 		tl.add(() => setPopupText("Linje 312", "Nästa, Hallstavägen"), 24);
-
-		// MotionPathHelper.create(busRef.current, {
-		// 	path: "#fullPath",
-		// 	pathColor: "#00ffb3",
-		// 	pathWidth: 2,
-		// 	autoRotate: false,
-		// });
 	}, [isClient, isMobile]);
 
 	return (

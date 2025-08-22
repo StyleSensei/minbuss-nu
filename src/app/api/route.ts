@@ -15,6 +15,8 @@ import { getFilteredVehiclePositions } from "../actions/filterVehicles";
 import { getCurrentTripIds } from "../actions/getCurrentTripIds";
 import { selectAllroutes } from "../services/dataProcessors/selectAllRoutes";
 
+// keeping commented out code for testing purposes
+
 export const GET = async () => {
 	// const db = drizzle();
 	// const data = await getCachedDbData("177");

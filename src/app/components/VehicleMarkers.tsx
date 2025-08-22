@@ -1,7 +1,6 @@
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 import CustomMarker from "./CustomMarker";
 import type { MutableRefObject } from "react";
-import { useEffect } from "react";
 
 interface IVehicleMarkersProps {
 	vehicles: IVehiclePosition[];

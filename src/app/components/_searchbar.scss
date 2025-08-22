@@ -4,7 +4,6 @@
 
 $containerWidth: 278px;
 
-
 .search-bar__container {
     display: flex;
     flex-direction: column;
@@ -33,8 +32,6 @@ $containerWidth: 278px;
     &.--loading {
         box-shadow: 0 0 0 2px transparent;
         @include k.pulseBorder;
-
-
     }
 
     form {
@@ -103,7 +100,6 @@ $containerWidth: 278px;
                     fill: v.$primary-color
                 }
             }
-
         }
 
         button[type="submit"] {
@@ -123,7 +119,6 @@ $containerWidth: 278px;
     to {
         transform: scale(1);
     }
-
 }
 
 .overlay {
@@ -138,9 +133,7 @@ $containerWidth: 278px;
     opacity: 0;
     @include m.backdropFilter(2);
 
-
     &.--active {
-
         opacity: 1;
     }
 }

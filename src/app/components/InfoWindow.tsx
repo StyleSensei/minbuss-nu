@@ -219,7 +219,6 @@ export const InfoWindow = ({
 										} ${
 											isTableAnimating && index <= 9 ? `row-slide-${index}` : ""
 										} `}
-										// onClick={() => handleOnClick(stop)}
 									>
 										<TableCell
 											className={`font-medium ${effectiveStop?.stop_sequence === stop.stop_sequence ? "font-bold first-cell-pad" : ""}`}

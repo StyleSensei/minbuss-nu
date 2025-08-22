@@ -6,7 +6,6 @@ import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
 	useAdvancedMarkerRef,
-	Map as GoogleMap,
 } from "@vis.gl/react-google-maps";
 import {
 	type MutableRefObject,

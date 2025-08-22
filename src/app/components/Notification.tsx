@@ -1,6 +1,6 @@
 import { Icon } from "./Icon";
 import { info2 } from "../../../public/icons";
-import { KeyboardEventHandler, useState } from "react";
+import { useState } from "react";
 
 export const Notification = () => {
 	const [active, setActive] = useState<boolean>(true);

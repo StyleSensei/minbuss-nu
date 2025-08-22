@@ -37,7 +37,7 @@ $buttonHeightDesktop: 6vh;
 
     &.--cta {
         margin-bottom: v.$large-margin-bottom;
-        margin-left: calc(50% - #{$buttonWidth / 2});
+        margin-left: calc(50% - calc(#{$buttonWidth / 2}));
 
         @include m.phoneLS {
             margin-top: 20vh;
@@ -72,9 +72,7 @@ $buttonHeightDesktop: 6vh;
 
         &:active {
             @include k.sizeBlink;
-
         }
-
     }
 
     &.--zoom {
@@ -146,8 +144,6 @@ $buttonHeightDesktop: 6vh;
     flex-direction: column;
     align-items: center;
     gap: .4rem;
-
-
 }
 
 .label {
@@ -161,7 +157,6 @@ $buttonHeightDesktop: 6vh;
 
     100% {
         filter: saturate(20%);
-
     }
 }
 
