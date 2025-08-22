@@ -159,9 +159,9 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 				onScroll={checkOverflow}
 			>
 				<div className="trips-header">
-					<h1 className="text-left text-2xl font-extrabold tracking-tight text-balance">
+					<h2 className="text-left text-2xl font-extrabold tracking-tight text-balance">
 						Avgångar närmast dig
-					</h1>
+					</h2>
 					<p>
 						<span className="text-muted-foreground dark">Linje: </span>
 						<span className="font-bold">
@@ -190,6 +190,8 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 					<>
 						<button
 							type="button"
+							title="Visa position"
+							aria-label={`Visa nästa buss mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
 							className={`next-departure ${isActive} ? " --active" : ""}`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
@@ -269,6 +271,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 													<button
 														type="button"
 														className="row-button"
+														title="Visa position"
 														onClick={() => onTripSelect?.(trip.trip_id)}
 														onKeyDown={(e) => {
 															if (e.key === "Enter" && onTripSelect) {
@@ -276,7 +279,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 															}
 														}}
 														style={!isActive ? { cursor: "auto" } : {}}
-														aria-label={`Visa buss ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
+														aria-label={`Visa buss mot ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
 													>
 														{trip?.stop_headsign}{" "}
 														{isActive && (

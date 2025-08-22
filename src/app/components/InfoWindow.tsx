@@ -234,6 +234,7 @@ export const InfoWindow = ({
 													}
 												}}
 												aria-label={`Visa position för hållplats ${stop.stop_name}`}
+												title="Visa position"
 											>
 												<span>{stop.stop_name}</span>
 											</button>
