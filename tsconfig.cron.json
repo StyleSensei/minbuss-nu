@@ -12,7 +12,7 @@
 		}
 	},
 	"include": [
-		"scripts/updateGTFSData.mjs",
+		"scripts/updateGTFSData.js",
 		"src/shared/**/*.ts",
 		"src/cron/**/*.ts"
 	],

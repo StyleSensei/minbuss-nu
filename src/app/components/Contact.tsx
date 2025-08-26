@@ -1,6 +1,12 @@
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 export const Contact = () => {
 	return (
 		<ul className="contact-links">
+			<Avatar className="contact-avatar">
+				<AvatarImage src="/patrik.webp" alt="Patrik Arell" />
+				<AvatarFallback>PA</AvatarFallback>
+			</Avatar>
 			<li>
 				<a
 					href={"https://www.linkedin.com/in/patrikarell/"}

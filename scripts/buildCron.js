@@ -10,7 +10,7 @@ async function addJsExtensions(content) {
 	// Lägg till .js i alla relativa importer som inte är npm-paket och som inte redan har .js
 	return content.replace(
 		/from\s+["'](\.[^"']+?)(?!\.js["'])["']/g,
-		(match, path) => `from '${path}.js'`,
+		(path) => `from '${path}.js'`,
 	);
 }
 
@@ -32,21 +32,17 @@ async function findJsFiles(dir) {
 
 async function buildCron() {
 	try {
-		// Rensa dist-cron-mappen
 		console.log("Cleaning dist-cron directory...");
 		await rm(join(rootDir, "dist-cron"), { recursive: true, force: true });
 		await mkdir(join(rootDir, "dist-cron"), { recursive: true });
 
-		// Kompilera TypeScript
 		console.log("Compiling TypeScript...");
 		const { execSync } = await import("node:child_process");
 		execSync("npx tsc --project tsconfig.cron.json", { stdio: "inherit" });
 
-		// Hitta alla JS-filer i dist-cron
 		console.log("Processing compiled files...");
 		const files = await findJsFiles(join(rootDir, "dist-cron/src"));
 
-		// Modifiera varje fil för att lägga till .js i importer
 		for (const file of files) {
 			const content = await readFile(file, "utf8");
 			const modifiedContent = await addJsExtensions(content);

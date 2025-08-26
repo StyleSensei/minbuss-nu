@@ -26,7 +26,7 @@ jobs:
         run: npm run build:cron
 
       - name: Run GTFS update script
-        run: NODE_PATH=./dist-cron node scripts/updateGTFSData.mjs
+        run: NODE_PATH=./dist-cron node scripts/updateGTFSData.js
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
