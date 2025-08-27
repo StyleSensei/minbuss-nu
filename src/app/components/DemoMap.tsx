@@ -13,7 +13,19 @@ gsap.registerPlugin(MotionPathPlugin);
 gsap.registerPlugin(CustomEase);
 gsap.registerPlugin(MotionPathHelper);
 
-export default function DemoMap() {
+interface DemoMapProps {
+	pathD: string;
+	popupClass?: string;
+	customPathForMobile?: string;
+	className?: string;
+}
+
+export default function DemoMap({
+	pathD,
+	popupClass = "",
+	customPathForMobile = "",
+	className = "",
+}: DemoMapProps) {
 	const busRef = useRef<SVGCircleElement | null>(null);
 	const popupRef = useRef<SVGGElement | null>(null);
 	const svgRef = useRef<SVGSVGElement | null>(null);
@@ -25,6 +37,9 @@ export default function DemoMap() {
 		setIsClient(true);
 		setIsMobile(isMobileValue);
 	}, [isMobileValue]);
+
+	const pathToRender =
+		isMobileValue && customPathForMobile ? customPathForMobile : pathD;
 
 	useGSAP(() => {
 		if (!busRef.current || !popupRef.current) return;
@@ -87,15 +102,17 @@ export default function DemoMap() {
 			onUpdate: onUpdateFunction,
 		});
 		tl.add(() => busRef.current?.setAttribute("visibility", "visible"), 0);
-		tl.add(() => popupRef.current?.setAttribute("visibility", "visible"), 0);
+		tl.add(() => popupRef.current?.setAttribute("visibility", "visible"), 1);
 		tl.add(() => setPopupText("Linje 312", "Ankommer Hanholmen"), 0);
 		tl.add(() => setPopupText("Linje 312", "Nästa, Portugal"), 10);
 		tl.add(() => setPopupText("Linje 312", "Ankommer Portugal"), 17);
 		tl.add(() => setPopupText("Linje 312", "Nästa, Hallstavägen"), 24);
 	}, [isClient, isMobile]);
 
+	if (!isClient && customPathForMobile) return null;
+
 	return (
-		<div className="demo-map">
+		<div className={`demo-map ${className}`}>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: <explanation> */}
 			<svg
 				viewBox="0 0 800 800"
@@ -107,10 +124,14 @@ export default function DemoMap() {
 					fill="none"
 					stroke="#00ffb3"
 					strokeWidth={isMobile ? "4" : "2"}
-					d="M-24.528,330.81399 C-17.525,311.80799 44.791,261.004 117.797,258.853 154.821,257.735 183.68,258.53 139.726,338.075 124.362,365.879 93.723,535.922 138.878,565.951 184.026,595.961 303.864,507.401 383.642,352.192 410.96,299.038 608.013,184.642 644.854,270.215 679.451,350.594 884.9068,175.63219 898.078,98.28499"
+					d={pathToRender}
 				/>
 
-				<g ref={popupRef} className="demo-popup" visibility={"hidden"}>
+				<g
+					ref={popupRef}
+					className={`demo-popup ${popupClass}`}
+					visibility={"hidden"}
+				>
 					<rect
 						x="0"
 						y="0"

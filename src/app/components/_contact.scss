@@ -4,16 +4,18 @@
 
 .presentation {
     background-color: v.$active;
-    border-radius: v.$border-radius-standard;
-    width: 80vw;
-    margin: 10vw auto;
+    width: 100vw;
+    height: 40dvh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: start;
     padding: 2.1rem 0;
 
     @include m.tablet {
         padding: 3rem 0;
+        margin: 10vw auto;
+        width: 80vw;
+        border-radius: v.$border-radius-standard;
     }
 
 
@@ -66,8 +68,11 @@
     }
 
     .contact-avatar {
-        width: 45px;
-        height: 45px;
+        @include m.desktop {
+            width: 45px;
+            height: 45px;
+
+        }
     }
 
 }

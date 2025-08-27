@@ -7,6 +7,15 @@
     width: 100vw;
     height: 40vh;
     pointer-events: none;
+    animation: fadeInFromLeft 0.5s ease;
+
+    &.about-page {
+        bottom: 3dvh;
+
+        @include m.desktop {
+            bottom: 40vh;
+        }
+    }
 
     @include m.desktop {
         bottom: 40vh;
@@ -14,6 +23,8 @@
 }
 
 .demo-popup {
+    animation: fadeOnly 0.3s 2s ease both;
+
     @media screen and (max-width: 768px) {
         transform: scale(2.5);
     }

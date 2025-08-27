@@ -3,6 +3,7 @@ import TextBlock from "../components/Textblock";
 import { Contact } from "../components/Contact";
 import ImageClient from "./ImageClient";
 import ImageServer from "./ImageServer";
+import DemoMap from "../components/DemoMap";
 
 export const metadata = {
 	title: "Om tjänsten",
@@ -10,6 +11,10 @@ export const metadata = {
 };
 
 export default async function InfoPage() {
+	const routePathD =
+		"M-24.528,330.81399C-17.525,311.80799,-47.114,326.761,21.3,301.136,69.343,283.124,112.044,305.12,147.377,320.828,174.03,332.668,269.735,287.125,320.754,307.592,371.05,327.769,457.168,365.24,536.982,210.059,564.28,156.88,558.632,77.685,654.51,59.388,713.594,48.112,882.869,82.798,919.744,57.848";
+	const customPathForMobile =
+		"M-24.528,330.81399C-17.525,311.80799,-47.114,326.761,21.3,301.136,69.343,283.124,112.044,305.12,147.377,320.828,174.03,332.668,269.735,287.125,320.754,307.592,371.05,327.769,476.08,287.236,539.379,283.498,592.898,280.325,623.459,274.837,719.353,256.567,778.43,245.265,939.042,284.888,975.917,259.952";
 	const descriptions = [
 		{
 			h2: "Varför denna tjänst?",
@@ -40,7 +45,7 @@ export default async function InfoPage() {
 		{
 			h2: "Expanderad vy",
 			text: ` 
-	Genom att klicka på knappen längst ner i fönstret kan du toggla mellan en expanderad och en kollapsad vy av bussinformationen./ `,
+	Genom att klicka på knappen längst ner i fönstret kan du, om du använder en mobil enhet, toggla mellan en expanderad och en kollapsad vy av bussinformationen./ `,
 			image: {
 				src: "/expanded-info-table.webp",
 				alt: "Expanderad vy om vald buss, inklusive slutstation och kommande stopp.",
@@ -66,13 +71,14 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 
 	return (
 		<>
-			<section className="wrapper__info">
+			<article className="wrapper__info">
 				<h1 className="text-4xl font-bold tracking-tight text-balance">
 					Om tjänsten
 				</h1>
 				{descriptions.map((description, index) => {
 					return (
-						<React.Fragment
+						<section
+							className="mb-10! xl:flex align-items-center"
 							key={`description-${
 								// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 								index
@@ -80,11 +86,19 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 						>
 							<TextBlock
 								description={description.text}
-								className="info"
+								className="info mb-10!"
 								h2={description.h2}
 								h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
 								h1ClassName="text-4xl font-bold tracking-tight text-balance"
 							/>
+							{index === 0 && (
+								<DemoMap
+									pathD={routePathD}
+									popupClass="--hidden"
+									className="about-page"
+									customPathForMobile={customPathForMobile}
+								/>
+							)}
 							{description.image.src && (
 								<ImageServer
 									src={description.image.src}
@@ -97,7 +111,7 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 									alt={description.image.alt}
 								/>
 							)}
-						</React.Fragment>
+						</section>
 					);
 				})}
 				<section className="presentation">
@@ -110,7 +124,7 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 					/>
 					<Contact />
 				</section>
-			</section>
+			</article>
 		</>
 	);
 }

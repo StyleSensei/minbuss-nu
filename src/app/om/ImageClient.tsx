@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { is } from "drizzle-orm";
 
 interface ImageClientProps {
 	src?: string;
@@ -13,6 +15,7 @@ export default function ImageClient({ src, alt, priority }: ImageClientProps) {
 	const imageContainerRef = useRef<HTMLDivElement>(null);
 	const [isClient, setIsClient] = useState(false);
 	const [isVisible, setIsVisible] = useState(false);
+	const isMobile = useIsMobile();
 
 	useEffect(() => {
 		setIsClient(true);
@@ -27,14 +30,15 @@ export default function ImageClient({ src, alt, priority }: ImageClientProps) {
 				setIsVisible(entry.isIntersecting);
 			},
 			{
-				threshold: 0.15,
+				threshold: isMobile ? 0.15 : 0.7,
+				rootMargin: "300px 0px -200px 0px",
 			},
 		);
 
 		observer.observe(imageContainerRef.current);
 
 		return () => observer.disconnect();
-	}, [isClient]);
+	}, [isClient, isMobile]);
 	useEffect(() => {
 		if (!isClient || !src) return;
 
@@ -50,7 +54,7 @@ export default function ImageClient({ src, alt, priority }: ImageClientProps) {
 
 	return (
 		<div
-			className={`info__image client-image ${isVisible ? "visible" : ""}`}
+			className={`info__image client-image max-w-full md:max-w-[60%]  xl:max-w-[40%] ${isVisible ? "visible" : ""}`}
 			ref={imageContainerRef}
 		>
 			{src && alt && (
@@ -58,7 +62,7 @@ export default function ImageClient({ src, alt, priority }: ImageClientProps) {
 					src={src}
 					alt={alt}
 					fill
-					sizes="(max-width: 768px) 100vw, 50vw"
+					sizes="(max-width: 768px) 100vw, (max-width: 1280px) 60vw, 40vw"
 					style={{
 						objectFit: "contain",
 						objectPosition: "left",

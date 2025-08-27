@@ -116,6 +116,18 @@
     }
 }
 
+@keyframes fadeInFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 @keyframes fadeTable {
     from {
         opacity: 1;
@@ -147,5 +159,16 @@
         transform: translateY(0);
         filter: blur(0px);
 
+    }
+}
+
+
+@keyframes fadeOnly {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
     }
 }
