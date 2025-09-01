@@ -9,7 +9,7 @@ const rootDir = join(__dirname, "..");
 async function addJsExtensions(content) {
 	// Lägg till .js i alla relativa importer som inte är npm-paket och som inte redan har .js
 	return content.replace(
-		/from\s+["'](\.[^"']+?)(?!\.js["'])["']/g,
+		/from\s+["'](\..*?)(?<!\.js)["']/g,
 		(path) => `from '${path}.js'`,
 	);
 }

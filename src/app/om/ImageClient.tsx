@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { is } from "drizzle-orm";
 
 interface ImageClientProps {
 	src?: string;
