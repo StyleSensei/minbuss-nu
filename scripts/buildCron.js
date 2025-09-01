@@ -6,11 +6,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, "..");
 
-async function addJsExtensions(content) {
-	// Lägg till .js i alla relativa importer som inte är npm-paket och som inte redan har .js
+function addJsExtensions(content) {
+	// Add .js to relative import/export specifiers that don’t already end with .js/.mjs/.cjs/.json/.node
 	return content.replace(
-		/from\s+["'](\..*?)(?<!\.js)["']/g,
-		(path) => `from '${path}.js'`,
+		/from\s+(["'])(\.[^"']*)(?<!\.(?:[mc]?js|json|node))\1/g,
+		(_, q, spec) => `from ${q}${spec}.js${q}`,
 	);
 }
 
