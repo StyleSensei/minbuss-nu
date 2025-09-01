@@ -1,6 +1,6 @@
 import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, sql } from "drizzle-orm";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import type { IDbData } from "@shared/models/IDbData";
@@ -29,6 +29,8 @@ function getDateArray(isEarlyMorning = false) {
 	return [today];
 }
 
+const latestFeedVersion = sql`(SELECT MAX(${trips.feed_version}) FROM trips)`;
+
 export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	MetricsTracker.trackDbQuery();
 	const { filteredTripIds } = await getCurrentTripIds();
@@ -52,6 +54,10 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
 			.where(
 				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stops.feed_version, latestFeedVersion),
 					eq(routes.route_short_name, busLine),
 					inArray(trips.trip_id, filteredTripIds),
 				),
@@ -115,6 +121,11 @@ export const selectUpcomingTripsFromDatabase = async (
 			.leftJoin(calendarDates, eq(trips.service_id, calendarDates.service_id))
 			.where(
 				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stops.feed_version, latestFeedVersion),
+					eq(calendarDates.feed_version, latestFeedVersion),
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
 					inArray(calendarDates.date, dates),
