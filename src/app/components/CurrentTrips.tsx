@@ -176,7 +176,6 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 							<button
 								type="button"
 								onClick={() => {
-									console.log("Button clicked");
 									userPosition.closestStop &&
 										handleOnStopClick(userPosition.closestStop);
 								}}
@@ -190,9 +189,9 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 					<>
 						<button
 							type="button"
-							title="Visa position"
+							title={isActive ? "Visa position" : "Bussen är inte i trafik"}
 							aria-label={`Visa nästa buss mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
-							className={`next-departure ${isActive} ? " --active" : ""}`}
+							className={`next-departure ${isActive ? " --active" : ""}`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
 							}}
@@ -271,7 +270,11 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 													<button
 														type="button"
 														className="row-button"
-														title="Visa position"
+														title={
+															isActive
+																? "Visa position"
+																: "Bussen är inte i trafik"
+														}
 														onClick={() => onTripSelect?.(trip.trip_id)}
 														onKeyDown={(e) => {
 															if (e.key === "Enter" && onTripSelect) {

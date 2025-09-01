@@ -18,6 +18,7 @@
     border: solid 5px v.$border-color;
     border-radius: v.$border-radius-standard;
     transition: all .5s ease;
+    z-index: 0;
 }
 
 .table-container {
@@ -152,9 +153,15 @@
     transition: filter 0.2s ease;
     width: 100%;
     z-index: 10;
+    cursor: default;
 
     @include m.desktop {
         font-size: 1.2rem;
+    }
+
+    &.--active {
+        filter: brightness(1.1);
+        cursor: pointer;
     }
 
     & .time {
@@ -183,9 +190,9 @@
         font-weight: 400;
     }
 
-    &:hover {
-        filter: brightness(1.1);
-    }
+    // &:hover {
+    //     filter: brightness(1.1);
+    // }
 
     .trip-icon {
         transform: translate(2px, 0);
@@ -209,6 +216,8 @@
 }
 
 .--active {
+    // cursor: auto;
+    // filter: brightness(1.1);
 
     &:hover {
         background-color: rgba(213, 213, 213, 0.05);

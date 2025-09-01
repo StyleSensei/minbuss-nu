@@ -22,7 +22,6 @@ import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useSetZoom } from "../hooks/useSetZoom";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { is } from "drizzle-orm";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -301,9 +300,7 @@ export default function CustomMarker({
 	const markerTitle = matchingStop
 		? `${matchingStop.route_short_name || "Okänd linje"},${matchingStop.stop_headsign || "Okänd destination"}`
 		: "Fordon";
-	console.log("showCurrentTrips:", showCurrentTrips);
-	console.log("isMobile:", isMobile);
-	console.log("isActive:", isActive);
+
 	return (
 		<>
 			<AdvancedMarker
