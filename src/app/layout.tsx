@@ -10,6 +10,7 @@ import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
 import { Analytics } from "@vercel/analytics/react";
 import { GeistSans } from "geist/font/sans";
+import colors from "./colors.module.scss";
 
 const myFont = localFont({
 	src: [
@@ -88,6 +89,7 @@ export default async function RootLayout({
 					href="/apple-touch-icon.png"
 				/>
 				<meta name="apple-mobile-web-app-title" content="Min buss" />
+				<meta name="theme-color" content={colors.primary} />
 				<link rel="manifest" href="/site.webmanifest" />
 			</head>
 			<body
