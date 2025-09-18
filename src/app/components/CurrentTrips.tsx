@@ -3,7 +3,7 @@ import { useOverflow } from "../hooks/useOverflow";
 import { useDataContext } from "../context/DataContext";
 import { Icon } from "./Icon";
 import { arrow } from "../../../public/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapPinned } from "lucide-react";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
@@ -23,14 +23,10 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 
-	const activeVehiclePositions = new Map();
-	for (const bus of filteredVehicles.data) {
-		activeVehiclePositions.set(bus.trip.tripId, {
-			lat: bus.position.latitude,
-			lon: bus.position.longitude,
-			tripId: bus.trip.tripId,
-		});
-	}
+	const activeVehiclePositions = useMemo(
+		() => new Set(filteredVehicles.data.map((bus) => bus.trip.tripId)),
+		[filteredVehicles.data],
+	);
 
 	useEffect(() => {
 		if (tripsToDisplay.length === 0) {
@@ -88,10 +84,13 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 		const tripUpdate = filteredTripUpdates.find(
 			(t) => t.trip.tripId === tripId,
 		);
+
 		if (!tripUpdate) return undefined;
 
 		const stopUpdate = tripUpdate.stopTimeUpdate?.find(
-			(update) => update.stopId === userPosition?.closestStop?.stop_id,
+			(update) =>
+				update.stopId.slice(0, -3) ===
+				userPosition?.closestStop?.stop_id.slice(0, -3),
 		);
 
 		if (!stopUpdate?.departure?.time) return undefined;
@@ -120,7 +119,9 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 
 	const hasTripsToDisplay = nextBus !== undefined;
 
-	const isActive = activeVehiclePositions.has(nextBus?.trip_id);
+	const isActive = nextBus
+		? activeVehiclePositions.has(nextBus?.trip_id)
+		: false;
 	const handleOnStopClick = (stop: IDbData) => {
 		if (mapRef?.current) {
 			const position = new google.maps.LatLng(+stop.stop_lat, +stop.stop_lon);

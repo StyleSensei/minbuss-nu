@@ -1,4 +1,6 @@
-interface TextBlockProps {
+import { ClientWrapper } from "./ClientWrapper";
+
+export interface TextBlockProps {
 	title?: string;
 	h2?: string;
 	h3?: string;
@@ -26,6 +28,7 @@ export default function TextBlock({
 		?.split("/")
 		.filter((sentence) => sentence.trim());
 	return (
+		// <ClientWrapper>
 		<div className={`text-block ${className || ""}`}>
 			{title && <h1 className={h1ClassName}>{title}</h1>}
 			{h2 && <h2 className={h2ClassName}>{h2}</h2>}
@@ -41,5 +44,6 @@ export default function TextBlock({
 				}
 			})}
 		</div>
+		// </ClientWrapper>
 	);
 }

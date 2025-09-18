@@ -10,10 +10,13 @@
     animation: fadeInFromLeft 0.5s ease;
 
     &.about-page {
-        bottom: 3dvh;
+        position: relative;
+        bottom: 22dvh;
+        height: 0;
 
         @include m.desktop {
-            bottom: 40vh;
+            position: absolute;
+            bottom: 70vh;
         }
     }
 

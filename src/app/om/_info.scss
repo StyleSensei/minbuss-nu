@@ -15,12 +15,14 @@
     }
 
     h1 {
-        font-size: 2.4rem;
-        margin: 2rem 10vw;
+        font-size: 4rem;
+        margin: 7vw 2vw;
         color: white;
 
         @include m.desktop {
-            font-size: 3.4rem;
+            margin: 0 0 7vw;
+
+            font-size: 7rem;
         }
 
         @include m.desktopXXL {
@@ -41,7 +43,6 @@
     .align-items-center {
         align-items: center;
     }
-
 }
 
 .text-block.info {
@@ -54,47 +55,87 @@
 
 }
 
-.info__image {
-    position: relative;
-    width: 100%;
-    padding: 0 10vw;
-    margin: 2rem 0 8rem;
+.client-wrapper {
+    .text-block {
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        opacity: 0;
+        transform: translateX(-20px);
 
-    img {
-        position: relative !important;
+        &.presentation__text {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+    }
+
+    .info__image {
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        opacity: 0;
+        transform: translateX(20px);
+        position: relative;
+        width: 100%;
+        padding: 0 10vw;
+        margin: 0;
+
+        @include m.desktop {
+            margin: 2rem 0 8rem;
+        }
+
+        img {
+            position: relative !important;
+
+            @include m.desktop {
+                position: absolute !important;
+            }
+        }
+
+        @include m.desktopXXL {
+            padding-left: v.$XXL-padding;
+        }
     }
 
 
-    @include m.desktopXXL {
-        padding-left: v.$XXL-padding;
+    .contact-links>* {
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        opacity: 0;
+        transform: translateY(20px);
+
+        &:nth-child(2) {
+            transition-delay: 0.3s;
+        }
+
+        &:nth-child(3) {
+            transition-delay: 0.6s;
+        }
+
+        &:nth-child(4) {
+            transition-delay: 0.9s;
+        }
+    }
+}
+
+.client-wrapper.visible {
+
+    .text-block {
+        opacity: 1;
+        transform: translateX(0);
+
+        &.presentation__text {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .info__image {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .contact-links>* {
+        opacity: 1;
+        transform: translateY(0);
     }
 
 }
-
-.server-image {
-    opacity: 1;
-    transition: opacity 0.3s ease-out;
-}
-
-.server-image.hidden {
-    opacity: 0;
-    position: absolute;
-    pointer-events: none;
-}
-
-.client-image {
-    opacity: 0;
-    transform: translateX(-20px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-}
-
-.client-image.visible {
-    opacity: 1;
-    transform: translateX(0);
-}
-
-
-
 
 @keyframes fadeInBlur {
     from {

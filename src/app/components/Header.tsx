@@ -10,10 +10,10 @@ export const Header = () => {
 		<header className="header__container">
 			{pathName === `${Paths.Search}` && (
 				<SearchBar
-					title="search-bus"
+					title="sök"
 					iconSize="24"
 					path={search}
-					title2="close"
+					title2="rensa"
 					path2={close}
 				/>
 			)}

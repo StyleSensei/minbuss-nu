@@ -1,9 +1,9 @@
 import React from "react";
 import TextBlock from "../components/Textblock";
 import { Contact } from "../components/Contact";
-import ImageClient from "./ImageClient";
 import ImageServer from "./ImageServer";
 import DemoMap from "../components/DemoMap";
+import { ClientWrapper } from "../components/ClientWrapper";
 
 export const metadata = {
 	title: "Om tjänsten",
@@ -72,58 +72,54 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 	return (
 		<>
 			<article className="wrapper__info">
-				<h1 className="text-4xl font-bold tracking-tight text-balance">
-					Om tjänsten
-				</h1>
+				<ClientWrapper>
+					<h1 className="font-bold tracking-tight text-balance heading text-center">
+						Om <span className="text-accent">minbuss.nu</span>
+					</h1>
+				</ClientWrapper>
 				{descriptions.map((description, index) => {
 					return (
-						<section
-							className="mb-10! xl:flex align-items-center"
-							key={`description-${
-								// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-								index
-							}`}
-						>
-							<TextBlock
-								description={description.text}
-								className="info mb-10!"
-								h2={description.h2}
-								h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
-								h1ClassName="text-4xl font-bold tracking-tight text-balance"
-							/>
-							{index === 0 && (
-								<DemoMap
-									pathD={routePathD}
-									popupClass="--hidden"
-									className="about-page"
-									customPathForMobile={customPathForMobile}
+						// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+						<ClientWrapper key={`description-wrapper-${index}`}>
+							<section className="mb-10! xl:flex align-items-center">
+								<TextBlock
+									description={description.text}
+									className="info mb-10! server-textblock"
+									h2={description.h2}
+									h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
+									h1ClassName="text-4xl font-bold tracking-tight text-balance"
 								/>
-							)}
-							{description.image.src && (
-								<ImageServer
-									src={description.image.src}
-									alt={description.image.alt}
-								/>
-							)}
-							{description.image.src && (
-								<ImageClient
-									src={description.image.src}
-									alt={description.image.alt}
-								/>
-							)}
-						</section>
+
+								{index === 0 && (
+									<DemoMap
+										pathD={routePathD}
+										popupClass="--hidden"
+										className="about-page"
+										customPathForMobile={customPathForMobile}
+									/>
+								)}
+								{description.image.src && (
+									<ImageServer
+										src={description.image.src}
+										alt={description.image.alt}
+									/>
+								)}
+							</section>
+						</ClientWrapper>
 					);
 				})}
-				<section className="presentation">
-					<TextBlock
-						className="presentation__text"
-						descriptionId="presentation__text"
-						descriptionClassName="presentation__text"
-						description={`Jag heter Patrik Arell och detta är mitt examensprojekt för utbildningen Frontend Developer på Medieinstitutet i Stockholm. /
-						`}
-					/>
-					<Contact />
-				</section>
+				<ClientWrapper>
+					<section className="presentation">
+						<TextBlock
+							className="presentation__text"
+							descriptionId="presentation__text"
+							descriptionClassName="presentation__text"
+							description={`Jag heter Patrik Arell och detta är mitt examensprojekt för utbildningen Frontend Developer på Medieinstitutet i Stockholm. /
+							`}
+						/>
+						<Contact />
+					</section>
+				</ClientWrapper>
 			</article>
 		</>
 	);
