@@ -61,7 +61,7 @@ h2 {
 html,
 body {
   max-width: 100vw;
-  height: 100dvh;
+  // height: 100dvh;
   overflow-x: hidden;
 }
 
@@ -73,12 +73,13 @@ ol[role='list'] {
 
 /* Set core body defaults */
 body {
-  line-height: 1.5;
+  line-height: 1.4;
   font-family: 'Geist', Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   display: flex;
   flex-direction: column;
+  background: v.$primary-color;
 }
 
 /* Set shorter line heights on headings and interactive elements */
@@ -139,7 +140,6 @@ button {
   }
 }
 
-
 /* Make sure textareas without a rows attribute are not tiny */
 textarea:not([rows]) {
   min-height: 10em;
@@ -159,7 +159,7 @@ main {
   overflow: hidden;
   position: relative;
   width: 100vw;
-  height: 100dvh;
+  // height: 100dvh;
   background: linear-gradient(to right, rgba(0, 0, 0, .8) 0%, rgba(0, 0, 0, .1) 100%);
   background-blend-mode: overlay;
   transition: border .3s ease;

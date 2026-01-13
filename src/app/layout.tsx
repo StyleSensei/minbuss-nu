@@ -11,6 +11,7 @@ import { DataProvider } from "./context/DataContext";
 import { Analytics } from "@vercel/analytics/react";
 import { GeistSans } from "geist/font/sans";
 import colors from "./colors.module.scss";
+import SetMainHeight from "./setMainHeight";
 
 const myFont = localFont({
 	src: [
@@ -66,6 +67,8 @@ export default async function RootLayout({
 	const requestHeaders = await headers();
 	const { device } = userAgent({ headers: requestHeaders });
 	const deviceType = device?.type === "mobile" ? "mobile" : "desktop";
+	const pathname = requestHeaders.get("x-pathname") || "/";
+	const isRootPath = pathname === "/";
 
 	const imageSrc =
 		deviceType === "mobile"
@@ -97,7 +100,12 @@ export default async function RootLayout({
 			>
 				<DataProvider>
 					<Header />
-					<main id="main" aria-label="Huvudinnehåll">
+					<main
+						id="main"
+						aria-label="Huvudinnehåll"
+						style={isRootPath ? { height: "100dvh" } : undefined}
+					>
+						<SetMainHeight />
 						<Image
 							src={imageSrc}
 							fill

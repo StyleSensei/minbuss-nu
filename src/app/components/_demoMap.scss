@@ -11,17 +11,15 @@
 
     &.about-page {
         position: relative;
-        bottom: 22dvh;
         height: 0;
 
-        @include m.desktop {
-            position: absolute;
-            bottom: 70vh;
+        @include m.tablet {
+            height: 60px;
         }
-    }
 
-    @include m.desktop {
-        bottom: 40vh;
+        @include m.desktop {
+            height: 200px;
+        }
     }
 }
 
@@ -31,6 +29,4 @@
     @media screen and (max-width: 768px) {
         transform: scale(2.5);
     }
-
-
 }

@@ -5,10 +5,10 @@
 .presentation {
     background-color: v.$active;
     width: 100vw;
-    height: 40dvh;
+    max-width: 1600px;
     display: flex;
     flex-direction: column;
-    justify-content: start;
+    justify-content: center;
     padding: 2.1rem 0;
 
     @include m.tablet {
@@ -18,34 +18,54 @@
         border-radius: v.$border-radius-standard;
     }
 
-
     @include m.desktop {
         padding: 5.7rem;
     }
 
     @include m.desktopXXL {
-        width: 40vw;
         margin: auto;
-        padding: 2rem;
+        padding-bottom: 0;
     }
 
     &__text {
         width: auto;
         padding-top: unset;
         color: v.$primary-color;
+
+        @include m.desktopXXL {
+            width: 100%;
+            padding: 0;
+
+            #presentation__text {
+                max-width: unset;
+            }
+        }
+    }
+
+    .text-block {
+        @include m.desktop {
+            padding: 0;
+        }
     }
 }
 
-.text-block.presentation__text {
-    @include m.desktopXXL {
-        padding-left: 10vw;
+#presentation__text--footer {
+    max-width: 1200px;
+    @extend .presentation__text;
+    padding: 5rem 0 3rem 0;
+    line-height: 1.3;
+    font-size: .8rem;
+    justify-content: center;
+
+    @include m.desktop {
+        font-size: 1rem;
     }
 }
 
 .contact-links {
     padding-top: unset;
     @extend .text-block;
-    padding-left: 10vw;
+    // padding-left: 10vw;
     color: v.$primary-color;
     display: flex;
     flex-direction: row;
@@ -64,15 +84,16 @@
         a:focus-visible {
             outline-color: v.$not-valid;
         }
-
     }
 
     .contact-avatar {
         @include m.desktop {
             width: 45px;
             height: 45px;
-
         }
     }
 
+    @include m.desktopXXL {
+        padding: 0;
+    }
 }

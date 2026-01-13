@@ -14,7 +14,7 @@ export default async function InfoPage() {
 	const routePathD =
 		"M-24.528,330.81399C-17.525,311.80799,-47.114,326.761,21.3,301.136,69.343,283.124,112.044,305.12,147.377,320.828,174.03,332.668,269.735,287.125,320.754,307.592,371.05,327.769,457.168,365.24,536.982,210.059,564.28,156.88,558.632,77.685,654.51,59.388,713.594,48.112,882.869,82.798,919.744,57.848";
 	const customPathForMobile =
-		"M-24.528,330.81399C-17.525,311.80799,-47.114,326.761,21.3,301.136,69.343,283.124,112.044,305.12,147.377,320.828,174.03,332.668,269.735,287.125,320.754,307.592,371.05,327.769,476.08,287.236,539.379,283.498,592.898,280.325,623.459,274.837,719.353,256.567,778.43,245.265,939.042,284.888,975.917,259.952";
+		"M-30,105.54899C7.475,86.54299,-22.114,101.496,46.3,75.871,94.343,57.859,137.044,79.855,172.377,95.563,199.03,107.403,294.735,61.86,345.754,82.327,396.05,102.504,501.08,61.971,564.379,58.233,617.898,55.06,648.459,49.572,744.353,31.302,803.43,20,964.042,59.623,1030.917,34.687";
 	const descriptions = [
 		{
 			h2: "Varför denna tjänst?",
@@ -73,31 +73,25 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 		<>
 			<article className="wrapper__info">
 				<ClientWrapper>
-					<h1 className="font-bold tracking-tight text-balance heading text-center">
-						Om <span className="text-accent">minbuss.nu</span>
-					</h1>
+					<section className="h1-section">
+						<h1 className="font-bold tracking-tight text-balance heading text-center">
+							Om <span className="text-accent">minbuss.nu</span>
+						</h1>
+					</section>
 				</ClientWrapper>
 				{descriptions.map((description, index) => {
 					return (
 						// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 						<ClientWrapper key={`description-wrapper-${index}`}>
-							<section className="mb-10! xl:flex align-items-center">
+							<section className="xl:flex align-items-center">
 								<TextBlock
 									description={description.text}
-									className="info mb-10! server-textblock"
+									className="info server-textblock"
 									h2={description.h2}
 									h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
 									h1ClassName="text-4xl font-bold tracking-tight text-balance"
 								/>
 
-								{index === 0 && (
-									<DemoMap
-										pathD={routePathD}
-										popupClass="--hidden"
-										className="about-page"
-										customPathForMobile={customPathForMobile}
-									/>
-								)}
 								{description.image.src && (
 									<ImageServer
 										src={description.image.src}
@@ -105,6 +99,14 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 									/>
 								)}
 							</section>
+							{index === 0 && (
+								<DemoMap
+									pathD={customPathForMobile || routePathD}
+									popupClass="--hidden"
+									className="about-page"
+									customPathForMobile={customPathForMobile}
+								/>
+							)}
 						</ClientWrapper>
 					);
 				})}
@@ -114,10 +116,19 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 							className="presentation__text"
 							descriptionId="presentation__text"
 							descriptionClassName="presentation__text"
-							description={`Jag heter Patrik Arell och detta är mitt examensprojekt för utbildningen Frontend Developer på Medieinstitutet i Stockholm. /
+							description={`Jag heter Patrik och arbetar som webbutvecklare i Stockholm. Om du har några frågor, förslag eller feedback om tjänsten, tveka inte att ta kontakt. /
+							Jag är alltid öppen för att höra från användare och förbättra tjänsten baserat på era behov./
+							Tack för att du använder minbuss.nu! /
 							`}
 						/>
 						<Contact />
+						<TextBlock
+							className="presentation__text--footer"
+							descriptionId="presentation__text--footer"
+							descriptionClassName="presentation__text--footer"
+							description={`Tjänsten använder öppna trafikdata som tillhandahålls via Trafiklab, inklusive både statiska tidtabellsdata (GTFS) och realtidsdata (GTFS-RT). Datan är licensierad under CC0 1.0 (Public Domain Dedication) och bearbetas samt presenteras av minbuss.nu.
+								Trafikdata kan vara fördröjd eller ofullständig och bör ses som vägledande.`}
+						/>
 					</section>
 				</ClientWrapper>
 			</article>

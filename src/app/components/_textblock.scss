@@ -62,6 +62,12 @@
 
     @include m.desktopXXL {
         padding-left: calc(v.$XXL-padding - 15rem);
+
+        &.info {
+            padding: 0;
+            justify-content: center;
+        }
+
         padding-top: 30vh;
     }
 }

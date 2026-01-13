@@ -2,31 +2,44 @@
 @use '../variables' as v;
 
 .wrapper__info {
-    height: 100dvh;
     width: 100vw;
     animation: fadeInBlur 1s ease both;
     -webkit-animation: fadeInBlur 1s ease both;
     opacity: 1;
-    overflow-y: scroll;
+    overflow-y: hidden;
     overflow-x: hidden;
+
+    &:nth-child(2) {
+        section:not(.presentation) {
+            margin-bottom: 6rem;
+
+            @include m.desktop {
+                justify-content: center;
+                gap: 5rem;
+                padding: 0 6vw;
+            }
+        }
+    }
 
     @include m.desktop {
         padding: 10vh 0 10vh;
     }
 
     h1 {
-        font-size: 4rem;
-        margin: 7vw 2vw;
+        font-size: 2.6rem;
+        text-align: left;
+        margin: 0;
+        width: 80vw;
         color: white;
 
         @include m.desktop {
-            margin: 0 0 7vw;
-
+            margin: 0;
+            width: auto;
             font-size: 7rem;
         }
 
         @include m.desktopXXL {
-            margin-left: v.$XXL-padding;
+            text-align: center;
         }
     }
 
@@ -45,14 +58,15 @@
     }
 }
 
+.h1-section {
+    justify-content: space-around;
+    display: flex;
+    margin: 3rem 0 !important;
+}
+
 .text-block.info {
     height: 100%;
     padding-top: 0;
-
-    @include m.desktopXXL {
-        padding-left: v.$XXL-padding;
-    }
-
 }
 
 .client-wrapper {
@@ -73,26 +87,26 @@
         transform: translateX(20px);
         position: relative;
         width: 100%;
-        padding: 0 10vw;
         margin: 0;
+        min-height: 750px;
+        min-width: 350px;
 
         @include m.desktop {
             margin: 2rem 0 8rem;
         }
 
         img {
-            position: relative !important;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
 
             @include m.desktop {
-                position: absolute !important;
+                object-position: left;
             }
         }
-
-        @include m.desktopXXL {
-            padding-left: v.$XXL-padding;
-        }
     }
-
 
     .contact-links>* {
         transition: opacity 0.6s ease-out, transform 0.6s ease-out;
@@ -114,7 +128,6 @@
 }
 
 .client-wrapper.visible {
-
     .text-block {
         opacity: 1;
         transform: translateX(0);
@@ -128,13 +141,13 @@
     .info__image {
         opacity: 1;
         transform: translateX(0);
+        transition-delay: .5s;
     }
 
     .contact-links>* {
         opacity: 1;
         transform: translateY(0);
     }
-
 }
 
 @keyframes fadeInBlur {
@@ -147,7 +160,6 @@
         background: rgba(0, 0, 0, .4);
         backdrop-filter: blur(30px);
     }
-
 }
 
 @-webkit-keyframes fadeInBlur {
@@ -160,5 +172,4 @@
         background: rgba(0, 0, 0, .4);
         -webkit-backdrop-filter: blur(30px);
     }
-
 }
