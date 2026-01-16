@@ -1,11 +1,11 @@
 @use 'variables' as v;
 
-:export {
-    primary: v.$primary-color;
-    secondary: v.$secondary-color;
-    secondaryHover: v.$secondary-color--hover;
-    tertiary: v.$tertiary-color;
-    accentColor: v.$accent-color;
-    notValid: v.$not-valid;
-    active: v.$active;
+:root {
+    --primary: #{v.$primary-color};
+    --secondary: #{v.$secondary-color};
+    --secondary-hover: #{v.$secondary-color--hover};
+    --tertiary: #{v.$tertiary-color};
+    --accent-color: #{v.$accent-color};
+    --not-valid: #{v.$not-valid};
+    --active: #{v.$active};
 }

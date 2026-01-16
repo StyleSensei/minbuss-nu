@@ -1,7 +1,7 @@
 import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
-import colors from "../colors.module.scss";
+import colors from "../colors";
 import type { IVehicleFilterResult } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
 

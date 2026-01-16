@@ -10,7 +10,7 @@ import { Header } from "./components/Header";
 import { DataProvider } from "./context/DataContext";
 import { Analytics } from "@vercel/analytics/react";
 import { GeistSans } from "geist/font/sans";
-import colors from "./colors.module.scss";
+import colors from "./colors";
 import SetMainHeight from "./setMainHeight";
 
 const myFont = localFont({

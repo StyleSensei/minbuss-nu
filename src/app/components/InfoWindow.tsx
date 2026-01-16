@@ -12,7 +12,7 @@ import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import type { IDbData } from "@shared/models/IDbData";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
-import colors from "../colors.module.scss";
+import colors from "../colors";
 import {
 	Table,
 	TableBody,

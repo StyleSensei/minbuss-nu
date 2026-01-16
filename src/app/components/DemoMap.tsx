@@ -7,7 +7,7 @@ import { MotionPathHelper } from "gsap/MotionPathHelper";
 import { CustomEase } from "gsap/CustomEase";
 import { useGSAP } from "@gsap/react";
 import { useIsMobile } from "../hooks/useIsMobile";
-import colors from "../colors.module.scss";
+import colors from "../colors";
 
 gsap.registerPlugin(MotionPathPlugin);
 gsap.registerPlugin(CustomEase);
