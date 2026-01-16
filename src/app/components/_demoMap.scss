@@ -22,6 +22,7 @@
         }
 
         @include m.desktop {
+            bottom: unset;
             height: 200px;
         }
     }
