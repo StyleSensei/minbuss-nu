@@ -9,6 +9,10 @@
     pointer-events: none;
     animation: fadeInFromLeft 0.5s ease;
 
+    @include m.desktop {
+        bottom: 40vh;
+    }
+
     &.about-page {
         position: relative;
         height: 0;
