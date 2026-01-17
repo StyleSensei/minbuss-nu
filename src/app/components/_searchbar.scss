@@ -1,7 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
 @use '../keyframes' as k;
-
 $containerWidth: 278px;
 
 .search-bar__container {
@@ -105,19 +104,6 @@ $containerWidth: 278px;
         button[type="submit"] {
             display: none;
         }
-    }
-
-}
-
-
-
-@keyframes drop {
-    from {
-        transform: scale(0);
-    }
-
-    to {
-        transform: scale(1);
     }
 }
 

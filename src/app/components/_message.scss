@@ -1,5 +1,6 @@
 @use '../variables' as v;
 @use '../mixins' as m;
+@use '../keyframes';
 
 .error-message {
     color: v.$secondary-color;
@@ -13,7 +14,7 @@
     background-color: v.$not-valid;
     padding: .5rem 1rem;
     width: 100%;
-    animation: drop ease .3s;
+    animation: drop .3s v.$bounce both;
     transform-origin: top;
     overflow: hidden;
     pointer-events: auto;

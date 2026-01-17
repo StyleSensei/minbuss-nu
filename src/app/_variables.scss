@@ -9,9 +9,7 @@ $secondary-color--hover: rgb(189, 189, 189);
 $active: #EAB308;
 $not-valid: rgb(161, 20, 20);
 $updated-time: #EF4444;
-
 $border-color: $primary-color--muted;
-
 //margins & sizes
 $large-margin-top: 20vh;
 $large-margin-bottom: 50vh;
@@ -19,3 +17,5 @@ $padding-textBox: 1rem;
 $border-radius-standard: 20px;
 $XXL-padding: 40vw;
 $input-height: 52px;
+//animation
+$bounce: cubic-bezier(0.375, 1.650, 0.180, 0.805)

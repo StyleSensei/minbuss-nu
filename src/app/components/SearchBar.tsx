@@ -29,7 +29,6 @@ import type { ITripUpdate } from "@/shared/models/ITripUpdate";
 import type { IError } from "../services/cacheHelper";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Paths } from "../paths";
-import { set } from "zod";
 
 interface SearchBarProps {
 	iconSize: string;
@@ -49,8 +48,9 @@ export const SearchBar = ({
 }: SearchBarProps) => {
 	const searchParams = useSearchParams();
 	const [userInput, setUserInput] = useState<string>(
-		encodeURIComponent(searchParams.get("linje") || ""),
+		encodeURIComponent(searchParams.get("linje") || "")
 	);
+	const [showError, setShowError] = useState(true);
 	const [allRoutes, setAllRoutes] = useState<{
 		asObject: Record<string, boolean>;
 		asArray: string[];
@@ -125,6 +125,7 @@ export const SearchBar = ({
 				console.error("Error fetching vehicle positions:", error);
 			} finally {
 				setIsLoading(false);
+				setShowError(true); 
 			}
 		}, 500),
 		[checkIfRouteExists, setIsLoading],
@@ -347,6 +348,7 @@ export const SearchBar = ({
 						onChange={(e) => {
 							setUserInput(e.target.value.toUpperCase().trim());
 							handleOnChange(e.target.value.toUpperCase().trim());
+							setShowError(false); 
 						}}
 						value={userInput}
 						onKeyDown={handleKeyDown}
@@ -398,25 +400,26 @@ export const SearchBar = ({
 					)}
 					<button type="submit">Sök</button>
 				</Form>
-				{!routeExists && userInput && proposedRoute && !isLoading && (
-					<Suspense fallback={<p className="error-message">Laddar...</p>}>
-						<SearchError proposedRoute={proposedRoute} />
-					</Suspense>
+				{!routeExists && userInput && proposedRoute && !isLoading && showError && (
+				  <Suspense fallback={<p className="error-message">Laddar...</p>}>
+				    <SearchError proposedRoute={proposedRoute} />
+				  </Suspense>
 				)}
 				{routeExists &&
-					userInput &&
-					!filteredVehicles?.data.length &&
-					!errorMessage &&
-					!isLoading && (
-						<Suspense fallback={<p className="error-message">Laddar...</p>}>
-							<SearchError userInput={userInput} />
-						</Suspense>
-					)}
-				{errorMessage && routeExists && userInput && !isLoading && (
-					<Suspense fallback={<p className="error-message">Laddar...</p>}>
-						<SearchError errorText={errorMessage} />
-					</Suspense>
-				)}{" "}
+				  userInput &&
+				  !filteredVehicles?.data.length &&
+				  !errorMessage &&
+				  !isLoading &&
+				  showError && (
+				    <Suspense fallback={<p className="error-message">Laddar...</p>}>
+				      <SearchError userInput={userInput} />
+				    </Suspense>
+				  )}
+				{errorMessage && routeExists && userInput && !isLoading && showError && (
+				  <Suspense fallback={<p className="error-message">Laddar...</p>}>
+				    <SearchError errorText={errorMessage} />
+				  </Suspense>
+				)} {" "}
 			</div>
 			<div
 				ref={overlayRef}

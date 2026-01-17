@@ -1,7 +1,6 @@
 @use '../../variables' as v;
 @use '../../mixins' as m;
 @use '../../keyframes' as k;
-
 $containerWidth-small: 90vw;
 $containerWidth-desktop: 25vw;
 $selectionWidth: 2rem;
@@ -10,7 +9,6 @@ $barHeight: 4px;
 $menuItemWidth: 8rem;
 $menuBarWidth: 2rem;
 $menuMaxWidth: 440px;
-
 
 nav.wrapper {
     position: fixed;
@@ -43,8 +41,6 @@ nav.wrapper {
         left: calc(50vw - ($menuMaxWidth / 2));
         max-width: $menuMaxWidth;
     }
-
-    @include m.desktopXXL {}
 }
 
 .outer-container {
@@ -80,7 +76,6 @@ nav.wrapper {
     color: v.$tertiary-color;
     will-change: transform;
 
-
     &.active {
         color: v.$secondary-color;
     }
@@ -101,7 +96,7 @@ nav.wrapper {
     left: 0;
 
     .menu-bar__inner-container {
-        transition: padding-left .5s cubic-bezier(0.375, 1.650, 0.180, 0.805);
+        transition: padding-left .5s v.$bounce;
         width: 100%;
 
         &.home {
@@ -125,8 +120,6 @@ nav.wrapper {
             width: $menuBarWidth;
             height: $barHeight;
             border-radius: 50px;
-
-
         }
     }
 }

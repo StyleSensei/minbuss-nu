@@ -76,7 +76,6 @@
 }
 
 @keyframes markerPulse {
-
     10% {
         box-shadow: 0 0 8px 6px rgba(0, 153, 255, 0.092), 0 0 12px 10px rgba(0, 153, 255, 0.078), 0 0 12px 14px rgba(0, 153, 255, 0.035);
     }
@@ -146,22 +145,18 @@
     from {
         transform: translateY(0);
         filter: blur(0px);
-
     }
 
     50% {
         transform: translateY(-3px);
         filter: blur(2px);
-
     }
 
     to {
         transform: translateY(0);
         filter: blur(0px);
-
     }
 }
-
 
 @keyframes fadeOnly {
     0% {
@@ -170,5 +165,15 @@
 
     100% {
         opacity: 1;
+    }
+}
+
+@keyframes drop {
+    from {
+        transform: scale(0);
+    }
+
+    to {
+        transform: scale(1);
     }
 }

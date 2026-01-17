@@ -1,8 +1,8 @@
+@use 'sass:math';
 @use '../variables' as v;
 @use '../mixins' as m;
 @use '../keyframes' as k;
 @use 'sass:color';
-
 $buttonWidth: 80vw;
 $buttonWidthDesktop: 25vw;
 $buttonHeightDesktop: 6vh;
@@ -34,10 +34,9 @@ $buttonHeightDesktop: 6vh;
         @include k.sizeBlink;
     }
 
-
     &.--cta {
         margin-bottom: v.$large-margin-bottom;
-        margin-left: calc(50% - calc(#{$buttonWidth / 2}));
+        margin-left: calc(50% - calc($buttonWidth / 2));
 
         @include m.phoneLS {
             margin-top: 20vh;
@@ -53,8 +52,6 @@ $buttonHeightDesktop: 6vh;
 
         @include m.desktopXXL {
             margin-left: calc(v.$XXL-padding - 15rem);
-
-
             width: calc($buttonWidthDesktop / 2);
         }
 
@@ -96,7 +93,6 @@ $buttonHeightDesktop: 6vh;
         }
     }
 
-
     &.--follow {
         @extend .--zoom;
         margin-bottom: unset;
@@ -119,7 +115,6 @@ $buttonHeightDesktop: 6vh;
     }
 }
 
-
 .map-control-buttons {
     padding: 1vh;
     display: flex;
@@ -127,7 +122,6 @@ $buttonHeightDesktop: 6vh;
     border-radius: calc(20px + .5rem);
     gap: 1rem;
     @include m.backdropFilter;
-
 }
 
 .zoom-buttons {
