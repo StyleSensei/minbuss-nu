@@ -81,7 +81,6 @@ $buttonHeightDesktop: 6vh;
         color: v.$secondary-color;
         border-radius: 20px;
         width: fit-content;
-        opacity: 80%;
 
         @include m.desktop {
             padding: 1.5rem;
@@ -100,6 +99,11 @@ $buttonHeightDesktop: 6vh;
         &.--active {
             background-color: v.$active;
         }
+    }
+
+    &.--my-position {
+        @extend .--follow;
+        margin-bottom: unset;
     }
 
     &.--table {
@@ -121,6 +125,7 @@ $buttonHeightDesktop: 6vh;
     flex-direction: column;
     border-radius: calc(20px + .5rem);
     gap: 1rem;
+    opacity: 90%;
     @include m.backdropFilter;
 }
 

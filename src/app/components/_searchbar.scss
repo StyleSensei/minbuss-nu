@@ -43,9 +43,8 @@ $containerWidth: 278px;
         border-radius: 100px;
         padding: 0 1rem;
         background: v.$primary-color;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
         opacity: 80%;
+        @include m.backdropFilter;
         width: 100%;
 
         input {

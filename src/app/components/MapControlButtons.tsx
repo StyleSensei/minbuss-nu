@@ -1,6 +1,6 @@
 import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
-import { table, zoomInIcon, zoomOutIcon, follow } from "../../../public/icons";
+import { table, zoomInIcon, zoomOutIcon, follow, myPosition } from "../../../public/icons";
 import colors from "../colors";
 import type { IVehicleFilterResult } from "../actions/filterVehicles";
 import { useDataContext } from "../context/DataContext";
@@ -61,7 +61,7 @@ export const MapControlButtons = ({
 						path={zoomInIcon.pathD}
 						pathFillRule1={zoomInIcon.pathFillRuleD1}
 						pathFillRule2={zoomInIcon.pathFillRuleD2}
-						fill="whitesmoke"
+						fill={colors.secondary}
 						onClick={() => {
 							if (mapReady)
 								googleMapRef.current ? zoomIn(googleMapRef.current) : null;
@@ -76,7 +76,7 @@ export const MapControlButtons = ({
 						path={zoomOutIcon.pathD}
 						pathFillRule1={zoomOutIcon.pathFillRuleD1}
 						pathFillRule2={zoomOutIcon.pathFillRuleD2}
-						fill="whitesmoke"
+						fill={colors.secondary}
 						onClick={() => {
 							if (mapReady)
 								googleMapRef.current ? zoomOut(googleMapRef.current) : null;
@@ -111,6 +111,25 @@ export const MapControlButtons = ({
 					/>
 				</div>
 			)}
+			<div className="map-control-button-container">
+				<p className="label my-position-label">Min position</p>
+				<Button
+					title="Zooma till min position"
+					path={myPosition.pathD}
+					viewBox={myPosition.viewBox}
+					fill={colors.secondary}
+					className="--my-position"
+					onClick={() => {
+						if (mapReady && userPosition && googleMapRef.current) {
+							googleMapRef.current.panTo({
+								lat: userPosition.lat,
+								lng: userPosition.lng,
+							});
+							googleMapRef.current.setZoom(15);
+						}
+					}}
+				/>
+			</div>
 		</div>
 	);
 };
