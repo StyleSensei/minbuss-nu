@@ -14,7 +14,7 @@
     background-color: v.$not-valid;
     padding: .5rem 1rem;
     width: 100%;
-    animation: drop .3s v.$bounce both;
+    animation: drop .3s v.$bounce both 1s;
     transform-origin: top;
     overflow: hidden;
     pointer-events: auto;
