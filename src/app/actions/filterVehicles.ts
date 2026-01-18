@@ -75,25 +75,6 @@ export const getFilteredVehiclePositions = async (
 			return { data: [] };
 		}
 
-		const cachedFiltered = await redis.get(cacheKey);
-		if (cachedFiltered) {
-			if (
-				typeof cachedFiltered === "object" &&
-				"data" in cachedFiltered &&
-				Array.isArray(cachedFiltered.data)
-			) {
-				if (
-					cachedFiltered.data.length > 0 &&
-					Math.abs(cachedFiltered.data.length - activeTrips.size) <= 1
-				) {
-					return cachedFiltered as IVehicleFilterResult;
-				}
-			}
-			if (Array.isArray(cachedFiltered)) {
-				return { data: cachedFiltered };
-			}
-		}
-
 		const cachedDbData = (await getCachedDbData(busline)) as ITripData;
 
 		filteredData = cachedVehiclePositions.data?.filter((vehicle) => {
@@ -110,8 +91,6 @@ export const getFilteredVehiclePositions = async (
 		filteredData.sort((a, b) =>
 			(a.trip?.tripId || "").localeCompare(b.trip?.tripId || ""),
 		);
-
-		await redis.set(cacheKey, filteredData, { ex: FILTERED_VEHICLES_TTL });
 
 		let vehicleError: VehicleError | undefined;
 		if (cachedVehiclePositions.error) {

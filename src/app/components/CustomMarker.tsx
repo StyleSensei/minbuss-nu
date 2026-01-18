@@ -79,7 +79,7 @@ export default function CustomMarker({
 				: position;
 
 			markerAnimationRef.current = gsap.to(currentPosition, {
-				duration: 4.5,
+				duration: 8,
 				ease: "linear",
 				lat: position.lat,
 				lng: position.lng,
@@ -173,7 +173,7 @@ export default function CustomMarker({
 				: position;
 
 			followAnimationRef.current = gsap.to(currentPosition, {
-				duration: 4.5,
+				duration: 8,
 				ease: "linear",
 				lat: position.lat,
 				lng: position.lng,

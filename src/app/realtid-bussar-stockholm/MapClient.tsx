@@ -49,13 +49,16 @@ export default function MapClient() {
 
 	useEffect(() => {
 		const main = document.getElementById("follow-bus-border");
-		if (followBus) {
+		if (followBus && filteredVehicles.data.length > 0) {
 			main?.classList.add("follow-bus-active");
+		}
+		else {
+			main?.classList.remove("follow-bus-active");
 		}
 		return () => {
 			main?.classList.remove("follow-bus-active");
 		};
-	}, [followBus]);
+	}, [followBus, filteredVehicles.data.length]);
 
 	const getTripsByStopId = useCallback(
 		(array: IDbData[]) => {
