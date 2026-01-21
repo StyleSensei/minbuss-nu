@@ -1,3 +1,5 @@
+import { IShapes } from "./IShapes";
+
 export interface IVehiclePosition {
 	trip: {
 		tripId: string | null;
@@ -13,4 +15,5 @@ export interface IVehiclePosition {
 	vehicle: {
 		id: string;
 	};
+	shapePoints?: IShapes[];
 }

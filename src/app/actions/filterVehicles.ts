@@ -2,8 +2,8 @@
 import {
 	getCachedDbData,
 	getCachedVehiclePositions,
+	getCachedShapesData,
 } from "../services/cacheHelper";
-import { redis } from "../utilities/redis";
 import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import type { ITripData } from "../context/DataContext";
 
@@ -50,15 +50,10 @@ export interface IVehicleFilterResult {
 	error?: VehicleError;
 }
 
-const FILTERED_VEHICLES_PREFIX = "filtered-vehicles-";
-const FILTERED_VEHICLES_TTL = 5;
-
 export const getFilteredVehiclePositions = async (
 	busline?: string,
 ): Promise<IVehicleFilterResult> => {
 	if (!busline) return { data: [] };
-
-	const cacheKey = `${FILTERED_VEHICLES_PREFIX}${busline}`;
 
 	try {
 		const cachedVehiclePositions = await getCachedVehiclePositions();
@@ -92,6 +87,23 @@ export const getFilteredVehiclePositions = async (
 			(a.trip?.tripId || "").localeCompare(b.trip?.tripId || ""),
 		);
 
+		const vehiclesWithShapes: IVehiclePosition[] = await Promise.all(
+			filteredData.map(async (vehicle) => {
+				const matchingTrip = cachedDbData.currentTrips.find(
+					(trip) => trip?.trip_id === vehicle.trip.tripId,
+				);
+
+				if (matchingTrip?.shape_id) {
+					const shapePoints = await getCachedShapesData(
+						matchingTrip.feed_version,
+						matchingTrip.shape_id,
+					);
+					return { ...vehicle, shapePoints } as IVehiclePosition;
+				}
+				return vehicle;
+			}),
+		);
+
 		let vehicleError: VehicleError | undefined;
 		if (cachedVehiclePositions.error) {
 			const sourceError = cachedVehiclePositions.error;
@@ -117,7 +129,7 @@ export const getFilteredVehiclePositions = async (
 		}
 
 		const result: IVehicleFilterResult = {
-			data: filteredData,
+			data: vehiclesWithShapes,
 			error: vehicleError,
 		};
 
