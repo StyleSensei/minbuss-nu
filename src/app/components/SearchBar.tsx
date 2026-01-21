@@ -147,7 +147,7 @@ export const SearchBar = ({
 				}
 			},
 			getFilteredTripUpdates,
-			40000,
+			20000,
 		);
 
 	const handleCachedDbData = useCallback(async () => {
