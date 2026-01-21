@@ -20,7 +20,7 @@ interface VehiclePositionResult {
 	error?: IError;
 }
 export interface IError {
-	type: "API_ERROR" | "DATA_TOO_OLD" | "OTHER" | "LOCK_ERROR";
+	type: "API_ERROR" | "DATA_TOO_OLD" | "OTHER" | "LOCK_ERROR" | "TIMEOUT_ERROR";
 	message: string;
 	timestampAge?: ITimestampAge;
 	isStale?: boolean;
@@ -40,9 +40,11 @@ const TRIP_UPDATES_CACHE_KEY = "trip-updates-cache";
 const DB_DATA_CACHE_KEY_PREFIX = "db-data-cache-";
 
 // TTL i sekunder
-const REALTIME_TTL = 5;
+const REALTIME_TTL = 2;
 const DB_DATA_TTL = 5 * 60;
-const LOCK_TTL = 5;
+const LOCK_TTL = 2;
+const LOCK_RETRY_DELAY = 100;
+const LOCK_MAX_RETRIES = 10;
 const DB_SHAPES_TTL = 60 * 60 * 24 * 30; // 1 månad
 const VEHICLE_LOCK_KEY = "vehicle-positions-lock";
 
@@ -59,21 +61,9 @@ export const getCachedVehiclePositions = cache(
             });
 
             if (!lockAcquired) {
-                await new Promise((resolve) => setTimeout(resolve, 200));
-                const retryCache = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
-                
-                if (retryCache) {
-                    return JSON.parse(retryCache as string) as VehiclePositionResult;
-                }
-                
-                return {
-                    data: [],
-                    error: {
-                        message: "API call in progress, cached data unavailable",
-                        type: "LOCK_ERROR",
-                    },
-                };
+				return await waitForCachedData();
             }
+			
 		try {
 			MetricsTracker.trackCacheMiss();
 			const response = await getVehiclePositions();
@@ -130,9 +120,30 @@ export const getCachedVehiclePositions = cache(
 					message: "Ett okänt fel uppstod",
 				},
 			};
-		}
+		} finally {
+        await redis.del(VEHICLE_LOCK_KEY);
+    }
 	},
 );
+
+async function waitForCachedData(): Promise<VehiclePositionResult> {
+    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
+        await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
+        
+        const cached = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
+        if (cached) {
+            return cached as VehiclePositionResult;
+        }
+    }
+    
+    return {
+        data: [],
+        error: {
+            message: "Timeout waiting for vehicle data",
+            type: "TIMEOUT_ERROR",
+        },
+    };
+}
 
 export const getCachedTripUpdates = cache(async () => {
 	const cached = await redis.get(TRIP_UPDATES_CACHE_KEY);
@@ -148,7 +159,7 @@ export const getCachedTripUpdates = cache(async () => {
 	return data;
 });
 
-export const getCachedDbData = cache(
+export const getCachedDbData = 
 	async (busLine: string, busStopName?: string, forceRefresh = false) => {
 		let currentTrips: IDbData[] = [];
 		let upcomingTrips: IDbData[] = [];
@@ -186,10 +197,10 @@ export const getCachedDbData = cache(
 			MetricsTracker.trackRedisOperation();
 		}
 		return { currentTrips, upcomingTrips } as ITripData;
-	},
-);
+	}
 
-export const getCachedShapesData = cache(
+
+export const getCachedShapesData = 
 	async (feedVersion:string, shapeId: string) => {
 		const cacheKey = `shape:${feedVersion}:${shapeId}`;
 		const cached = await redis.get(cacheKey);
@@ -205,6 +216,6 @@ export const getCachedShapesData = cache(
 		MetricsTracker.trackRedisOperation();
 		return shapePoints;
 	}
-)
+
 
 MetricsTracker.enableLogging(false);
