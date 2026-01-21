@@ -15,6 +15,7 @@ import {
 	calculateTimeFilter,
 	createMinutesFilter,
 } from "@/app/utilities/calculateTimeFilter";
+import { shapes } from "@/shared/db/schema/shapes";
 
 const db = getDb();
 
@@ -39,6 +40,7 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 		const data = await db
 			.select({
 				trip_id: trips.trip_id,
+				shape_id: trips.shape_id,
 				route_short_name: routes.route_short_name,
 				stop_headsign: stop_times.stop_headsign,
 				departure_time: stop_times.departure_time,
@@ -47,6 +49,7 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 				stop_id: stops.stop_id,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
+				feed_version: trips.feed_version,
 			})
 			.from(trips)
 			.innerJoin(routes, eq(trips.route_id, routes.route_id))
@@ -104,6 +107,7 @@ export const selectUpcomingTripsFromDatabase = async (
 	try {
 		const data = await db
 			.select({
+				shape_id: trips.shape_id,
 				trip_id: trips.trip_id,
 				route_short_name: routes.route_short_name,
 				stop_headsign: stop_times.stop_headsign,
@@ -113,6 +117,7 @@ export const selectUpcomingTripsFromDatabase = async (
 				stop_id: stops.stop_id,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
+				feed_version: trips.feed_version,
 			})
 			.from(trips)
 			.innerJoin(routes, eq(trips.route_id, routes.route_id))
@@ -153,3 +158,23 @@ export const selectUpcomingTripsFromDatabase = async (
 		return [];
 	}
 };
+
+export const selectShapesFromDatabase = async (shapeId: string) => {
+	MetricsTracker.trackDbQuery();
+	try {
+		const shapePoints = await db
+  .select({
+    shape_pt_lat: shapes.shape_pt_lat,
+    shape_pt_lon: shapes.shape_pt_lon,
+    shape_pt_sequence: shapes.shape_pt_sequence,
+    shape_dist_traveled: shapes.shape_dist_traveled,
+  })
+  .from(shapes)
+  .where(eq(shapes.shape_id, shapeId))
+  .orderBy(shapes.shape_pt_sequence);
+		return shapePoints;
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+}

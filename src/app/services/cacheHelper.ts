@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redis } from "../utilities/redis";
 import {
 	selectCurrentTripsFromDatabase,
+	selectShapesFromDatabase,
 	selectUpcomingTripsFromDatabase,
 } from "./dataProcessors/selectFromDatabase";
 import { getVehiclePositions } from "./dataSources/gtfsRealtime";
@@ -12,13 +13,14 @@ import type { IDbData } from "@shared/models/IDbData";
 import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "../utilities/MetricsTracker";
 import type { ITripData } from "../context/DataContext";
+import { IShapes } from "@/shared/models/IShapes";
 
 interface VehiclePositionResult {
 	data: IVehiclePosition[];
 	error?: IError;
 }
 export interface IError {
-	type: "API_ERROR" | "DATA_TOO_OLD" | "OTHER";
+	type: "API_ERROR" | "DATA_TOO_OLD" | "OTHER" | "LOCK_ERROR";
 	message: string;
 	timestampAge?: ITimestampAge;
 	isStale?: boolean;
@@ -40,6 +42,9 @@ const DB_DATA_CACHE_KEY_PREFIX = "db-data-cache-";
 // TTL i sekunder
 const REALTIME_TTL = 5;
 const DB_DATA_TTL = 5 * 60;
+const LOCK_TTL = 5;
+const DB_SHAPES_TTL = 60 * 60 * 24 * 30; // 1 månad
+const VEHICLE_LOCK_KEY = "vehicle-positions-lock";
 
 export const getCachedVehiclePositions = cache(
 	async (): Promise<VehiclePositionResult> => {
@@ -48,6 +53,27 @@ export const getCachedVehiclePositions = cache(
 			MetricsTracker.trackCacheHit();
 			return cached as VehiclePositionResult;
 		}
+            const lockAcquired = await redis.set(VEHICLE_LOCK_KEY, "locked", {
+                nx: true,
+                ex: LOCK_TTL,
+            });
+
+            if (!lockAcquired) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                const retryCache = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
+                
+                if (retryCache) {
+                    return JSON.parse(retryCache as string) as VehiclePositionResult;
+                }
+                
+                return {
+                    data: [],
+                    error: {
+                        message: "API call in progress, cached data unavailable",
+                        type: "LOCK_ERROR",
+                    },
+                };
+            }
 		try {
 			MetricsTracker.trackCacheMiss();
 			const response = await getVehiclePositions();
@@ -162,5 +188,23 @@ export const getCachedDbData = cache(
 		return { currentTrips, upcomingTrips } as ITripData;
 	},
 );
+
+export const getCachedShapesData = cache(
+	async (feedVersion:string, shapeId: string) => {
+		const cacheKey = `shape:${feedVersion}:${shapeId}`;
+		const cached = await redis.get(cacheKey);
+		if (cached) {
+			MetricsTracker.trackCacheHit();
+			return cached as IShapes[];
+		}
+
+		MetricsTracker.trackDbQuery();
+		const shapePoints = await selectShapesFromDatabase(shapeId);
+
+		await redis.set(cacheKey, shapePoints, { ex: DB_SHAPES_TTL });
+		MetricsTracker.trackRedisOperation();
+		return shapePoints;
+	}
+)
 
 MetricsTracker.enableLogging(false);
