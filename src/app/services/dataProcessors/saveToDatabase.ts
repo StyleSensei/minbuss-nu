@@ -16,6 +16,8 @@ import {
 	calendarDates,
 	calendarDatesInsertSchemaArray,
 } from "@/shared/db/schema/calendar_dates";
+import { IShapes } from "@/shared/models/IShapes";
+import { shapes, shapesInsertSchemaArray } from "@/shared/db/schema/shapes";
 
 const db = getDb();
 
@@ -36,7 +38,7 @@ const checkTripIdsExist = async (tripIds: string[]) => {
 };
 
 export const saveToDatabase = async (
-	data: IRoute[] | ITrip[] | IStop[] | IStopTime[] | ICalendarDates[],
+	data: IRoute[] | ITrip[] | IStop[] | IStopTime[] | ICalendarDates[] | IShapes[],
 	table: string,
 ) => {
 	let batchSize = 10000;
@@ -106,6 +108,18 @@ export const saveToDatabase = async (
 					.onConflictDoNothing();
 				console.log(
 					`saved batch ${i + 1} of ${totalBatches} from calendar_dates to database`,
+				);
+				break;
+			}
+			case "shapes": {
+				const shapesBatch = batch as IShapes[];
+				const shapesBatchParsed = shapesInsertSchemaArray.parse(shapesBatch);
+				await db
+					.insert(shapes)
+					.values(shapesBatchParsed)
+					.onConflictDoNothing();
+				console.log(
+					`saved batch ${i + 1} of ${totalBatches} from shapes to database`,
 				);
 				break;
 			}
