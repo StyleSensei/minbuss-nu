@@ -159,7 +159,7 @@ export const getCachedTripUpdates = cache(async () => {
 	return data;
 });
 
-export const getCachedDbData = 
+export const getCachedDbData = cache(
 	async (busLine: string, busStopName?: string, forceRefresh = false) => {
 		let currentTrips: IDbData[] = [];
 		let upcomingTrips: IDbData[] = [];
@@ -197,10 +197,10 @@ export const getCachedDbData =
 			MetricsTracker.trackRedisOperation();
 		}
 		return { currentTrips, upcomingTrips } as ITripData;
-	}
+	});
 
 
-export const getCachedShapesData = 
+export const getCachedShapesData = cache(
 	async (feedVersion:string, shapeId: string) => {
 		const cacheKey = `shape:${feedVersion}:${shapeId}`;
 		const cached = await redis.get(cacheKey);
@@ -216,6 +216,7 @@ export const getCachedShapesData =
 		MetricsTracker.trackRedisOperation();
 		return shapePoints;
 	}
+);
 
 
 MetricsTracker.enableLogging(false);
