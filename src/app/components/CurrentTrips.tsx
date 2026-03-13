@@ -8,6 +8,7 @@ import { MapPinned } from "lucide-react";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
 import { CurrentTripsLoader } from "./CurrentTripsLoader";
+import { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
@@ -24,7 +25,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 
 	const activeVehiclePositions = useMemo(
-		() => new Set(filteredVehicles.data.map((bus) => bus.trip.tripId)),
+		() => new Set(filteredVehicles.data.map((bus: IVehiclePosition) => bus.trip.tripId)),
 		[filteredVehicles.data],
 	);
 
