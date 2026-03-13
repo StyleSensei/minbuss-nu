@@ -2,7 +2,7 @@ import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
 import { table, zoomInIcon, zoomOutIcon, follow, myPosition } from "../../../public/icons";
 import colors from "../colors";
-import type { IVehicleFilterResult } from "../actions/filterVehicles";
+import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
 import { useDataContext } from "../context/DataContext";
 
 interface MapControlButtonsProps {

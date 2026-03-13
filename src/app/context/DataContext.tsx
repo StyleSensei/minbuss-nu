@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { IDbData } from "@shared/models/IDbData";
 import type { ITripUpdate } from "@shared/models/ITripUpdate";
-import type { IVehicleFilterResult } from "../actions/filterVehicles";
+import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
 import { useGeolocation, type IUser } from "../hooks/useUserPosition";
 
 export interface ITripData {
