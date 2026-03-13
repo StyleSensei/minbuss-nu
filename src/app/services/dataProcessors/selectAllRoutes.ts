@@ -3,7 +3,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { lineSelectSchema, routes } from "@shared/db/schema/routes";
-import { asc, desc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 if (!process.env.DATABASE_URL) {
@@ -13,11 +13,12 @@ if (!process.env.DATABASE_URL) {
 const queryClient = postgres(process.env.DATABASE_URL);
 const db = drizzle({ client: queryClient });
 
-export const selectAllroutes = async () => {
+export const selectAllroutes = async (feedVersion: string) => {
 	try {
 		const data = await db
 			.select({ line: routes.route_short_name })
 			.from(routes)
+			.where(eq(routes.feed_version, feedVersion))
 			.orderBy(asc(routes.route_id));
 
 		const parsed = z.array(lineSelectSchema).parse(data);
