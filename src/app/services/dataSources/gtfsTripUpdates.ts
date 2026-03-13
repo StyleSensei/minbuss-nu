@@ -7,7 +7,9 @@ import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 export const getTripUpdates = async (): Promise<ITripUpdate[]> => {
 	try {
 		const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/TripUpdates.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
-		const response = await get<ArrayBuffer>(url, "arraybuffer");
+		const response = await get<ArrayBuffer>(url, "arraybuffer", {
+			revalidateSeconds: 2,
+		});
 		MetricsTracker.trackApiCall();
 
 		const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(

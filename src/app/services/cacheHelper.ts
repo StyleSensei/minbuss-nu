@@ -37,15 +37,13 @@ interface DataTooOldError extends Error {
 
 const VEHICLE_POSITIONS_CACHE_KEY = "vehicle-positions-cache";
 const TRIP_UPDATES_CACHE_KEY = "trip-updates-cache";
-const DB_DATA_CACHE_KEY_PREFIX = "db-data-cache-";
+const TRIP_UPDATES_LOCK_KEY = "trip-updates-lock";
 
 // TTL i sekunder
-const REALTIME_TTL = 2;
-const DB_DATA_TTL = 5 * 60;
-const LOCK_TTL = 2;
+const REALTIME_TTL = 4;
+const LOCK_TTL = 4;
 const LOCK_RETRY_DELAY = 100;
 const LOCK_MAX_RETRIES = 10;
-const DB_SHAPES_TTL = 60 * 60 * 24 * 30; // 1 månad
 const VEHICLE_LOCK_KEY = "vehicle-positions-lock";
 
 export const getCachedVehiclePositions = cache(
@@ -152,70 +150,73 @@ export const getCachedTripUpdates = cache(async () => {
 		return cached as ITripUpdate[];
 	}
 
-	const data = await getTripUpdates();
+	const lockAcquired = await redis.set(TRIP_UPDATES_LOCK_KEY, "locked", {
+		nx: true,
+		ex: LOCK_TTL,
+	});
 
-	await redis.set(TRIP_UPDATES_CACHE_KEY, data, { ex: REALTIME_TTL });
-	MetricsTracker.trackRedisOperation();
-	return data;
+	if (!lockAcquired) {
+		return await waitForCachedTripUpdates();
+	}
+
+	try {
+		MetricsTracker.trackCacheMiss();
+		const data = await getTripUpdates();
+		await redis.set(TRIP_UPDATES_CACHE_KEY, data, { ex: REALTIME_TTL });
+		MetricsTracker.trackRedisOperation();
+		return data;
+	} catch (error) {
+		console.error("Error fetching trip updates:", error);
+		return [];
+	} finally {
+		await redis.del(TRIP_UPDATES_LOCK_KEY);
+	}
 });
 
+async function waitForCachedTripUpdates(): Promise<ITripUpdate[]> {
+	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
+		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
+
+		const cached = await redis.get(TRIP_UPDATES_CACHE_KEY);
+		if (cached) {
+			return cached as ITripUpdate[];
+		}
+	}
+
+	return [];
+}
+
+// DB data caching relies on Next.js revalidate + CDN cache
+// No Redis needed - React cache() handles per-request deduplication
 export const getCachedDbData = cache(
-	async (busLine: string, busStopName?: string, forceRefresh = false) => {
+	async (busLine: string, busStopName?: string) => {
 		let currentTrips: IDbData[] = [];
 		let upcomingTrips: IDbData[] = [];
 
 		if (busStopName) {
-			const cacheKey = `${DB_DATA_CACHE_KEY_PREFIX}${busLine}-${busStopName}`;
-			if (!forceRefresh) {
-				const cached = await redis.get(cacheKey);
-				if (cached) {
-					MetricsTracker.trackCacheHit();
-					return cached as ITripData;
-				}
-			}
-
 			MetricsTracker.trackDbQuery();
-
-			upcomingTrips = busStopName
-				? await selectUpcomingTripsFromDatabase(busLine, busStopName)
-				: [];
-
-			await redis.set(cacheKey, { upcomingTrips }, { ex: DB_DATA_TTL });
-			MetricsTracker.trackRedisOperation();
+			upcomingTrips = await selectUpcomingTripsFromDatabase(
+				busLine,
+				busStopName,
+			);
 		} else {
-			const cacheKey = `${DB_DATA_CACHE_KEY_PREFIX}${busLine}`;
-			if (!forceRefresh) {
-				const cached = await redis.get(cacheKey);
-				if (cached) {
-					MetricsTracker.trackCacheHit();
-					return cached as ITripData;
-				}
-			}
 			MetricsTracker.trackDbQuery();
 			currentTrips = await selectCurrentTripsFromDatabase(busLine);
-			await redis.set(cacheKey, { currentTrips }, { ex: DB_DATA_TTL });
-			MetricsTracker.trackRedisOperation();
 		}
+
 		return { currentTrips, upcomingTrips } as ITripData;
-	});
+	},
+);
 
 
+// Shapes caching relies on Next.js revalidate + CDN cache
+// No Redis needed - React cache() handles per-request deduplication
 export const getCachedShapesData = cache(
-	async (feedVersion:string, shapeId: string) => {
-		const cacheKey = `shape:${feedVersion}:${shapeId}`;
-		const cached = await redis.get(cacheKey);
-		if (cached) {
-			MetricsTracker.trackCacheHit();
-			return cached as IShapes[];
-		}
-
+	async (feedVersion: string, shapeId: string) => {
 		MetricsTracker.trackDbQuery();
 		const shapePoints = await selectShapesFromDatabase(shapeId);
-
-		await redis.set(cacheKey, shapePoints, { ex: DB_SHAPES_TTL });
-		MetricsTracker.trackRedisOperation();
 		return shapePoints;
-	}
+	},
 );
 
 

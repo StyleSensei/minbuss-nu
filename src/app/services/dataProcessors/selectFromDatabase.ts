@@ -4,13 +4,13 @@ import { eq, inArray, and, sql } from "drizzle-orm";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import type { IDbData } from "@shared/models/IDbData";
-import { getCurrentTripIds } from "@/app/actions/getCurrentTripIds";
 import { selectAllSchema } from "@shared/db/schema/selectAll";
 import { z } from "zod";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { calendarDates } from "@/shared/db/schema/calendar_dates";
 import { getDb } from "./db";
 import { DateTime } from "luxon";
+import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
 import {
 	calculateTimeFilter,
 	createMinutesFilter,
@@ -34,7 +34,10 @@ const latestFeedVersion = sql`(SELECT MAX(${trips.feed_version}) FROM trips)`;
 
 export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	MetricsTracker.trackDbQuery();
-	const { filteredTripIds } = await getCurrentTripIds();
+	const cachedVehiclePositions = await getCachedVehiclePositions();
+	const filteredTripIds = cachedVehiclePositions.data
+		.map((vehicle) => vehicle?.trip?.tripId)
+		.filter((tripId): tripId is string => typeof tripId === "string");
 
 	try {
 		const data = await db
@@ -163,18 +166,29 @@ export const selectShapesFromDatabase = async (shapeId: string) => {
 	MetricsTracker.trackDbQuery();
 	try {
 		const shapePoints = await db
-  .select({
-    shape_pt_lat: shapes.shape_pt_lat,
-    shape_pt_lon: shapes.shape_pt_lon,
-    shape_pt_sequence: shapes.shape_pt_sequence,
-    shape_dist_traveled: shapes.shape_dist_traveled,
-  })
-  .from(shapes)
-  .where(eq(shapes.shape_id, shapeId))
-  .orderBy(shapes.shape_pt_sequence);
-		return shapePoints;
+			.select({
+				shape_id: shapes.shape_id,
+				shape_pt_lat: shapes.shape_pt_lat,
+				shape_pt_lon: shapes.shape_pt_lon,
+				shape_pt_sequence: shapes.shape_pt_sequence,
+				shape_dist_traveled: shapes.shape_dist_traveled,
+			})
+			.from(shapes)
+			.where(eq(shapes.shape_id, shapeId))
+			.orderBy(shapes.shape_pt_sequence);
+
+		// Convert numeric strings to numbers (PostgreSQL numeric() returns strings)
+		return shapePoints.map((point) => ({
+			shape_id: point.shape_id,
+			shape_pt_lat: Number(point.shape_pt_lat),
+			shape_pt_lon: Number(point.shape_pt_lon),
+			shape_pt_sequence: point.shape_pt_sequence,
+			shape_dist_traveled: point.shape_dist_traveled
+				? Number(point.shape_dist_traveled)
+				: undefined,
+		}));
 	} catch (error) {
 		console.log(error);
 		return [];
 	}
-}
+};
