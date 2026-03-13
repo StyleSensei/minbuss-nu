@@ -184,4 +184,4 @@ export const saveToDatabase = async (
 				console.log("Unknown data type");
 		}
 	}
-};
+}

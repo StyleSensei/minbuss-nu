@@ -11,6 +11,7 @@ import {
 	type MutableRefObject,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -22,6 +23,9 @@ import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useSetZoom } from "../hooks/useSetZoom";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
+import { useRtTimeline } from "../hooks/useRtTimeline";
+import { snapToShapeInitial } from "../utilities/snapToShape";
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -67,9 +71,51 @@ export default function CustomMarker({
 	const zoomRef = useRef<number>(8);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
+	const lastShapeIndexRef = useRef<number | null>(null);
+	const [markerReady, setMarkerReady] = useState(false);
+
+	const shapePoints = currentVehicle.shapePoints ?? [];
+	const vehiclePosition = {
+		lat: position.lat,
+		lng: position.lng,
+	};
+
+	// Synkron initial position vid första paint när shape finns – undvik att visa fordonsposition först.
+	const initialSnapPosition =
+		shapePoints.length >= 2
+			? snapToShapeInitial(vehiclePosition, shapePoints)
+			: null;
+	const positionForMarker =
+		marker?.position ??
+		(initialSnapPosition
+			? { lat: initialSnapPosition.lat, lng: initialSnapPosition.lng }
+			: vehiclePosition);
+
+	const onSnapped = useCallback(() => setMarkerReady(true), []);
+
+	useLayoutEffect(() => {
+		lastShapeIndexRef.current = null;
+		setMarkerReady(false);
+	}, [currentVehicle?.vehicle?.id]);
+
+	useInitialShapeSnap({
+		marker,
+		shapePoints,
+		vehiclePosition,
+		lastIndexRef: lastShapeIndexRef,
+		onSnapped,
+	});
+
+	useRtTimeline({
+		marker,
+		vehiclePosition,
+		shapePoints,
+		duration: 10,
+		initialLastIndexRef: lastShapeIndexRef,
+	});
 
 	useGSAP(() => {
-		if (marker) {
+		if (marker && !currentVehicle.shapePoints?.length) {
 			if (markerAnimationRef.current) {
 				markerAnimationRef.current.kill();
 			}
@@ -79,8 +125,8 @@ export default function CustomMarker({
 				: position;
 
 			markerAnimationRef.current = gsap.to(currentPosition, {
-				duration: 3,
-				ease: "linear",
+				duration: 10,
+				ease: "easeInOut",
 				lat: position.lat,
 				lng: position.lng,
 				overwrite: "auto",
@@ -102,7 +148,7 @@ export default function CustomMarker({
 				markerAnimationRef.current = null;
 			}
 		};
-	}, [position, marker]);
+	}, [position, marker, currentVehicle.shapePoints]);
 
 	const findClosestOrNextStop = useCallback(() => {
 		if (!currentBus) return null;
@@ -163,25 +209,24 @@ export default function CustomMarker({
 	};
 
 	useGSAP(() => {
-		if (marker && followBus && isActive) {
+		if (marker && followBus && isActive && googleMapRef.current) {
 			if (followAnimationRef.current) {
 				followAnimationRef.current.kill();
 			}
 
-			const currentPosition = marker.position
-				? { lat: marker.position.lat, lng: marker.position.lng }
-				: position;
-
-			followAnimationRef.current = gsap.to(currentPosition, {
-				duration: 3,
-				ease: "linear",
-				lat: position.lat,
-				lng: position.lng,
-				overwrite: "auto",
+			// Följ markörens faktiska position varje frame (markören rör sig längs shape),
+			// istället för att tweena mot API-position och starta om vid varje poll → jämn kamerarörelse.
+			const proxy = { _: 0 };
+			followAnimationRef.current = gsap.to(proxy, {
+				_: 1,
+				duration: 99999,
+				ease: "none",
 				onUpdate: () => {
-					googleMapRef.current?.setCenter(
-						new google.maps.LatLng(+currentPosition.lat, +currentPosition.lng),
-					);
+					if (marker?.position && googleMapRef.current) {
+						const lat = typeof marker.position.lat === "function" ? marker.position.lat() : marker.position.lat;
+						const lng = typeof marker.position.lng === "function" ? marker.position.lng() : marker.position.lng;
+						googleMapRef.current.setCenter(new google.maps.LatLng(+lat, +lng));
+					}
 				},
 			});
 		}
@@ -192,7 +237,7 @@ export default function CustomMarker({
 				followAnimationRef.current = null;
 			}
 		};
-	}, [position, marker, isActive, followBus, googleMapRef]);
+	}, [marker, isActive, followBus, googleMapRef]);
 
 	useEffect(() => {
 		if (!followBus && followAnimationRef.current) {
@@ -305,9 +350,9 @@ export default function CustomMarker({
 		<>
 			<AdvancedMarker
 				ref={markerRef}
-				position={marker?.position}
+				position={positionForMarker}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				className="marker-wrapper"
+				className={`marker-wrapper ${markerReady || shapePoints.length < 2 ? "" : "marker-hidden"}`}
 				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 			>
