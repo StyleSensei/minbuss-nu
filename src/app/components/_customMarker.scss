@@ -12,6 +12,10 @@ $userColor: rgb(0, 149, 255);
     width: $wrapper-size;
     height: $wrapper-size;
     cursor: pointer;
+
+    &.marker-hidden {
+        visibility: hidden;
+    }
 }
 
 .custom-marker {

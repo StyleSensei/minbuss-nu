@@ -11,24 +11,84 @@ import {
 import { Icon } from "./Icon";
 import Form from "next/form";
 import {
-	getFilteredVehiclePositions,
-	type IVehicleFilterResult,
-	type VehicleError,
-} from "../actions/filterVehicles";
-import { getFilteredTripUpdates } from "../actions/filterTripUpdates";
+	type IVehicleFilterResult
+} from "@shared/models/IVehiclePosition";
 import { useDataContext } from "../context/DataContext";
-import { getAllRoutes } from "../actions/getAllRoutes";
 import { debounce } from "../utilities/debounce";
 import colors from "../colors";
-import { type ResponseWithData, usePoll } from "../hooks/usePoll";
-import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
+import {
+	type ResponseWithData,
+	usePolling,
+} from "../hooks/usePolling";
 import SearchError from "./SearchError";
 import { alphabet } from "../../../public/icons";
-import { fetchCachedDbData } from "../actions/fetchCachedDbData";
 import type { ITripUpdate } from "@/shared/models/ITripUpdate";
 import type { IError } from "../services/cacheHelper";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Paths } from "../paths";
+import type { ITripData } from "../context/DataContext";
+
+async function fetchJsonOrThrow<T>(url: string, init?: RequestInit): Promise<T> {
+	const res = await fetch(url, init);
+	if (!res.ok) {
+		throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as T;
+}
+
+async function fetchAllRoutes() {
+	return await fetchJsonOrThrow<{
+		asObject: Record<string, boolean>;
+		asArray: string[];
+	}>("/api/routes");
+}
+
+async function fetchVehicles(busline: string): Promise<IVehicleFilterResult> {
+	return await fetchJsonOrThrow<IVehicleFilterResult>(
+		`/api/vehicles/${encodeURIComponent(busline)}`,
+	);
+}
+
+async function fetchTripUpdates(
+	busline: string,
+): Promise<ResponseWithData<ITripUpdate, IError>> {
+	return await fetchJsonOrThrow<ResponseWithData<ITripUpdate, IError>>(
+		`/api/trip-updates/${encodeURIComponent(busline)}`,
+	);
+}
+
+async function fetchDbData(
+	busLine: string,
+	stopName?: string,
+): Promise<ITripData> {
+	const qs = stopName ? `?stopName=${encodeURIComponent(stopName)}` : "";
+	if (!busLine) {
+		return { currentTrips: [], upcomingTrips: [] };
+	}
+	return await fetchJsonOrThrow<ITripData>(
+		`/api/db-data/${encodeURIComponent(busLine)}${qs}`,
+	);
+}
+
+async function fetchVehiclesForPolling(
+	query: string,
+	signal?: AbortSignal,
+): Promise<IVehicleFilterResult> {
+	const res = await fetch(`/api/vehicles/${encodeURIComponent(query)}`, {
+		signal,
+	});
+	if (!res.ok) {
+		throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as IVehicleFilterResult;
+}
+
+async function fetchTripUpdatesForPolling(
+	query: string,
+	_signal?: AbortSignal,
+): Promise<ResponseWithData<ITripUpdate, IError>> {
+	return fetchTripUpdates(query);
+}
 
 interface SearchBarProps {
 	iconSize: string;
@@ -56,6 +116,7 @@ export const SearchBar = ({
 		asArray: string[];
 	}>({ asObject: {}, asArray: [] });
 	const [routeExists, setRouteExists] = useState<boolean>(false);
+	const [routesLoaded, setRoutesLoaded] = useState<boolean>(false);
 	const [proposedRoute, setProposedRoute] = useState<string | undefined>("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
@@ -68,6 +129,9 @@ export const SearchBar = ({
 	const [isBlurring, setIsBlurring] = useState(false);
 	const router = useRouter();
 
+	const hasFetchedBaseDbDataRef = useRef(false);
+	const hasFetchedStopSpecificDbDataRef = useRef(false);
+
 	const {
 		setFilteredVehicles,
 		filteredVehicles,
@@ -75,7 +139,9 @@ export const SearchBar = ({
 		setFilteredTripUpdates,
 		setIsLoading,
 		isLoading,
+		userPosition
 	} = useDataContext();
+
 
 	const checkIfRouteExists = useCallback(
 		(route: string) => {
@@ -85,18 +151,30 @@ export const SearchBar = ({
 		},
 		[allRoutes],
 	);
+	useEffect(() => {
+		if (!allRoutes.asArray.length) {
+			(async () => {
+				const routes = await fetchAllRoutes();
+				setAllRoutes(routes);
+				setRoutesLoaded(true);
+			})();
+		}
+	});
 
-	const { userPosition } = useDataContext();
+	const handleOnChangeRef = useRef<((query: string) => void) | null>(null);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: < didn't work without >
-	const handleOnChange = useCallback(
-		debounce(async (query: string) => {
+	useEffect(() => {
+		if (!routesLoaded) return;
+		handleOnChangeRef.current = debounce(async (query: string) => {
 			try {
 				setIsLoading(true);
-				const routeExists = checkIfRouteExists(query);
-				if (!routeExists) setIsLoading(false);
+				const exists = checkIfRouteExists(query);
+				if (!exists) {
+					setIsLoading(false);
+					return;
+				}
 
-				const result = await getFilteredVehiclePositions(query);
+				const result = await fetchVehicles(query);
 				setFilteredVehicles({ data: result.data, error: result.error });
 
 				if (result.error) {
@@ -125,40 +203,49 @@ export const SearchBar = ({
 				console.error("Error fetching vehicle positions:", error);
 			} finally {
 				setIsLoading(false);
-				setShowError(true); 
+				setShowError(true);
 			}
-		}, 500),
-		[checkIfRouteExists, setIsLoading],
-	);
+		}, 500);
+	}, [checkIfRouteExists, setFilteredVehicles, setIsLoading]);
 
-	const { pollOnInterval: pollBusPositionsEveryTwoSeconds, stopPolling } =
-		usePoll<IVehiclePosition, VehicleError>(
-			(response: IVehicleFilterResult) =>
-				setFilteredVehicles({ data: response.data, error: response.error }),
-			getFilteredVehiclePositions,
-			2000,
+	const { startPolling: pollVehiclePositions, stopPolling: stopVehiclePolling } =
+		usePolling<IVehicleFilterResult>(
+			fetchVehiclesForPolling,
+			setFilteredVehicles,
+			4000,
+			{
+				onError: () =>
+					setFilteredVehicles({
+						data: [],
+						error: { type: "OTHER", message: "Polling failed" },
+					}),
+			},
 		);
 
-	const { pollOnInterval: pollTripUpdates, stopPolling: stopPollingUpdates } =
-		usePoll<ITripUpdate, IError>(
-			(response: ResponseWithData<ITripUpdate, IError>) => {
+	const { startPolling: pollTripUpdates, stopPolling: stopPollingUpdates } =
+		usePolling<ResponseWithData<ITripUpdate, IError>>(
+			fetchTripUpdatesForPolling,
+			(response) => {
 				if (response?.data) {
 					setFilteredTripUpdates(response.data);
 				}
 			},
-			getFilteredTripUpdates,
 			20000,
 		);
 
 	const handleCachedDbData = useCallback(async () => {
-		const { currentTrips, upcomingTrips: initialUpcomingTrips } =
-			await fetchCachedDbData(userInput);
-
-		setTripData({ currentTrips, upcomingTrips: initialUpcomingTrips || [] });
-
 		const closestStopName = userPosition?.closestStop?.stop_name;
-		if (closestStopName) {
-			const { upcomingTrips } = await fetchCachedDbData(
+
+		if (!hasFetchedBaseDbDataRef.current && userInput) {
+			const { currentTrips, upcomingTrips: initialUpcomingTrips } =
+				await fetchDbData(userInput);
+
+			setTripData({ currentTrips, upcomingTrips: initialUpcomingTrips || [] });
+			hasFetchedBaseDbDataRef.current = true;
+		}
+
+		if (closestStopName && userInput && !hasFetchedStopSpecificDbDataRef.current) {
+			const { upcomingTrips } = await fetchDbData(
 				userInput,
 				closestStopName,
 			);
@@ -168,9 +255,21 @@ export const SearchBar = ({
 					...prev,
 					upcomingTrips,
 				}));
+				hasFetchedStopSpecificDbDataRef.current = true;
 			}
 		}
-	}, [userInput, setTripData, userPosition?.closestStop?.stop_name]);
+	}, [
+		userInput,
+		setTripData,
+		userPosition?.closestStop?.stop_name,
+		hasFetchedBaseDbDataRef,
+		hasFetchedStopSpecificDbDataRef,
+	]);
+
+	useEffect(() => {
+		hasFetchedBaseDbDataRef.current = false;
+		hasFetchedStopSpecificDbDataRef.current = false;
+	}, [userInput]);
 
 	const findClosestRoute = useCallback(
 		(query: string) => {
@@ -185,14 +284,7 @@ export const SearchBar = ({
 		[allRoutes, routeExists],
 	);
 
-	useEffect(() => {
-		if (!allRoutes.asArray.length) {
-			(async () => {
-				const routes = await getAllRoutes();
-				setAllRoutes(routes);
-			})();
-		}
-	});
+
 
 	const isTripUpdatesPollingActive = useRef(false);
 
@@ -210,14 +302,14 @@ export const SearchBar = ({
 			return;
 		}
 		if (userInput && filteredVehicles?.data.length > 0) {
-			pollBusPositionsEveryTwoSeconds(userInput);
+			pollVehiclePositions(userInput);
 
 			if (!isTripUpdatesPollingActive.current) {
 				isTripUpdatesPollingActive.current = true;
 
 				(async () => {
 					try {
-						const response = await getFilteredTripUpdates(userInput);
+						const response = await fetchTripUpdates(userInput);
 						if (response?.data) {
 							setFilteredTripUpdates(response.data);
 						}
@@ -231,7 +323,7 @@ export const SearchBar = ({
 		}
 
 		return () => {
-			stopPolling();
+			stopVehiclePolling();
 
 			if (isTripUpdatesPollingActive.current) {
 				stopPollingUpdates();
@@ -251,15 +343,16 @@ export const SearchBar = ({
 	]);
 
 	useEffect(() => {
+		if (!routesLoaded) return;
 		const urlQuery = searchParams.get("linje");
 		if (urlQuery && urlQuery === userInput && userInput.length > 0) {
 			try {
-				handleOnChange(urlQuery);
+				handleOnChangeRef.current?.(urlQuery);
 			} catch (error) {
 				console.error("Error handling URL query:", error);
 			}
 		}
-	}, [searchParams, userInput, handleOnChange]);
+	}, [searchParams, userInput, routesLoaded]);
 
 	const handleKeyDown = (event: KeyboardEvent) => {
 		if (
@@ -346,8 +439,9 @@ export const SearchBar = ({
 						className={`search-bar__input ${isLoading ? "loading" : ""}`}
 						autoComplete="off"
 						onChange={(e) => {
-							setUserInput(e.target.value.toUpperCase().trim());
-							handleOnChange(e.target.value.toUpperCase().trim());
+							const value = e.target.value.toUpperCase().trim();
+							setUserInput(value);
+							handleOnChangeRef.current?.(value);
 							setShowError(false); 
 						}}
 						value={userInput}

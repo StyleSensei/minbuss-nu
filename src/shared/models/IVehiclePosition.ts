@@ -1,3 +1,4 @@
+import { VehicleError } from "./IError";
 import { IShapes } from "./IShapes";
 
 export interface IVehiclePosition {
@@ -16,4 +17,9 @@ export interface IVehiclePosition {
 		id: string;
 	};
 	shapePoints?: IShapes[];
+}
+
+export interface IVehicleFilterResult {
+	data: IVehiclePosition[];
+	error?: VehicleError;
 }
