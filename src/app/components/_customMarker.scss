@@ -41,6 +41,37 @@ $userColor: rgb(0, 149, 255);
     }
 }
 
+.line-destination-container {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translate(0%, -100%);
+    width: fit-content;
+    height: fit-content;
+    background: v.$primary-color;
+    padding: 2px 4px;
+    border-radius: 10px;
+    border: 1px solid v.$tertiary-color;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.3s v.$bounce;
+    opacity: 0;
+
+    &.--visible {
+        opacity: 1;
+        transform: translate(35%, -75%);
+    }
+}
+
+.line-text {
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+}
+
 .user-location {
     @extend .custom-marker;
     height: $userSize;

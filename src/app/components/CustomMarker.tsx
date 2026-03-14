@@ -61,6 +61,11 @@ export default function CustomMarker({
 	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
 		currentVehicle,
 	);
+	const [currentLine, setCurrentLine] = useState<string | undefined>(undefined);
+	const [currentDestination, setCurrentDestination] = useState<string | undefined>(undefined);
+
+
+
 	const { filteredVehicles, tripData } = useDataContext();
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
@@ -69,6 +74,8 @@ export default function CustomMarker({
 	const setZoom = useSetZoom();
 	const isMobile = useIsMobile();
 	const zoomRef = useRef<number>(8);
+	const [hideDestinationForZoom, setHideDestinationForZoom] = useState(false);
+	const hideDestinationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const lastShapeIndexRef = useRef<number | null>(null);
@@ -92,6 +99,16 @@ export default function CustomMarker({
 			: vehiclePosition);
 
 	const onSnapped = useCallback(() => setMarkerReady(true), []);
+
+	useEffect(() => {
+		if (currentBus?.trip?.tripId) {
+			const trip = tripData.currentTrips.find((trip) => trip.trip_id === currentBus.trip.tripId);
+			if (trip) {
+				setCurrentLine(trip.route_short_name);
+				setCurrentDestination(trip.stop_headsign);
+			}
+		}
+	}, [currentBus?.trip?.tripId, tripData.currentTrips, setCurrentLine, setCurrentDestination]);
 
 	useLayoutEffect(() => {
 		lastShapeIndexRef.current = null;
@@ -214,8 +231,6 @@ export default function CustomMarker({
 				followAnimationRef.current.kill();
 			}
 
-			// Följ markörens faktiska position varje frame (markören rör sig längs shape),
-			// istället för att tweena mot API-position och starta om vid varje poll → jämn kamerarörelse.
 			const proxy = { _: 0 };
 			followAnimationRef.current = gsap.to(proxy, {
 				_: 1,
@@ -325,11 +340,22 @@ export default function CustomMarker({
 						const newZoom = googleMapRef.current?.getZoom() || 8;
 						if (newZoom !== zoomRef.current) {
 							zoomRef.current = newZoom;
+							setHideDestinationForZoom(true);
+							if (hideDestinationTimeoutRef.current) {
+								clearTimeout(hideDestinationTimeoutRef.current);
+							}
+							hideDestinationTimeoutRef.current = setTimeout(() => {
+								setHideDestinationForZoom(false);
+								hideDestinationTimeoutRef.current = null;
+							}, 400);
 						}
 					},
 				);
 
 				return () => {
+					if (hideDestinationTimeoutRef.current) {
+						clearTimeout(hideDestinationTimeoutRef.current);
+					}
 					if (listener) {
 						google.maps.event.removeListener(listener);
 					}
@@ -345,6 +371,7 @@ export default function CustomMarker({
 	const markerTitle = matchingStop
 		? `${matchingStop.route_short_name || "Okänd linje"},${matchingStop.stop_headsign || "Okänd destination"}`
 		: "Fordon";
+
 
 	return (
 		<>
@@ -367,6 +394,9 @@ export default function CustomMarker({
 							: undefined
 					}
 				/>
+				<div className={`line-destination-container ${zoomRef.current >= 13 && !hideDestinationForZoom ? "--visible" : ""}`}>
+					<span className='line-text' style={{ fontSize: zoomRef.current * 0.8 }}>{currentLine ? `${currentLine}, ` : ""}{currentDestination}</span>
+				</div>
 			</AdvancedMarker>
 			{isActive && (
 				<InfoWindow
