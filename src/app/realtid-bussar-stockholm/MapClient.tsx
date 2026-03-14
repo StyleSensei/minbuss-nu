@@ -15,12 +15,14 @@ import {
 
 import { useDataContext } from "../context/DataContext";
 import { MapControlButtons } from "../components/MapControlButtons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { IShapes } from "@shared/models/IShapes";
 import type { IDbData } from "@shared/models/IDbData";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { CurrentTrips } from "../components/CurrentTrips";
 import UserMessage from "../components/UserMessage";
 import VehicleMarkers from "../components/VehicleMarkers";
+import RouteShapePolyline from "../components/RouteShapePolyline";
 
 export default function MapClient() {
 	const { filteredVehicles, tripData, userPosition, setUserPosition } =
@@ -152,6 +154,32 @@ export default function MapClient() {
 		};
 	}, [getWindowZoomLevel]);
 
+	// Unika shapes för vald linje – cachad så att nya positioner inte ger nya referenser och ritar om rutten
+	const routeShapesCacheRef = useRef<Map<string, IShapes[]>>(new Map());
+	const routeShapes = useMemo(() => {
+		const seen = new Set<string>();
+		const shapes: { shape_id: string; points: IShapes[] }[] = [];
+		for (const v of filteredVehicles.data) {
+			if (!v.shapePoints?.length) continue;
+			const id = v.shapePoints[0].shape_id;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			const points = v.shapePoints;
+			const cached = routeShapesCacheRef.current.get(id);
+			const sameShape =
+				cached &&
+				cached.length === points.length &&
+				cached[0].shape_pt_lat === points[0].shape_pt_lat &&
+				cached[0].shape_pt_lon === points[0].shape_pt_lon &&
+				cached[cached.length - 1].shape_pt_lat === points[points.length - 1].shape_pt_lat &&
+				cached[cached.length - 1].shape_pt_lon === points[points.length - 1].shape_pt_lon;
+			const toUse = sameShape ? cached : points;
+			if (!sameShape) routeShapesCacheRef.current.set(id, points);
+			shapes.push({ shape_id: id, points: toUse });
+		}
+		return shapes;
+	}, [filteredVehicles.data]);
+
 	return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
@@ -212,7 +240,21 @@ export default function MapClient() {
 						activeMarkerId={activeMarkerId}
 						setActiveMarkerId={setActiveMarkerId}
 						showCurrentTrips={showCurrentTrips}
-					/>{" "}
+					/>
+					{mapReady &&
+						routeShapes.map(
+							(s) =>
+								s.points && (
+									<RouteShapePolyline
+										key={s.shape_id}
+										googleMapRef={mapRef}
+										shapePoints={s.points}
+										mapReady={mapReady}
+										animateReveal
+										animationDuration={1.8}
+									/>
+								),
+						)}
 					{showCurrentTrips &&
 						userPosition &&
 						filteredVehicles.data.length > 0 && (
