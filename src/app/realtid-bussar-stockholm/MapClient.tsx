@@ -210,9 +210,7 @@ export default function MapClient() {
 				>
 					<MapControl
 						position={
-							zoomWindowLevel > 100
-								? ControlPosition.INLINE_END_BLOCK_CENTER
-								: ControlPosition.INLINE_END_BLOCK_START
+								ControlPosition.INLINE_END_BLOCK_CENTER
 						}
 					>
 						<MapControlButtons

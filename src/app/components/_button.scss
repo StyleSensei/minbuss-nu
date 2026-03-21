@@ -73,13 +73,13 @@ $buttonHeightDesktop: 6vh;
     }
 
     &.--zoom {
-        padding: 1rem;
+        padding: 0.8rem;
         font-size: 1.5rem;
         font-weight: 700;
         transition: all .3s ease-in-out;
         background-color: v.$primary-color;
         color: v.$secondary-color;
-        border-radius: 20px;
+        border-radius: 44%;
         width: fit-content;
 
         @include m.desktop {
@@ -120,13 +120,16 @@ $buttonHeightDesktop: 6vh;
 }
 
 .map-control-buttons {
-    padding: 1vh;
     display: flex;
     flex-direction: column;
     border-radius: calc(20px + .5rem);
     gap: 1rem;
     opacity: 90%;
     @include m.backdropFilter;
+
+    @include m.desktop {
+        padding: 1vh;
+    }
 }
 
 .zoom-buttons {

@@ -52,7 +52,7 @@ $containerWidth: 278px;
             color: v.$secondary-color;
             border: none;
             border-radius: inherit;
-            padding: 1rem;
+            padding: 0.8rem;
             font-size: 1rem;
             font-weight: 700;
             display: flex;
@@ -60,7 +60,6 @@ $containerWidth: 278px;
             transition: all .3s ease;
             max-width: 40vw;
             max-height: 18vw;
-            height: v.$input-height;
 
             &::placeholder {
                 color: v.$tertiary-color;
