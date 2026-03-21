@@ -12,6 +12,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -26,6 +27,15 @@ import { useIsMobile } from "../hooks/useIsMobile";
 import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
 import { useRtTimeline } from "../hooks/useRtTimeline";
 import { snapToShapeInitial } from "../utilities/snapToShape";
+
+function findTripForVehicle(
+	trips: IDbData[],
+	tripId: string | null | undefined,
+): IDbData | undefined {
+	if (!tripId || !trips?.length) return undefined;
+	const normalized = String(tripId).trim();
+	return trips.find((t) => String(t.trip_id).trim() === normalized);
+}
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -61,10 +71,6 @@ export default function CustomMarker({
 	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
 		currentVehicle,
 	);
-	const [currentLine, setCurrentLine] = useState<string | undefined>(undefined);
-	const [currentDestination, setCurrentDestination] = useState<string | undefined>(undefined);
-
-
 
 	const { filteredVehicles, tripData } = useDataContext();
 	const [infoWindowActive, setInfoWindowActive] = useState(
@@ -101,14 +107,17 @@ export default function CustomMarker({
 	const onSnapped = useCallback(() => setMarkerReady(true), []);
 
 	useEffect(() => {
-		if (currentBus?.trip?.tripId) {
-			const trip = tripData.currentTrips.find((trip) => trip.trip_id === currentBus.trip.tripId);
-			if (trip) {
-				setCurrentLine(trip.route_short_name);
-				setCurrentDestination(trip.stop_headsign);
-			}
-		}
-	}, [currentBus?.trip?.tripId, tripData.currentTrips, setCurrentLine, setCurrentDestination]);
+		setCurrentBus(currentVehicle);
+	}, [currentVehicle]);
+
+	const tripForMarker = useMemo(
+		() =>
+			findTripForVehicle(tripData.currentTrips, currentVehicle?.trip?.tripId),
+		[currentVehicle?.trip?.tripId, tripData.currentTrips],
+	);
+
+	const currentLine = tripForMarker?.route_short_name;
+	const currentDestination = tripForMarker?.stop_headsign;
 
 	useLayoutEffect(() => {
 		lastShapeIndexRef.current = null;
@@ -127,7 +136,7 @@ export default function CustomMarker({
 		marker,
 		vehiclePosition,
 		shapePoints,
-		duration: 10,
+		duration: 8,
 		initialLastIndexRef: lastShapeIndexRef,
 	});
 
@@ -142,7 +151,7 @@ export default function CustomMarker({
 				: position;
 
 			markerAnimationRef.current = gsap.to(currentPosition, {
-				duration: 10,
+				duration: 8,
 				ease: "easeInOut",
 				lat: position.lat,
 				lng: position.lng,
@@ -201,18 +210,6 @@ export default function CustomMarker({
 			nextStop,
 		};
 	}, [tripData.currentTrips, currentBus, checkIfFurtherFromStop]);
-
-	const findCurrentBus = useCallback(() => {
-		if (!infoWindowActive || !marker?.position) return;
-		const markerLat = +marker.position.lat;
-		const markerLng = +marker.position.lng;
-		const closestBus = getClosest(
-			filteredVehicles.data,
-			markerLat,
-			markerLng,
-		) as IVehiclePosition;
-		return closestBus as IVehiclePosition;
-	}, [filteredVehicles, infoWindowActive, marker]);
 
 	const handleOnClick = () => {
 		if (followBus) return;
@@ -314,15 +311,6 @@ export default function CustomMarker({
 	}, [clickedOutside, setFollowBus, onActivateMarker]);
 
 	useEffect(() => {
-		if (filteredVehicles.data.length === 0 || !infoWindowActive) return;
-		const updatedBus = findCurrentBus();
-		if (updatedBus && updatedBus.vehicle.id === currentBus?.vehicle.id) {
-			setCurrentBus(updatedBus);
-			return;
-		}
-	}, [filteredVehicles, findCurrentBus, infoWindowActive, currentBus]);
-
-	useEffect(() => {
 		if (!currentBus || !infoWindowActive) return;
 		const closestOrNextStop = findClosestOrNextStop();
 		if (closestOrNextStop?.closestStop) {
@@ -364,12 +352,8 @@ export default function CustomMarker({
 		}
 	}, [filteredVehicles, googleMapRef]);
 
-	const matchingStop = tripData.currentTrips.find(
-		(stop) => stop.trip_id === currentVehicle?.trip?.tripId,
-	);
-
-	const markerTitle = matchingStop
-		? `${matchingStop.route_short_name || "Okänd linje"},${matchingStop.stop_headsign || "Okänd destination"}`
+	const markerTitle = tripForMarker
+		? `${tripForMarker.route_short_name || "Okänd linje"},${tripForMarker.stop_headsign || "Okänd destination"}`
 		: "Fordon";
 
 

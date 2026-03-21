@@ -129,8 +129,10 @@ export const SearchBar = ({
 	const [isBlurring, setIsBlurring] = useState(false);
 	const router = useRouter();
 
-	const hasFetchedBaseDbDataRef = useRef(false);
-	const hasFetchedStopSpecificDbDataRef = useRef(false);
+	const lineSelectionGenerationRef = useRef(0);
+	const tripDataFetchedForLineRef = useRef<string>("");
+	const stopSpecificTripDataKeyRef = useRef<string>("");
+	const latestVehicleLineRef = useRef(userInput);
 
 	const {
 		setFilteredVehicles,
@@ -175,6 +177,9 @@ export const SearchBar = ({
 				}
 
 				const result = await fetchVehicles(query);
+				if (query !== latestVehicleLineRef.current) {
+					return;
+				}
 				setFilteredVehicles({ data: result.data, error: result.error });
 
 				if (result.error) {
@@ -235,40 +240,73 @@ export const SearchBar = ({
 
 	const handleCachedDbData = useCallback(async () => {
 		const closestStopName = userPosition?.closestStop?.stop_name;
+		const lineAtStart = userInput.trim();
 
-		if (!hasFetchedBaseDbDataRef.current && userInput) {
-			const { currentTrips, upcomingTrips: initialUpcomingTrips } =
-				await fetchDbData(userInput);
+		if (
+			lineAtStart &&
+			tripDataFetchedForLineRef.current !== lineAtStart
+		) {
+			const genWhenFetchStarted = lineSelectionGenerationRef.current;
+			tripDataFetchedForLineRef.current = lineAtStart;
+			try {
+				const { currentTrips, upcomingTrips: initialUpcomingTrips } =
+					await fetchDbData(lineAtStart);
 
-			setTripData({ currentTrips, upcomingTrips: initialUpcomingTrips || [] });
-			hasFetchedBaseDbDataRef.current = true;
-		}
-
-		if (closestStopName && userInput && !hasFetchedStopSpecificDbDataRef.current) {
-			const { upcomingTrips } = await fetchDbData(
-				userInput,
-				closestStopName,
-			);
-
-			if (upcomingTrips && upcomingTrips.length > 0) {
-				setTripData((prev) => ({
-					...prev,
-					upcomingTrips,
-				}));
-				hasFetchedStopSpecificDbDataRef.current = true;
+				if (genWhenFetchStarted !== lineSelectionGenerationRef.current) {
+					tripDataFetchedForLineRef.current = "";
+					return;
+				}
+				if (userInput.trim() !== lineAtStart) {
+					tripDataFetchedForLineRef.current = "";
+					return;
+				}
+				setTripData({
+					currentTrips,
+					upcomingTrips: initialUpcomingTrips || [],
+				});
+			} catch {
+				tripDataFetchedForLineRef.current = "";
 			}
 		}
-	}, [
-		userInput,
-		setTripData,
-		userPosition?.closestStop?.stop_name,
-		hasFetchedBaseDbDataRef,
-		hasFetchedStopSpecificDbDataRef,
-	]);
+
+		const stopKey =
+			closestStopName && lineAtStart
+				? `${lineAtStart}|${closestStopName}`
+				: "";
+		if (
+			stopKey &&
+			stopSpecificTripDataKeyRef.current !== stopKey
+		) {
+			const genWhenStopFetchStarted = lineSelectionGenerationRef.current;
+			try {
+				const { upcomingTrips } = await fetchDbData(
+					lineAtStart,
+					closestStopName,
+				);
+
+				if (genWhenStopFetchStarted !== lineSelectionGenerationRef.current) {
+					return;
+				}
+				if (userInput.trim() !== lineAtStart) {
+					return;
+				}
+				if (upcomingTrips && upcomingTrips.length > 0) {
+					setTripData((prev) => ({
+						...prev,
+						upcomingTrips,
+					}));
+					stopSpecificTripDataKeyRef.current = stopKey;
+				}
+			} catch {
+			}
+		}
+	}, [userInput, setTripData, userPosition?.closestStop?.stop_name]);
 
 	useEffect(() => {
-		hasFetchedBaseDbDataRef.current = false;
-		hasFetchedStopSpecificDbDataRef.current = false;
+		lineSelectionGenerationRef.current += 1;
+		latestVehicleLineRef.current = userInput;
+		tripDataFetchedForLineRef.current = "";
+		stopSpecificTripDataKeyRef.current = "";
 	}, [userInput]);
 
 	const findClosestRoute = useCallback(
@@ -440,9 +478,10 @@ export const SearchBar = ({
 						autoComplete="off"
 						onChange={(e) => {
 							const value = e.target.value.toUpperCase().trim();
+							latestVehicleLineRef.current = value;
 							setUserInput(value);
 							handleOnChangeRef.current?.(value);
-							setShowError(false); 
+							setShowError(false);
 						}}
 						value={userInput}
 						onKeyDown={handleKeyDown}
@@ -479,6 +518,7 @@ export const SearchBar = ({
 							className="reset-button"
 							type="reset"
 							onClick={() => {
+								latestVehicleLineRef.current = "";
 								setUserInput("");
 								router.push(Paths.Search);
 								handleBlur();

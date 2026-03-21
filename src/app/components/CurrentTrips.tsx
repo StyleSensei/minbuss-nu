@@ -18,9 +18,9 @@ interface ICurrentTripsProps {
 export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
-	const { filteredVehicles, tripData, filteredTripUpdates, userPosition } =
+	const { filteredVehicles, tripData, filteredTripUpdates, userPosition, isLoading } =
 		useDataContext();
-	const [showLoadingTrips, setShowLoadingTrips] = useState(true);
+	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 
@@ -30,15 +30,8 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	);
 
 	useEffect(() => {
-		if (tripsToDisplay.length === 0) {
-			setShowLoadingTrips(true);
-		}
-		if (tripsToDisplay.length > 0) {
-			setShowLoadingTrips(false);
-		}
-	}, [tripsToDisplay.length]);
-	useEffect(() => {
 		filterTrips();
+		setHasFilteredOnce(true);
 
 		const intervalId = setInterval(() => {
 			filterTrips();
@@ -136,7 +129,8 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 			hasTripsToDisplay &&
 			containerRef.current &&
 			filteredVehicles.data.length > 0 &&
-			!showLoadingTrips
+			hasFilteredOnce &&
+			!isLoading
 		) {
 			setTimeout(() => checkOverflow(), 50);
 		}
@@ -145,10 +139,11 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 		checkOverflow,
 		containerRef,
 		filteredVehicles.data.length,
-		showLoadingTrips,
+		hasFilteredOnce,
+		isLoading,
 	]);
 
-	if (showLoadingTrips) {
+	if (!hasFilteredOnce || isLoading) {
 		return <CurrentTripsLoader />;
 	}
 

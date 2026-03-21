@@ -46,6 +46,7 @@ export function usePolling<T>(
 			if (intervalRef.current) {
 				clearInterval(intervalRef.current);
 			}
+			void executeFetch();
 			intervalRef.current = setInterval(executeFetch, intervalMs);
 		},
 		[executeFetch, intervalMs],
