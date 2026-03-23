@@ -40,7 +40,7 @@ export const getVehiclePositions =
 			})
 			.filter(Boolean) as IVehiclePosition[];
 
-		const data = JSON.parse(JSON.stringify(vehiclePositions));
+		const data = vehiclePositions;
 
 		// Kontrollera om datan är gammal
 		if (timestamp + maxAge < currentTimeSeconds) {

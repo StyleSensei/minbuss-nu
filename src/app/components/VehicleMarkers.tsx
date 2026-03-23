@@ -1,6 +1,9 @@
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 import CustomMarker from "./CustomMarker";
 import type { MutableRefObject } from "react";
+import { useMemo } from "react";
+import { useDataContext } from "../context/DataContext";
+import type { IDbData } from "@/shared/models/IDbData";
 
 interface IVehicleMarkersProps {
 	vehicles: IVehiclePosition[];
@@ -17,6 +20,24 @@ interface IVehicleMarkersProps {
 }
 
 const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
+	const { tripData } = useDataContext();
+	const tripsByTripId = useMemo(() => {
+		const byTripId = new Map<string, IDbData[]>();
+		for (const trip of tripData.currentTrips) {
+			if (!trip?.trip_id) continue;
+			const existing = byTripId.get(trip.trip_id);
+			if (existing) {
+				existing.push(trip);
+			} else {
+				byTripId.set(trip.trip_id, [trip]);
+			}
+		}
+		for (const trips of byTripId.values()) {
+			trips.sort((a, b) => a.stop_sequence - b.stop_sequence);
+		}
+		return byTripId;
+	}, [tripData.currentTrips]);
+
 	if (!vehicles || vehicles.length === 0) {
 		return null;
 	}
@@ -39,6 +60,7 @@ const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 			isActive={props.activeMarkerId === vehicle.vehicle.id}
 			onActivateMarker={(id) => props.setActiveMarkerId(id)}
 			showCurrentTrips={props.showCurrentTrips}
+			tripsByTripId={tripsByTripId}
 		/>
 	));
 };

@@ -23,7 +23,7 @@ export const getTripUpdates = async (): Promise<ITripUpdate[]> => {
 				return null;
 			})
 			.filter(Boolean) as ITripUpdate[];
-		const data = JSON.parse(JSON.stringify(tripUpdates));
+		const data = tripUpdates;
 		return data;
 	} catch (error) {
 		console.log(error);

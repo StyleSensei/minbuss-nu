@@ -28,15 +28,6 @@ import { useInitialShapeSnap } from '../hooks/useInitialShapeSnap';
 import { useRtTimeline } from '../hooks/useRtTimeline';
 import { snapToShapeInitial } from '../utilities/snapToShape';
 
-function findTripForVehicle(
-  trips: IDbData[],
-  tripId: string | null | undefined,
-): IDbData | undefined {
-  if (!tripId || !trips?.length) return undefined;
-  const normalized = String(tripId).trim();
-  return trips.find((t) => String(t.trip_id).trim() === normalized);
-}
-
 interface ICustomMarkerProps {
   position: { lat: number; lng: number };
   currentVehicle: IVehiclePosition;
@@ -50,6 +41,7 @@ interface ICustomMarkerProps {
   isActive: boolean;
   showCurrentTrips: boolean;
   onActivateMarker: (id: string | null) => void;
+  tripsByTripId: Map<string, IDbData[]>;
 }
 
 export default function CustomMarker({
@@ -65,6 +57,7 @@ export default function CustomMarker({
   isActive,
   showCurrentTrips,
   onActivateMarker,
+  tripsByTripId,
 }: ICustomMarkerProps) {
   const [markerRef, marker] = useAdvancedMarkerRef();
   const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
@@ -72,7 +65,7 @@ export default function CustomMarker({
     currentVehicle,
   );
 
-  const { filteredVehicles, tripData } = useDataContext();
+  const { filteredVehicles } = useDataContext();
   const [infoWindowActive, setInfoWindowActive] = useState(
     infoWindowActiveExternal,
   );
@@ -113,9 +106,8 @@ export default function CustomMarker({
   }, [currentVehicle]);
 
   const tripForMarker = useMemo(
-    () =>
-      findTripForVehicle(tripData.currentTrips, currentVehicle?.trip?.tripId),
-    [currentVehicle?.trip?.tripId, tripData.currentTrips],
+    () => tripsByTripId.get(currentVehicle?.trip?.tripId ?? '')?.[0],
+    [currentVehicle?.trip?.tripId, tripsByTripId],
   );
 
   const currentLine = tripForMarker?.route_short_name;
@@ -178,30 +170,32 @@ export default function CustomMarker({
     };
   }, [position, marker, currentVehicle.shapePoints]);
 
+  const stopsOnCurrentTrip = useMemo(() => {
+    const tripId = currentBus?.trip?.tripId;
+    if (!tripId) return [];
+    return tripsByTripId.get(tripId) ?? [];
+  }, [currentBus?.trip?.tripId, tripsByTripId]);
+
   const findClosestOrNextStop = useCallback(() => {
     if (!currentBus) return null;
 
     const busLat = currentBus.position.latitude;
     const busLon = currentBus.position.longitude;
 
-    const stopsOnTrip = tripData.currentTrips
-      .filter((stop) => stop.trip_id === currentBus.trip.tripId)
-      .sort((a, b) => a.stop_sequence - b.stop_sequence);
+    if (stopsOnCurrentTrip.length === 0) return null;
 
-    if (stopsOnTrip.length === 0) return null;
-
-    const closestStop = getClosest(stopsOnTrip, busLat, busLon) as IDbData;
+    const closestStop = getClosest(stopsOnCurrentTrip, busLat, busLon) as IDbData;
 
     const isMovingAway = checkIfFurtherFromStop(currentBus, closestStop, true);
 
-    const nextStop = stopsOnTrip.find(
+    const nextStop = stopsOnCurrentTrip.find(
       (stop) => stop.stop_sequence > closestStop.stop_sequence,
     );
 
     if (isMovingAway && nextStop) {
       return {
         closestStop: nextStop,
-        nextStop: stopsOnTrip.find(
+        nextStop: stopsOnCurrentTrip.find(
           (stop) => stop.stop_sequence > nextStop.stop_sequence,
         ),
       };
@@ -211,7 +205,7 @@ export default function CustomMarker({
       closestStop,
       nextStop,
     };
-  }, [tripData.currentTrips, currentBus, checkIfFurtherFromStop]);
+  }, [stopsOnCurrentTrip, currentBus, checkIfFurtherFromStop]);
 
   const handleOnClick = () => {
     if (followBus) return;

@@ -43,15 +43,15 @@ export async function GET(
         }
 
         const cachedDbData = (await getCachedDbData(busline)) as ITripData;
+        const tripById = new Map(
+            cachedDbData.currentTrips
+                .filter((trip) => trip?.trip_id)
+                .map((trip) => [trip.trip_id, trip] as const)
+        );
 
         let filteredData = cachedVehiclePositions.data.filter((vehicle) => {
             if (!vehicle?.trip?.tripId) return false;
-
-            const matchingTrip = cachedDbData.currentTrips.find(
-                (trip) => trip?.trip_id === vehicle.trip.tripId
-            );
-
-            return !!matchingTrip;
+            return tripById.has(vehicle.trip.tripId);
         });
 
         filteredData.sort((a, b) =>
@@ -60,9 +60,9 @@ export async function GET(
 
         const vehiclesWithShapes: IVehiclePosition[] = await Promise.all(
             filteredData.map(async (vehicle) => {
-                const matchingTrip = cachedDbData.currentTrips.find(
-                    (trip) => trip?.trip_id === vehicle.trip.tripId
-                );
+                const tripId = vehicle?.trip?.tripId;
+                if (!tripId) return vehicle;
+                const matchingTrip = tripById.get(tripId);
 
                 if (matchingTrip?.shape_id) {
                     const shapePoints = await getCachedShapesData(
