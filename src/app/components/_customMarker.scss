@@ -80,3 +80,16 @@ $userColor: rgb(0, 149, 255);
     animation: markerPulse 0.5s 3s ease-out 2;
     cursor: default;
 }
+
+.user-location__container {
+    @extend .line-destination-container;
+
+    &.--visible {
+        transform: translate(35%, -75%);
+        opacity: 1;
+    }
+}
+
+.user-location__text {
+    @extend .line-text;
+}
