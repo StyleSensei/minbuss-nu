@@ -13,9 +13,14 @@ import { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
 	mapRef?: React.MutableRefObject<google.maps.Map | null>;
+	closestStop?: IDbData;
 }
 
-export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
+export const CurrentTrips = ({
+	onTripSelect,
+	mapRef,
+	closestStop,
+}: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
 	const { filteredVehicles, tripData, filteredTripUpdates, userPosition, isLoading } =
@@ -23,6 +28,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
+	const closestStopToUse = closestStop ?? userPosition?.closestStop;
 
 	const activeVehiclePositions = useMemo(
 		() => new Set(filteredVehicles.data.map((bus: IVehiclePosition) => bus.trip.tripId)),
@@ -40,15 +46,19 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 		return () => clearInterval(intervalId);
 
 		function filterTrips() {
-			if (userPosition?.closestStop) {
+			if (closestStopToUse) {
+				const stopName = closestStopToUse.stop_name;
 				setTripsToDisplay(
 					tripData.upcomingTrips.filter((trip) => {
-						if (trip.stop_name !== userPosition.closestStop?.stop_name) {
+						if (trip.stop_name !== stopName) {
 							return false;
 						}
 
 						try {
-							const updatedTimeStr = getUpdatedDepartureTime(trip.trip_id);
+							const updatedTimeStr = getUpdatedDepartureTime(
+								trip.trip_id,
+								closestStopToUse,
+							);
 							const departureTime = updatedTimeStr
 								? convertGTFSTimeToDate(updatedTimeStr)
 								: convertGTFSTimeToDate(trip.departure_time);
@@ -71,8 +81,12 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 				setTripsToDisplay(tripData.upcomingTrips);
 			}
 		}
-	}, [userPosition?.closestStop, tripData.upcomingTrips]);
-	function getUpdatedDepartureTime(tripId: string): string | undefined {
+	}, [closestStopToUse?.stop_id, tripData.upcomingTrips, filteredTripUpdates]);
+	function getUpdatedDepartureTime(
+		tripId: string,
+		stop: IDbData | null | undefined,
+	): string | undefined {
+		if (!stop?.stop_id) return undefined;
 		if (!filteredTripUpdates.length) return undefined;
 
 		const tripUpdate = filteredTripUpdates.find(
@@ -81,10 +95,9 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 
 		if (!tripUpdate) return undefined;
 
+		const stopIdPrefix = stop.stop_id.slice(0, -3);
 		const stopUpdate = tripUpdate.stopTimeUpdate?.find(
-			(update) =>
-				update.stopId.slice(0, -3) ===
-				userPosition?.closestStop?.stop_id.slice(0, -3),
+			(update) => update.stopId.slice(0, -3) === stopIdPrefix,
 		);
 
 		if (!stopUpdate?.departure?.time) return undefined;
@@ -101,7 +114,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 	}
 
 	const nextBusUpdatedTime = nextBus
-		? getUpdatedDepartureTime(nextBus.trip_id)
+		? getUpdatedDepartureTime(nextBus.trip_id, closestStopToUse)
 		: undefined;
 
 	const nextBusScheduledTime = nextBus?.departure_time
@@ -165,7 +178,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 							{tripData.currentTrips[0]?.route_short_name}
 						</span>
 					</p>
-					{userPosition && (
+					{closestStopToUse && (
 						<p className="station-name">
 							<span className="text-muted-foreground dark">
 								Din närmaste hållplats:{" "}
@@ -173,11 +186,10 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 							<button
 								type="button"
 								onClick={() => {
-									userPosition.closestStop &&
-										handleOnStopClick(userPosition.closestStop);
+									handleOnStopClick(closestStopToUse);
 								}}
 							>
-								<strong>{userPosition?.closestStop?.stop_name}</strong>
+								<strong>{closestStopToUse.stop_name}</strong>
 							</button>
 						</p>
 					)}
@@ -244,7 +256,7 @@ export const CurrentTrips = ({ onTripSelect, mapRef }: ICurrentTripsProps) => {
 								</thead>
 								<tbody>
 									{rest.map((trip, i) => {
-										const updatedTime = getUpdatedDepartureTime(trip?.trip_id);
+										const updatedTime = getUpdatedDepartureTime(trip?.trip_id, closestStopToUse);
 										const scheduledTime = normalizeTimeForDisplay(
 											trip?.departure_time?.slice(0, 5),
 										);

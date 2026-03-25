@@ -289,12 +289,16 @@ export default function MapClient() {
                   />
                 ),
             )}
-          {showCurrentTrips &&
-            userPosition &&
-            filteredVehicles.data.length > 0 && (
-              <CurrentTrips onTripSelect={handleTripSelect} mapRef={mapRef} />
+          {showCurrentTrips && userPosition &&
+            userPosition?.closestStop &&
+             (
+              <CurrentTrips
+                onTripSelect={handleTripSelect}
+                mapRef={mapRef}
+                closestStop={userPosition?.closestStop}
+              />
             )}
-          {userPosition && mapRef.current && (
+          {userPosition && mapRef.current && userPosition.closestStop && (
             <AdvancedMarker
               className='user-location'
               title={'Min position'}

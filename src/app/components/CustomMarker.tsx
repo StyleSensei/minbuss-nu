@@ -19,6 +19,7 @@ import {
 import { useDataContext } from '../context/DataContext';
 import type { IDbData } from '@shared/models/IDbData';
 import type { IVehiclePosition } from '@shared/models/IVehiclePosition';
+import type { IShapes } from '@shared/models/IShapes';
 import { InfoWindow } from './InfoWindow';
 import { getClosest } from '../utilities/getClosest';
 import { useCheckIfFurtherFromStop } from '../hooks/useCheckIfFurther';
@@ -27,6 +28,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useInitialShapeSnap } from '../hooks/useInitialShapeSnap';
 import { useRtTimeline } from '../hooks/useRtTimeline';
 import { snapToShapeInitial } from '../utilities/snapToShape';
+import { projectRtToShape } from '../utilities/projectPointOnSegment';
 
 interface ICustomMarkerProps {
   position: { lat: number; lng: number };
@@ -81,14 +83,49 @@ export default function CustomMarker({
   const followAnimationRef = useRef<gsap.core.Tween | null>(null);
   const lastShapeIndexRef = useRef<number | null>(null);
   const [markerReady, setMarkerReady] = useState(false);
+  const lockedShapeRef = useRef<{ shapeId: string; points: IShapes[] } | null>(
+    null,
+  );
 
-  const shapePoints = currentVehicle.shapePoints ?? [];
+  const incomingShapePoints = currentVehicle.shapePoints ?? [];
+  const incomingShapeId =
+    incomingShapePoints.length > 0 ? incomingShapePoints[0].shape_id : null;
   const vehiclePosition = {
     lat: position.lat,
     lng: position.lng,
   };
 
-  // Synkron initial position vid första paint när shape finns – undvik att visa fordonsposition först.
+  // Lås shape per fordon för att undvika att markören "hoppar" när shapeId flappar i datan.
+  // Byt bara till ny shape om den nya ligger nära RT-positionen.
+  const shapePoints = useMemo(() => {
+    const locked = lockedShapeRef.current;
+
+    // Om vi temporärt saknar shape (t.ex. p.g.a. flapp i datan), behåll senast låsta shape
+    // i stället för att släppa den (vilket kan orsaka hopp när den kommer tillbaka).
+    if (!incomingShapeId || incomingShapePoints.length < 2) {
+      return locked?.points ?? incomingShapePoints;
+    }
+
+    if (!locked) {
+      lockedShapeRef.current = { shapeId: incomingShapeId, points: incomingShapePoints };
+      return incomingShapePoints;
+    }
+
+    if (locked.shapeId === incomingShapeId) {
+      lockedShapeRef.current = { shapeId: incomingShapeId, points: incomingShapePoints };
+      return incomingShapePoints;
+    }
+
+    const proj = projectRtToShape(vehiclePosition, incomingShapePoints, 0, 300);
+    const SWITCH_SHAPE_MAX_DIST2 = 2e-4;
+    if (proj.dist2 < SWITCH_SHAPE_MAX_DIST2) {
+      lockedShapeRef.current = { shapeId: incomingShapeId, points: incomingShapePoints };
+      return incomingShapePoints;
+    }
+
+    return locked.points;
+  }, [incomingShapeId, incomingShapePoints, vehiclePosition.lat, vehiclePosition.lng]);
+
   const initialSnapPosition =
     shapePoints.length >= 2
       ? snapToShapeInitial(vehiclePosition, shapePoints)
@@ -116,6 +153,7 @@ export default function CustomMarker({
   useLayoutEffect(() => {
     lastShapeIndexRef.current = null;
     setMarkerReady(false);
+    lockedShapeRef.current = null;
   }, [currentVehicle?.vehicle?.id]);
 
   useInitialShapeSnap({

@@ -47,7 +47,11 @@ export function projectRtToShape(
       dist2: Number.POSITIVE_INFINITY,
     };
   }
-  const safeStart = clamp(startIndex, 0, shape.length - 1);
+
+  // Vi projicerar alltid mot ett SEGMENT (i och i+1). Därför måste startindex vara <= length-2.
+  // Om vi hamnar på sista punkten blir loopen tom och dist2 blir Infinity (JSON -> null),
+  // vilket kan trigga index-klampning och upplevda "hopp" längs shapen.
+  const safeStart = clamp(startIndex, 0, shape.length - 2);
   let best = {
     index: safeStart,
     t: 0,
@@ -56,9 +60,10 @@ export function projectRtToShape(
     dist2: Number.POSITIVE_INFINITY,
   };
 
-  const end = Math.min(shape.length - 1, safeStart + searchWindow);
+  // i går till och med max-index för segmentstart (length-2)
+  const end = Math.min(shape.length - 2, safeStart + searchWindow);
 
-  for (let i = safeStart; i < end; i++) {
+  for (let i = safeStart; i <= end; i++) {
     const a = shape[i];
     const b = shape[i + 1];
 
