@@ -19,7 +19,7 @@ const SearchError = ({
 	if (userInput) {
 		return (
 			<p className="error-message">
-				Inga bussar från linje {userInput} i trafik just nu. 😴
+				Inga fordon från linje {userInput} i trafik just nu. 😴
 			</p>
 		);
 	}

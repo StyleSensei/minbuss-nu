@@ -25,7 +25,13 @@ import VehicleMarkers from '../components/VehicleMarkers';
 import RouteShapePolyline from '../components/RouteShapePolyline';
 
 export default function MapClient() {
-  const { filteredVehicles, tripData, userPosition, setUserPosition } =
+  const {
+    filteredVehicles,
+    tripData,
+    userPosition,
+    setUserPosition,
+    setIsCurrentTripsOpen,
+  } =
     useDataContext();
   const mapRef = useRef<google.maps.Map | null>(null);
   const [clickedOutside, setClickedOutside] = useState(false);
@@ -192,16 +198,19 @@ export default function MapClient() {
     }
   }, [mapRef.current]);
 
-  // Unika shapes för vald linje – cachad så att nya positioner inte ger nya referenser och ritar om rutten
   const routeShapesCacheRef = useRef<Map<string, IShapes[]>>(new Map());
   const routeShapes = useMemo(() => {
-    const seen = new Set<string>();
-    const shapes: { shape_id: string; points: IShapes[] }[] = [];
+    const byId = new Map<string, { shape_id: string; points: IShapes[] }>();
+
+    for (const ls of tripData.lineShapes ?? []) {
+      if (ls.points?.length) {
+        byId.set(ls.shape_id, { shape_id: ls.shape_id, points: ls.points });
+      }
+    }
+
     for (const v of filteredVehicles.data) {
       if (!v.shapePoints?.length) continue;
       const id = v.shapePoints[0].shape_id;
-      if (seen.has(id)) continue;
-      seen.add(id);
       const points = v.shapePoints;
       const cached = routeShapesCacheRef.current.get(id);
       const sameShape =
@@ -215,10 +224,22 @@ export default function MapClient() {
           points[points.length - 1].shape_pt_lon;
       const toUse = sameShape ? cached : points;
       if (!sameShape) routeShapesCacheRef.current.set(id, points);
-      shapes.push({ shape_id: id, points: toUse });
+      byId.set(id, { shape_id: id, points: toUse });
     }
-    return shapes;
-  }, [filteredVehicles.data]);
+
+    return Array.from(byId.values());
+  }, [filteredVehicles.data, tripData.lineShapes]);
+
+  const hasRouteData =
+    filteredVehicles.data.length > 0 ||
+    tripData.upcomingTrips.length > 0 ||
+    tripData.lineStops.length > 0 ||
+    tripData.lineShapes.length > 0;
+
+  useEffect(() => {
+    setIsCurrentTripsOpen(showCurrentTrips);
+    return () => setIsCurrentTripsOpen(false);
+  }, [showCurrentTrips, setIsCurrentTripsOpen]);
 
   return (
     <div>
@@ -286,16 +307,16 @@ export default function MapClient() {
                     mapReady={mapReady}
                     animateReveal
                     animationDuration={1.8}
+                    hasActiveVehicle={filteredVehicles.data.length > 0}
                   />
                 ),
             )}
-          {showCurrentTrips && userPosition &&
-            userPosition?.closestStop &&
+          {showCurrentTrips && hasRouteData && userPosition &&
              (
               <CurrentTrips
                 onTripSelect={handleTripSelect}
                 mapRef={mapRef}
-                closestStop={userPosition?.closestStop}
+                closestStop={userPosition?.closestStop ?? undefined}
               />
             )}
           {userPosition && mapRef.current && userPosition.closestStop && (

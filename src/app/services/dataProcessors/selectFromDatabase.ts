@@ -79,14 +79,105 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	}
 };
 
+/** Distinct stops served by the route (static GTFS), independent of realtime vehicles. */
+export const selectDistinctStopsForLineFromDatabase = async (
+	busLine: string,
+): Promise<IDbData[]> => {
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				stop_id: stops.stop_id,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+				route_short_name: routes.route_short_name,
+				feed_version: trips.feed_version,
+			})
+			.from(trips)
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
+			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+			.where(
+				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stops.feed_version, latestFeedVersion),
+					eq(routes.route_short_name, busLine),
+				),
+			)
+			.groupBy(
+				stops.stop_id,
+				stops.stop_name,
+				stops.stop_lat,
+				stops.stop_lon,
+				routes.route_short_name,
+				trips.feed_version,
+			);
+
+		return data.map((row) => ({
+			trip_id: "",
+			shape_id: "",
+			stop_headsign: "",
+			departure_time: "",
+			stop_sequence: 0,
+			stop_id: row.stop_id ?? "",
+			stop_name: row.stop_name ?? "",
+			stop_lat: Number(row.stop_lat),
+			stop_lon: Number(row.stop_lon),
+			route_short_name: row.route_short_name ?? "",
+			feed_version: String(row.feed_version ?? ""),
+		}));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+/** Distinct shape IDs for the route (static GTFS), independent of realtime vehicles. */
+export const selectDistinctShapeIdsForLineFromDatabase = async (
+	busLine: string,
+): Promise<string[]> => {
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				shape_id: trips.shape_id,
+			})
+			.from(trips)
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.where(
+				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(routes.route_short_name, busLine),
+				),
+			)
+			.groupBy(trips.shape_id);
+
+		return data
+			.map((row) => row.shape_id)
+			.filter((shapeId): shapeId is string => Boolean(shapeId));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
 export const selectUpcomingTripsFromDatabase = async (
 	busLine: string,
 	stop_name: string,
 ): Promise<IDbData[]> => {
+	if (!stop_name.trim()) {
+		return [];
+	}
+
 	MetricsTracker.trackDbQuery();
 
 	const dt = DateTime.local();
 	const currentHour = dt.hour;
+	const hoursAhead = 6;
 	const isEarlyMorning = currentHour < 4;
 
 	const minutesFilter = createMinutesFilter(stop_times.departure_time);
@@ -94,7 +185,7 @@ export const selectUpcomingTripsFromDatabase = async (
 	const startTimeMinutes =
 		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
 	const endTimeMinutes =
-		(isEarlyMorning ? dt.hour + 6 + 24 : dt.hour + 6) * 60 + dt.minute;
+		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 + dt.minute;
 
 	const timeFilter = calculateTimeFilter({
 		minutesFilter,

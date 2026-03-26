@@ -3,6 +3,8 @@ import { cache } from "react";
 import { redis } from "../utilities/redis";
 import {
 	selectCurrentTripsFromDatabase,
+	selectDistinctShapeIdsForLineFromDatabase,
+	selectDistinctStopsForLineFromDatabase,
 	selectShapesFromDatabase,
 	selectUpcomingTripsFromDatabase,
 } from "./dataProcessors/selectFromDatabase";
@@ -186,31 +188,75 @@ async function waitForCachedTripUpdates(): Promise<ITripUpdate[]> {
 	return [];
 }
 
-// DB data caching relies on Next.js revalidate + CDN cache
-// No Redis needed - React cache() handles per-request deduplication
+async function getLineShapesForTrips(
+	trips: IDbData[],
+): Promise<{ shape_id: string; points: IShapes[] }[]> {
+	const seen = new Set<string>();
+	const shapeIds: string[] = [];
+	for (const t of trips) {
+		if (t.shape_id && !seen.has(t.shape_id)) {
+			seen.add(t.shape_id);
+			shapeIds.push(t.shape_id);
+		}
+	}
+	const results = await Promise.all(
+		shapeIds.map(async (shape_id) => {
+			const points = await selectShapesFromDatabase(shape_id);
+			return points.length ? { shape_id, points } : null;
+		}),
+	);
+	return results.filter((x): x is NonNullable<typeof x> => x !== null);
+}
+
+
 export const getCachedDbData = cache(
 	async (busLine: string, busStopName?: string) => {
 		let currentTrips: IDbData[] = [];
 		let upcomingTrips: IDbData[] = [];
+		let lineStops: IDbData[] = [];
 
-		if (busStopName) {
+		const trimmedStopName = busStopName?.trim() || undefined;
+
+		if (trimmedStopName) {
 			MetricsTracker.trackDbQuery();
 			upcomingTrips = await selectUpcomingTripsFromDatabase(
 				busLine,
-				busStopName,
+				trimmedStopName,
 			);
 		} else {
 			MetricsTracker.trackDbQuery();
-			currentTrips = await selectCurrentTripsFromDatabase(busLine);
+			const [current, stops] = await Promise.all([
+				selectCurrentTripsFromDatabase(busLine),
+				selectDistinctStopsForLineFromDatabase(busLine),
+			]);
+			currentTrips = current;
+			lineStops = stops;
 		}
 
-		return { currentTrips, upcomingTrips } as ITripData;
+		const tripsForShapes = [...currentTrips, ...upcomingTrips];
+		let lineShapes = await getLineShapesForTrips(tripsForShapes);
+		if (!lineShapes.length && !trimmedStopName) {
+			const shapeIds = await selectDistinctShapeIdsForLineFromDatabase(busLine);
+			const fallbackTrips = shapeIds.map((shape_id) => ({
+				trip_id: "",
+				shape_id,
+				route_short_name: busLine,
+				stop_headsign: "",
+				stop_id: "",
+				departure_time: "",
+				stop_name: "",
+				stop_sequence: 0,
+				stop_lat: 0,
+				stop_lon: 0,
+				feed_version: "",
+			}));
+			lineShapes = await getLineShapesForTrips(fallbackTrips);
+		}
+
+		return { currentTrips, upcomingTrips, lineStops, lineShapes } as ITripData;
 	},
 );
 
-
-// Shapes caching relies on Next.js revalidate + CDN cache
-// No Redis needed - React cache() handles per-request deduplication
 export const getCachedShapesData = cache(
 	async (feedVersion: string, shapeId: string) => {
 		MetricsTracker.trackDbQuery();

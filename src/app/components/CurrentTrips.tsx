@@ -125,6 +125,11 @@ export const CurrentTrips = ({
 		nextBusUpdatedTime && nextBusUpdatedTime !== nextBusScheduledTime;
 
 	const hasTripsToDisplay = nextBus !== undefined;
+	const routeShortName =
+		tripData.currentTrips[0]?.route_short_name ??
+		tripData.upcomingTrips[0]?.route_short_name ??
+		tripData.lineStops[0]?.route_short_name ??
+		"";
 
 	const isActive = nextBus
 		? activeVehiclePositions.has(nextBus?.trip_id)
@@ -175,7 +180,7 @@ export const CurrentTrips = ({
 					<p>
 						<span className="text-muted-foreground dark">Linje: </span>
 						<span className="font-bold">
-							{tripData.currentTrips[0]?.route_short_name}
+							{routeShortName}
 						</span>
 					</p>
 					{closestStopToUse && (
@@ -320,7 +325,7 @@ export const CurrentTrips = ({
 						)}
 					</>
 				) : (
-					<p>Inga kommande avgångar att visa.</p>
+					<p className="text-muted-foreground dark text-center">Inga fler avgångar inom 6 timmar</p>
 				)}
 			</div>
 		</div>

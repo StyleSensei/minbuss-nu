@@ -4,7 +4,6 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
-// Projektion av punkt P på linjesegment AB
 function projectPointOnSegment(
   px: number,
   py: number,

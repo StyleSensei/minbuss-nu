@@ -30,7 +30,12 @@ export const MapControlButtons = ({
 	activeMarker,
 	mapReady,
 }: MapControlButtonsProps) => {
-	const { userPosition } = useDataContext();
+	const { userPosition, tripData } = useDataContext();
+	const canShowTripsButton =
+		Boolean(userPosition) &&
+		(filteredVehicles?.data.length > 0 ||
+			tripData.upcomingTrips.length > 0 ||
+			tripData.lineStops.length > 0);
 
 	useEffect(() => {
 		const inputContainer = document.getElementById("searchbar");
@@ -85,7 +90,7 @@ export const MapControlButtons = ({
 				</div>
 			</div>
 
-			{filteredVehicles?.data.length > 0 && userPosition && (
+			{canShowTripsButton && (
 				<div className="map-control-button-container">
 					<p className="label table-label">Tabell</p>
 					<Button

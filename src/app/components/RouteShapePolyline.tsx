@@ -17,6 +17,7 @@ function getShapeKey(points: IShapes[] | undefined): string {
 
 interface RouteShapePolylineProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	hasActiveVehicle: boolean;
 	shapePoints: IShapes[];
 	mapReady?: boolean;
 	strokeColor?: string;
@@ -26,13 +27,15 @@ interface RouteShapePolylineProps {
 	animateReveal?: boolean;
 	/** Duration of reveal animation in seconds (GSAP duration). */
 	animationDuration?: number;
+
 }
 
 export default function RouteShapePolyline({
 	googleMapRef,
+	hasActiveVehicle,
 	shapePoints,
 	mapReady = false,
-	strokeColor = colors.accentColor,
+	strokeColor = hasActiveVehicle ? colors.accentColor : colors.notValid,
 	strokeWeight = 3,
 	strokeOpacity = 0.7,
 	animateReveal = false,
