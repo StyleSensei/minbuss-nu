@@ -20,6 +20,7 @@ export default async function InfoPage() {
 			h2: "Varför denna tjänst?",
 			text: `Den här tjänsten är skapad för att göra bussresandet med SL, Storstockholms Lokaltrafik, lite smidigare och mer förutsägbart./ 
 		Den är särskilt användbar när du står vid en hållplats och väntar på din buss, kanske under rusningstid eller i områden där bussarna inte går lika frekvent./
+		Även om fokus ligger på bussar kan du också följa andra delar av kollektivtrafiken i realtid, som tunnelbana, spårvagn och båt./
 		Tjänsten är tänkt att ge dig en mer avslappnad och effektiv vardag som resenär – oavsett om du pendlar dagligen eller bara reser då och då./`,
 			image: {},
 		},

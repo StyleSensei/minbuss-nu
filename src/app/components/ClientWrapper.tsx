@@ -20,7 +20,7 @@ export const ClientWrapper = ({ children }: { children: React.ReactNode }) => {
 				}
 			},
 			{
-				threshold: isMobile ? 0.15 : 0.7,
+				threshold: isMobile ? 0.15 : 0.6,
 			},
 		);
 

@@ -13,7 +13,7 @@ export default async function Home() {
 				<TextBlock
 					title="Min buss.nu"
 					className="start"
-					description="Undrar du också var bussen är? Vi visar var bussen är i realtid."
+					description="Undrar du också var bussen är? Vi visar bussar i realtid – och även andra fordon som tunnelbana, spårvagn och båt."
 					h1ClassName="text-8xl text-white tracking-tighter text-balance"
 					descriptionClassName="text-xl leading-10 [&:not(:first-child)]:mt-6"
 				/>
