@@ -1,6 +1,12 @@
 import { useEffect, type MutableRefObject } from "react";
 import { Button } from "./Button";
-import { table, zoomInIcon, zoomOutIcon, follow, myPosition } from "../../../public/icons";
+import {
+	table,
+	zoomInIcon,
+	zoomOutIcon,
+	follow,
+	myPosition,
+} from "../../../public/icons";
 import colors from "../colors";
 import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
 import { useDataContext } from "../context/DataContext";
@@ -130,8 +136,8 @@ export const MapControlButtons = ({
 								lat: userPosition.lat,
 								lng: userPosition.lng,
 							});
-							if (googleMapRef.current?.getZoom()! < 15) {
-								googleMapRef.current.setZoom(15);
+							if (googleMapRef.current?.getZoom()! < 18) {
+								googleMapRef.current.setZoom(18);
 							}
 						}
 					}}

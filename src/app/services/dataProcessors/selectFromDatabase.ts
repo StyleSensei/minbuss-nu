@@ -1,6 +1,6 @@
 import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
-import { eq, inArray, and, sql } from "drizzle-orm";
+import { eq, inArray, and, sql, gte, lte } from "drizzle-orm";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import type { IDbData } from "@shared/models/IDbData";
@@ -16,6 +16,8 @@ import {
 	createMinutesFilter,
 } from "@/app/utilities/calculateTimeFilter";
 import { shapes } from "@/shared/db/schema/shapes";
+import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
+import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 
 const db = getDb();
 
@@ -165,6 +167,315 @@ export const selectDistinctShapeIdsForLineFromDatabase = async (
 	}
 };
 
+/** Distinct route short names that serve a stop (static GTFS). */
+export const selectRoutesForStopFromDatabase = async (
+	stopId: string,
+): Promise<string[]> => {
+	if (!stopId.trim()) {
+		return [];
+	}
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({ route_short_name: routes.route_short_name })
+			.from(stop_times)
+			.innerJoin(trips, eq(stop_times.trip_id, trips.trip_id))
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.where(
+				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stop_times.stop_id, stopId),
+				),
+			)
+			.groupBy(routes.route_short_name);
+
+		const names = data
+			.map((row) => row.route_short_name)
+			.filter((n): n is string => Boolean(n));
+		return [...new Set(names)].sort((a, b) => a.localeCompare(b, "sv"));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+/** Distinct route short names for many stops in one query (latest feed). */
+export const selectRoutesForStopsFromDatabase = async (
+	stopIds: string[],
+): Promise<Record<string, string[]>> => {
+	const cleanedStopIds = [...new Set(stopIds.map((id) => id.trim()).filter(Boolean))];
+	if (cleanedStopIds.length === 0) {
+		return {};
+	}
+
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				stop_id: stop_times.stop_id,
+				route_short_name: routes.route_short_name,
+			})
+			.from(stop_times)
+			.innerJoin(trips, eq(stop_times.trip_id, trips.trip_id))
+			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.where(
+				and(
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					inArray(stop_times.stop_id, cleanedStopIds),
+				),
+			)
+			.groupBy(stop_times.stop_id, routes.route_short_name);
+
+		const byStop = new Map<string, Set<string>>();
+		for (const row of data) {
+			if (!row.stop_id || !row.route_short_name) continue;
+			const current = byStop.get(row.stop_id) ?? new Set<string>();
+			current.add(row.route_short_name);
+			byStop.set(row.stop_id, current);
+		}
+
+		const out: Record<string, string[]> = {};
+		for (const stopId of cleanedStopIds) {
+			const names = [...(byStop.get(stopId) ?? new Set<string>())];
+			out[stopId] = names.sort((a, b) => a.localeCompare(b, "sv"));
+		}
+		return out;
+	} catch (error) {
+		console.log(error);
+		return {};
+	}
+};
+
+export {
+	selectAllStopPositionsFromDatabase,
+	selectLatestFeedVersionFromDatabase,
+} from "./stopPositionsStaticQueries";
+
+/** One stop’s meta for map preview / API (latest feed only). */
+export const selectStopMetaFromDatabase = async (
+	stopId: string,
+): Promise<(INearbyStopRow & { feed_version: string }) | null> => {
+	if (!stopId.trim()) {
+		return null;
+	}
+	MetricsTracker.trackDbQuery();
+	try {
+		const rows = await db
+			.select({
+				stop_id: stops.stop_id,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+				feed_version: stops.feed_version,
+			})
+			.from(stops)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				trips,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(
+					eq(routes.route_id, trips.route_id),
+					eq(routes.feed_version, latestFeedVersion),
+				),
+			)
+			.where(
+				and(
+					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.stop_id, stopId),
+				),
+			)
+			.limit(1);
+		const row = rows[0];
+		if (!row?.stop_id) {
+			return null;
+		}
+		return {
+			stop_id: row.stop_id,
+			stop_name: row.stop_name ?? "",
+			stop_lat: Number(row.stop_lat),
+			stop_lon: Number(row.stop_lon),
+			feed_version: String(row.feed_version ?? ""),
+		};
+	} catch (error) {
+		console.log(error);
+		return null;
+	}
+};
+
+export interface INearbyStopRow {
+	stop_id: string;
+	stop_name: string;
+	stop_lat: number;
+	stop_lon: number;
+}
+
+const NEARBY_BBOX_DEG = 0.05;
+const NEARBY_CANDIDATE_CAP = 800;
+
+/** Stops nearest to a point; bbox prefilter then Haversine sort. */
+export const selectNearestStopsFromDatabase = async (
+	lat: number,
+	lng: number,
+	limit = 10,
+): Promise<INearbyStopRow[]> => {
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				stop_id: stops.stop_id,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				trips,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(
+					eq(routes.route_id, trips.route_id),
+					eq(routes.feed_version, latestFeedVersion),
+				),
+			)
+			.where(
+				and(
+					eq(stops.feed_version, latestFeedVersion),
+					gte(stops.stop_lat, lat - NEARBY_BBOX_DEG),
+					lte(stops.stop_lat, lat + NEARBY_BBOX_DEG),
+					gte(stops.stop_lon, lng - NEARBY_BBOX_DEG),
+					lte(stops.stop_lon, lng + NEARBY_BBOX_DEG),
+				),
+			)
+			.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
+			.limit(NEARBY_CANDIDATE_CAP);
+
+		const rows: INearbyStopRow[] = data
+			.filter(
+				(row) =>
+					row.stop_id != null &&
+					!isStopIdExcludedFromClient(row.stop_id) &&
+					row.stop_name != null &&
+					row.stop_lat != null &&
+					row.stop_lon != null,
+			)
+			.map((row) => ({
+				stop_id: row.stop_id as string,
+				stop_name: row.stop_name as string,
+				stop_lat: Number(row.stop_lat),
+				stop_lon: Number(row.stop_lon),
+			}));
+
+		const withDist = rows.map((r) => ({
+			...r,
+			dist: getDistanceFromLatLon(lat, lng, r.stop_lat, r.stop_lon),
+		}));
+		withDist.sort((a, b) => a.dist - b.dist);
+		return withDist.slice(0, limit).map(({ dist: _d, ...r }) => r);
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+/** Text search on stop names (case-insensitive). */
+export const searchStopsByNameFromDatabase = async (
+	query: string,
+	limit = 20,
+): Promise<INearbyStopRow[]> => {
+	const trimmed = query.trim().replace(/[%_]/g, "");
+	if (trimmed.length < 2) {
+		return [];
+	}
+	MetricsTracker.trackDbQuery();
+	const pattern = `%${trimmed}%`;
+	try {
+		const data = await db
+			.select({
+				stop_id: stops.stop_id,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				trips,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(
+					eq(routes.route_id, trips.route_id),
+					eq(routes.feed_version, latestFeedVersion),
+				),
+			)
+			.where(
+				and(
+					eq(stops.feed_version, latestFeedVersion),
+					sql`lower(${stops.stop_name}) like lower(${pattern})`,
+				),
+			)
+			.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
+			.limit(limit);
+
+		return data
+			.filter(
+				(row) =>
+					row.stop_id != null &&
+					!isStopIdExcludedFromClient(row.stop_id) &&
+					row.stop_name != null &&
+					row.stop_lat != null &&
+					row.stop_lon != null,
+			)
+			.map((row) => ({
+				stop_id: row.stop_id as string,
+				stop_name: row.stop_name as string,
+				stop_lat: Number(row.stop_lat),
+				stop_lon: Number(row.stop_lon),
+			}));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
 export const selectUpcomingTripsFromDatabase = async (
 	busLine: string,
 	stop_name: string,
@@ -185,7 +496,8 @@ export const selectUpcomingTripsFromDatabase = async (
 	const startTimeMinutes =
 		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
 	const endTimeMinutes =
-		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 + dt.minute;
+		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 +
+		dt.minute;
 
 	const timeFilter = calculateTimeFilter({
 		minutesFilter,
