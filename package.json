@@ -8,8 +8,12 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
+		"format": "biome format --write .",
+		"check:biome": "biome check .",
 		"build:cron": "node scripts/buildCron.js",
-		"test": "vitest"
+		"test": "vitest",
+		"generate:stops": "tsx scripts/generate-stops-positions.ts",
+		"db:ensure-indexes": "tsx scripts/ensure-db-indexes.ts"
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.701.0",
@@ -52,10 +56,11 @@
 		"@types/react": "^18",
 		"@types/react-dom": "^18",
 		"@types/unzipper": "^0.10.11",
-		"biome": "^0.2.2",
+		"dotenv": "^17.3.1",
 		"drizzle-kit": "^0.31.8",
 		"sass": "^1.81.0",
 		"tsconfig-paths": "^4.2.0",
+		"tsx": "^4.21.0",
 		"tw-animate-css": "^1.3.7",
 		"typescript": "^5",
 		"vitest": "^3.2.3"
