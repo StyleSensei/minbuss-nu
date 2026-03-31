@@ -1,4 +1,3 @@
-import React from "react";
 import TextBlock from "../components/Textblock";
 import { Contact } from "../components/Contact";
 import ImageServer from "./ImageServer";
@@ -20,7 +19,7 @@ export default async function InfoPage() {
 			h2: "Varför denna tjänst?",
 			text: `Den här tjänsten är skapad för att göra bussresandet med SL, Storstockholms Lokaltrafik, lite smidigare och mer förutsägbart./ 
 		Den är särskilt användbar när du står vid en hållplats och väntar på din buss, kanske under rusningstid eller i områden där bussarna inte går lika frekvent./
-		Även om fokus ligger på bussar kan du också följa andra delar av kollektivtrafiken i realtid, som tunnelbana, spårvagn och båt./
+		Även om fokus ligger på bussar kan du också följa andra delar av kollektivtrafiken i realtid, som tunnelbana, spårvagn och båt. 🚇 🚃 ⛴️/
 		Tjänsten är tänkt att ge dig en mer avslappnad och effektiv vardag som resenär – oavsett om du pendlar dagligen eller bara reser då och då./`,
 			image: {},
 		},
@@ -71,68 +70,66 @@ Om du vill låsa positionen till din markerade buss och följa bussen på kartan
 	];
 
 	return (
-		<>
-			<article className="wrapper__info">
-				<ClientWrapper>
-					<section className="h1-section">
-						<h1 className="font-bold tracking-tight text-balance heading text-center">
-							Om <span className="text-accent">minbuss.nu</span>
-						</h1>
-					</section>
-				</ClientWrapper>
-				{descriptions.map((description, index) => {
-					return (
-						// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-						<ClientWrapper key={`description-wrapper-${index}`}>
-							<section className="xl:flex align-items-center">
-								<TextBlock
-									description={description.text}
-									className="info server-textblock"
-									h2={description.h2}
-									h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
-									h1ClassName="text-4xl font-bold tracking-tight text-balance"
-								/>
+		<article className="wrapper__info">
+			<ClientWrapper>
+				<section className="h1-section">
+					<h1 className="font-bold tracking-tight text-balance heading text-center">
+						Om <span className="text-accent">minbuss.nu</span>
+					</h1>
+				</section>
+			</ClientWrapper>
+			{descriptions.map((description, index) => {
+				return (
+					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+					<ClientWrapper key={`description-wrapper-${index}`}>
+						<section className="xl:flex align-items-center">
+							<TextBlock
+								description={description.text}
+								className="info server-textblock"
+								h2={description.h2}
+								h2ClassName="text-2xl font-bold tracking-tight text-balance text-left"
+								h1ClassName="text-4xl font-bold tracking-tight text-balance"
+							/>
 
-								{description.image.src && (
-									<ImageServer
-										src={description.image.src}
-										alt={description.image.alt}
-									/>
-								)}
-							</section>
-							{index === 0 && (
-								<DemoMap
-									pathD={customPathForMobile || routePathD}
-									popupClass="--hidden"
-									className="about-page"
-									customPathForMobile={customPathForMobile}
+							{description.image.src && (
+								<ImageServer
+									src={description.image.src}
+									alt={description.image.alt}
 								/>
 							)}
-						</ClientWrapper>
-					);
-				})}
-				<ClientWrapper>
-					<section className="presentation">
-						<TextBlock
-							className="presentation__text"
-							descriptionId="presentation__text"
-							descriptionClassName="presentation__text"
-							description={`Jag heter Patrik och arbetar som webbutvecklare i Stockholm. Om du har några frågor, förslag eller feedback om tjänsten, tveka inte att ta kontakt. /
+						</section>
+						{index === 0 && (
+							<DemoMap
+								pathD={customPathForMobile || routePathD}
+								popupClass="--hidden"
+								className="about-page"
+								customPathForMobile={customPathForMobile}
+							/>
+						)}
+					</ClientWrapper>
+				);
+			})}
+			<ClientWrapper>
+				<section className="presentation">
+					<TextBlock
+						className="presentation__text"
+						descriptionId="presentation__text"
+						descriptionClassName="presentation__text"
+						description={`Jag heter Patrik och arbetar som webbutvecklare i Stockholm. Om du har några frågor, förslag eller feedback om tjänsten, tveka inte att ta kontakt. /
 							Jag är alltid öppen för att höra från användare och förbättra tjänsten baserat på era behov./
 							Tack för att du använder minbuss.nu! /
 							`}
-						/>
-						<Contact />
-						<TextBlock
-							className="presentation__text--footer"
-							descriptionId="presentation__text--footer"
-							descriptionClassName="presentation__text--footer"
-							description={`Tjänsten använder öppna trafikdata som tillhandahålls via Trafiklab, inklusive både statiska tidtabellsdata (GTFS) och realtidsdata (GTFS-RT). Datan är licensierad under CC0 1.0 (Public Domain Dedication) och bearbetas samt presenteras av minbuss.nu.
+					/>
+					<Contact />
+					<TextBlock
+						className="presentation__text--footer"
+						descriptionId="presentation__text--footer"
+						descriptionClassName="presentation__text--footer"
+						description={`Tjänsten använder öppna trafikdata som tillhandahålls via Trafiklab, inklusive både statiska tidtabellsdata (GTFS) och realtidsdata (GTFS-RT). Datan är licensierad under CC0 1.0 (Public Domain Dedication) och bearbetas samt presenteras av minbuss.nu.
 								Trafikdata kan vara fördröjd eller ofullständig och bör ses som vägledande.`}
-						/>
-					</section>
-				</ClientWrapper>
-			</article>
-		</>
+					/>
+				</section>
+			</ClientWrapper>
+		</article>
 	);
 }
