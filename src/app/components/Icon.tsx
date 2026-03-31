@@ -5,6 +5,7 @@ interface IconProps {
 	title: string;
 	className?: string;
 	label?: string;
+	viewBox?: string;
 }
 
 export const Icon = ({
@@ -14,6 +15,7 @@ export const Icon = ({
 	title,
 	className,
 	label,
+	viewBox = "0 0 16 16",
 }: IconProps) => {
 	return (
 		<>
@@ -22,7 +24,7 @@ export const Icon = ({
 				width={iconSize}
 				height={iconSize}
 				fill={fill}
-				viewBox="0 0 16 16"
+				viewBox={viewBox}
 				className={className}
 			>
 				<title>{title}</title>
