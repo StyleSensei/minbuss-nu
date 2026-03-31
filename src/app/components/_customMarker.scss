@@ -11,6 +11,7 @@ $userColor: rgb(0, 149, 255);
 .marker-wrapper {
     width: $wrapper-size;
     height: $wrapper-size;
+    position: relative;
     cursor: pointer;
 
     &.marker-hidden {
@@ -18,13 +19,20 @@ $userColor: rgb(0, 149, 255);
     }
 }
 
+.marker-wrapper .custom-marker {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
 .custom-marker {
     width: $marker-size;
     height: $marker-size;
-    margin: calc(($wrapper-size - $marker-size) / 2);
+    margin: 0;
     border-radius: 50%;
     cursor: pointer;
-    float: left;
+    float: none;
     background: color.adjust(v.$accent-color, $lightness: 5%);
     border: 2px solid rgb(0, 0, 0);
     backface-visibility: hidden;
@@ -74,19 +82,29 @@ $userColor: rgb(0, 149, 255);
 
 .user-location {
     @extend .custom-marker;
+    position: relative;
     height: $userSize;
     width: $userSize;
     background: $userColor;
+    margin: 0;
+    float: none;
+
     animation: markerPulse 0.5s 3s ease-out 2;
     cursor: default;
+    opacity: 0;
+    transition: opacity 0.3s v.$bounce;
+
+    &.--visible {
+        opacity: 1;
+    }
 }
 
 .user-location__container {
     @extend .line-destination-container;
 
     &.--visible {
-        transform: translate(35%, -75%);
         opacity: 1;
+        transform: translate(35%, -75%);
     }
 }
 

@@ -9,22 +9,35 @@ $containerWidth: 278px;
     justify-content: center;
     align-items: center;
     border-radius: 100px;
-    top: 1vh;
     z-index: 3;
     pointer-events: none;
-    transition: all .5s ease;
-    border: 1px v.$tertiary-color solid;
-    will-change: transform, top;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.5s ease, border-radius 0.35s ease;
+    border: 1px solid rgba(v.$tertiary-color, 0.65);
+    transform: translateY(0) scale(1);
+    will-change: transform;
     @include m.backdropFilter;
 
     &.--active {
-        border: 3px v.$accent-color solid;
-        top: calc(50vh - 4rem);
-        margin-top: calc(50vh - 4rem);
-        transform: scale(1.2);
+        border: 2px solid rgba(v.$accent-color, 0.75);
+        box-shadow: 0 0 0 1px rgba(v.$accent-color, 0.12), 0 10px 36px rgba(0, 0, 0, 0.28);
+        transform: translateY(calc(50vh - 50% - 4rem)) scale(1.2);
 
         @include m.desktop {
-            transform: scale(1.5);
+            transform: translateY(calc(50vh - 50% - 4rem)) scale(1.5);
+        }
+    }
+
+    &.--active.--with-stops {
+        align-items: stretch;
+        border-radius: 22px;
+        border-width: 1px;
+        border-color: rgba(v.$accent-color, 0.55);
+        box-shadow: 0 0 0 1px rgba(v.$accent-color, 0.18), 0 12px 40px rgba(0, 0, 0, 0.32);
+        width: min(92vw, $containerWidth + 48px);
+
+        form {
+            border-radius: 20px 20px 0 0;
+            border-bottom: 1px solid rgba(v.$tertiary-color, 0.28);
         }
     }
 
@@ -63,6 +76,7 @@ $containerWidth: 278px;
 
             &::placeholder {
                 color: v.$tertiary-color;
+                font-size: .8rem;
             }
 
             &:focus {
@@ -102,6 +116,164 @@ $containerWidth: 278px;
         button[type="submit"] {
             display: none;
         }
+    }
+
+    .search-bar__stop-suggestions {
+        h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0;
+            padding: 12px 14px;
+            box-sizing: border-box;
+            color: v.$tertiary-color;
+        }
+
+        pointer-events: all;
+        width: 100%;
+        max-width: min(92vw, $containerWidth + 48px);
+        margin-top: 8px;
+        max-height: min(40vh, 320px);
+        overflow: auto;
+        border-radius: 12px;
+        border: 1px solid v.$tertiary-color;
+        background: rgba(v.$primary-color, 0.95);
+        @include m.backdropFilter;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        -webkit-overflow-scrolling: touch;
+
+        &.--loading {
+            overflow: hidden;
+        }
+
+        .search-bar__stop-suggestions-skeleton {
+            width: 100%;
+        }
+
+        .search-bar__stop-suggestion-skeleton {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            width: 100%;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(v.$tertiary-color, 0.35);
+            box-sizing: border-box;
+
+            &:last-child {
+                border-bottom: none;
+            }
+        }
+
+        .search-bar__stop-suggestion-skeleton__name {
+            display: block;
+            height: 14px;
+            border-radius: 4px;
+            background: rgba(v.$tertiary-color, 0.45);
+            animation: loaderPulse 1.5s infinite ease-in-out;
+        }
+
+        .search-bar__stop-suggestion-skeleton__routes {
+            display: block;
+            height: 10px;
+            border-radius: 3px;
+            background: rgba(v.$tertiary-color, 0.28);
+            animation: loaderPulse 1.5s infinite ease-in-out;
+            animation-delay: 0.08s;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(1) .search-bar__stop-suggestion-skeleton__name {
+            width: 78%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(1) .search-bar__stop-suggestion-skeleton__routes {
+            width: 62%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(2) .search-bar__stop-suggestion-skeleton__name {
+            width: 92%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(2) .search-bar__stop-suggestion-skeleton__routes {
+            width: 88%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(3) .search-bar__stop-suggestion-skeleton__name {
+            width: 65%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(3) .search-bar__stop-suggestion-skeleton__routes {
+            width: 55%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(4) .search-bar__stop-suggestion-skeleton__name {
+            width: 84%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(4) .search-bar__stop-suggestion-skeleton__routes {
+            width: 70%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(5) .search-bar__stop-suggestion-skeleton__name {
+            width: 72%;
+        }
+
+        .search-bar__stop-suggestion-skeleton:nth-child(5) .search-bar__stop-suggestion-skeleton__routes {
+            width: 48%;
+        }
+    }
+
+    &.--active.--with-stops .search-bar__stop-suggestions {
+        margin-top: 0;
+        max-width: none;
+        border: none;
+        border-radius: 0 0 18px 18px;
+        box-shadow: none;
+    }
+
+    .search-bar__stop-suggestion {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        width: 100%;
+        padding: 12px 14px;
+        border: none;
+        border-bottom: 1px solid rgba(v.$tertiary-color, 0.35);
+        background: transparent;
+        color: v.$secondary-color;
+        text-align: left;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 700;
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.15s ease;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &:hover,
+        &:focus-visible {
+            background: rgba(v.$accent-color, 0.12);
+            outline: none;
+        }
+
+        &:active {
+            background: rgba(v.$accent-color, 0.2);
+        }
+    }
+
+    .search-bar__stop-suggestion-name {
+        line-height: 1.25;
+        letter-spacing: 0.01em;
+    }
+
+    .search-bar__stop-suggestion-routes {
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.35;
+        color: rgba(v.$secondary-color, 0.55);
     }
 }
 
