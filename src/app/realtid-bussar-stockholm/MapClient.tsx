@@ -4,37 +4,37 @@ export const metadata = {
 	title: "Se närmaste bussen live i Stockholm",
 };
 
+import type { IDbData } from "@shared/models/IDbData";
+import type { IShapes } from "@shared/models/IShapes";
 import {
-	Map as GoogleMap,
-	APIProvider,
-	MapControl,
-	ControlPosition,
-	type MapCameraChangedEvent,
-	type MapEvent,
-	type MapMouseEvent,
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
+	APIProvider,
+	ControlPosition,
+	Map as GoogleMap,
+	type MapCameraChangedEvent,
+	MapControl,
+	type MapEvent,
+	type MapMouseEvent,
 	RenderingType,
 } from "@vis.gl/react-google-maps";
-
 import { useRouter } from "next/navigation";
-import { useDataContext } from "../context/DataContext";
-import { MapControlButtons } from "../components/MapControlButtons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CurrentTrips } from "../components/CurrentTrips";
+import { MapControlButtons } from "../components/MapControlButtons";
+import RouteShapePolyline from "../components/RouteShapePolyline";
+import UserMessage from "../components/UserMessage";
+import VehicleMarkers from "../components/VehicleMarkers";
+import { useDataContext } from "../context/DataContext";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { Paths } from "../paths";
+import { MapStopPreview } from "./MapStopPreview";
 import { StopMarkersLayer } from "./StopMarkersLayer";
 import {
 	filterStopsInViewport,
 	type IStopPositionJson,
 	type StopsPositionsFile,
 } from "./stopPositionsTypes";
-import type { IShapes } from "@shared/models/IShapes";
-import type { IDbData } from "@shared/models/IDbData";
-import { useIsMobile } from "../hooks/useIsMobile";
-import { CurrentTrips } from "../components/CurrentTrips";
-import UserMessage from "../components/UserMessage";
-import VehicleMarkers from "../components/VehicleMarkers";
-import RouteShapePolyline from "../components/RouteShapePolyline";
-import { Paths } from "../paths";
 
 /** Limits React re-renders + stop marker work during continuous zoom/pan (camera events are very frequent). */
 const CAMERA_STATE_THROTTLE_MS = 120;
@@ -155,24 +155,6 @@ export default function MapClient() {
 			);
 		},
 		[router, setMapStopPreview, setSelectedStopForSchedule],
-	);
-
-	const lastRoutePickAtRef = useRef(0);
-	const pickRouteFromPreview = useCallback(
-		(
-			name: string,
-			stop: IDbData,
-			_source: "click" | "pointerup" | "touchend",
-		) => {
-			const now = Date.now();
-			// Guard against double-fire on some mobile browsers (pointerup + click).
-			if (now - lastRoutePickAtRef.current < 350) {
-				return;
-			}
-			lastRoutePickAtRef.current = now;
-			handlePreviewLineClick(name, stop);
-		},
-		[handlePreviewLineClick],
 	);
 
 	const handleStopMarkerClick = useCallback(
@@ -618,82 +600,10 @@ export default function MapClient() {
 						/>
 					)}
 					{showMapStopPreview && mapStopPreview && (
-						<AdvancedMarker
-							className="map-stop-preview-marker"
-							title={mapStopPreview.stop.stop_name}
-							position={
-								new google.maps.LatLng({
-									lat: mapStopPreview.stop.stop_lat,
-									lng: mapStopPreview.stop.stop_lon,
-								})
-							}
-						>
-							<div
-								className="map-stop-preview"
-								onClick={(e) => e.stopPropagation()}
-								aria-busy={mapStopPreview.routesLoading === true}
-							>
-								{mapStopPreview.routesLoading ? (
-									<>
-										<div
-											className="map-stop-preview__title-skeleton"
-											aria-hidden
-										/>
-										<div
-											className="map-stop-preview__routes map-stop-preview__routes--loading"
-											aria-hidden
-										>
-											<span className="map-stop-preview__route-chip-skeleton" />
-											<span className="map-stop-preview__route-chip-skeleton" />
-											<span className="map-stop-preview__route-chip-skeleton" />
-										</div>
-									</>
-								) : (
-									<>
-										<p className="map-stop-preview__title">
-											{mapStopPreview.stop.stop_name}
-										</p>
-										<div className="map-stop-preview__routes">
-											{[...mapStopPreview.routeShortNames]
-												.sort((a, b) => a.localeCompare(b, "sv"))
-												.map((name) => (
-													<button
-														key={name}
-														type="button"
-														className="map-stop-preview__route-btn"
-														onPointerUp={(e) => {
-															e.stopPropagation();
-															pickRouteFromPreview(
-																name,
-																mapStopPreview.stop,
-																"pointerup",
-															);
-														}}
-														onTouchEnd={(e) => {
-															e.stopPropagation();
-															pickRouteFromPreview(
-																name,
-																mapStopPreview.stop,
-																"touchend",
-															);
-														}}
-														onClick={(e) => {
-															e.stopPropagation();
-															pickRouteFromPreview(
-																name,
-																mapStopPreview.stop,
-																"click",
-															);
-														}}
-													>
-														{name}
-													</button>
-												))}
-										</div>
-									</>
-								)}
-							</div>
-						</AdvancedMarker>
+						<MapStopPreview
+							preview={mapStopPreview}
+							onRouteSelect={handlePreviewLineClick}
+						/>
 					)}
 					{userPosition && mapRef.current && (
 						<AdvancedMarker

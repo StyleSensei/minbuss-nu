@@ -8,7 +8,11 @@ import { MapPinned } from "lucide-react";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
 import { CurrentTripsLoader } from "./CurrentTripsLoader";
-import { IVehiclePosition } from "@/shared/models/IVehiclePosition";
+import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
+import {
+	gtfsRouteModeShortLabelSv,
+	gtfsRouteVehicleLabelSv,
+} from "../utilities/gtfsRouteTypeLabel";
 
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
@@ -23,15 +27,23 @@ export const CurrentTrips = ({
 }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
-	const { filteredVehicles, tripData, filteredTripUpdates, userPosition, isLoading } =
-		useDataContext();
+	const {
+		filteredVehicles,
+		tripData,
+		filteredTripUpdates,
+		userPosition,
+		isLoading,
+	} = useDataContext();
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 	const closestStopToUse = closestStop ?? userPosition?.closestStop;
 
 	const activeVehiclePositions = useMemo(
-		() => new Set(filteredVehicles.data.map((bus: IVehiclePosition) => bus.trip.tripId)),
+		() =>
+			new Set(
+				filteredVehicles.data.map((bus: IVehiclePosition) => bus.trip.tripId),
+			),
 		[filteredVehicles.data],
 	);
 
@@ -81,7 +93,7 @@ export const CurrentTrips = ({
 				setTripsToDisplay(tripData.upcomingTrips);
 			}
 		}
-	}, [closestStopToUse?.stop_id, tripData.upcomingTrips, filteredTripUpdates]);
+	}, [closestStopToUse?.stop_id, tripData.upcomingTrips, closestStopToUse]);
 	function getUpdatedDepartureTime(
 		tripId: string,
 		stop: IDbData | null | undefined,
@@ -131,6 +143,13 @@ export const CurrentTrips = ({
 		tripData.lineStops[0]?.route_short_name ??
 		"";
 
+	const routeMeta =
+		nextBus ??
+		tripsToDisplay[0] ??
+		tripData.upcomingTrips[0] ??
+		tripData.currentTrips[0];
+	const vehicleLabel = gtfsRouteVehicleLabelSv(routeMeta?.route_type);
+
 	const isActive = nextBus
 		? activeVehiclePositions.has(nextBus?.trip_id)
 		: false;
@@ -177,12 +196,21 @@ export const CurrentTrips = ({
 					<h2 className="text-left text-2xl font-extrabold tracking-tight text-balance">
 						Avgångar närmast dig
 					</h2>
-					<p>
+					<p title={routeMeta?.route_desc ?? undefined}>
 						<span className="text-muted-foreground dark">Linje: </span>
-						<span className="font-bold">
-							{routeShortName}
-						</span>
+						<span className="font-bold">{routeShortName}</span>
+						{routeMeta?.route_type != null && (
+							<span className="text-muted-foreground dark">
+								{" "}
+								· {gtfsRouteModeShortLabelSv(routeMeta.route_type)}
+							</span>
+						)}
 					</p>
+					{routeMeta?.route_long_name ? (
+						<p className="route-long-name text-sm text-muted-foreground dark">
+							{routeMeta.route_long_name}
+						</p>
+					) : null}
 					{closestStopToUse && (
 						<p className="station-name">
 							<span className="text-muted-foreground dark">
@@ -203,8 +231,10 @@ export const CurrentTrips = ({
 					<>
 						<button
 							type="button"
-							title={isActive ? "Visa position" : "Bussen är inte i trafik"}
-							aria-label={`Visa nästa buss mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
+							title={
+								isActive ? "Visa position" : `${vehicleLabel} är inte i trafik`
+							}
+							aria-label={`Visa nästa avgång mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
 							className={`next-departure ${isActive ? " --active" : ""}`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
@@ -221,8 +251,8 @@ export const CurrentTrips = ({
 								/>{" "}
 								<span className="">
 									{isActive
-										? "Bussen är i trafik"
-										: "Bussen är inte i trafik än"}
+										? `${vehicleLabel} är i trafik`
+										: `${vehicleLabel} är inte i trafik än`}
 								</span>
 							</p>
 							<p className="!text-xs uppercase text-zinc-300/80 tracking-wide">
@@ -261,13 +291,19 @@ export const CurrentTrips = ({
 								</thead>
 								<tbody>
 									{rest.map((trip, i) => {
-										const updatedTime = getUpdatedDepartureTime(trip?.trip_id, closestStopToUse);
+										const updatedTime = getUpdatedDepartureTime(
+											trip?.trip_id,
+											closestStopToUse,
+										);
 										const scheduledTime = normalizeTimeForDisplay(
 											trip?.departure_time?.slice(0, 5),
 										);
 										const hasUpdate =
 											updatedTime && updatedTime !== scheduledTime;
 										const isActive = activeVehiclePositions.has(trip.trip_id);
+										const rowVehicleLabel = gtfsRouteVehicleLabelSv(
+											trip.route_type,
+										);
 
 										return (
 											<tr
@@ -287,7 +323,7 @@ export const CurrentTrips = ({
 														title={
 															isActive
 																? "Visa position"
-																: "Bussen är inte i trafik"
+																: `${rowVehicleLabel} är inte i trafik`
 														}
 														onClick={() => onTripSelect?.(trip.trip_id)}
 														onKeyDown={(e) => {
@@ -296,7 +332,7 @@ export const CurrentTrips = ({
 															}
 														}}
 														style={!isActive ? { cursor: "auto" } : {}}
-														aria-label={`Visa buss mot ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
+														aria-label={`Visa avgång mot ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
 													>
 														{trip?.stop_headsign}{" "}
 														{isActive && (
@@ -325,7 +361,9 @@ export const CurrentTrips = ({
 						)}
 					</>
 				) : (
-					<p className="text-muted-foreground dark text-center">Inga fler avgångar inom 6 timmar</p>
+					<p className="text-muted-foreground dark text-center">
+						Inga fler avgångar inom 6 timmar
+					</p>
 				)}
 			</div>
 		</div>

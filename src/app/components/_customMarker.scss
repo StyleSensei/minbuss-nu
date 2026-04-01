@@ -1,6 +1,7 @@
 @use '../variables' as v;
 @use 'sass:color';
 @use '../keyframes';
+@use '../mixins' as m;
 
 $wrapper-size: 80px;
 $marker-size: 32px;
@@ -56,10 +57,10 @@ $userColor: rgb(0, 149, 255);
     transform: translate(0%, -100%);
     width: fit-content;
     height: fit-content;
-    background: v.$primary-color;
-    padding: 2px 4px;
-    border-radius: 10px;
-    border: 1px solid v.$tertiary-color;
+    background: rgba(v.$primary-color, 0.85);
+    padding: 1rem;
+    border-radius: 20px;
+    border: 1px solid v.$primary-color--muted;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -67,6 +68,8 @@ $userColor: rgb(0, 149, 255);
     gap: 2px;
     transition: all 0.3s v.$bounce;
     opacity: 0;
+    white-space: nowrap;
+    @include m.backdropFilter;
 
     &.--visible {
         opacity: 1;
@@ -76,8 +79,16 @@ $userColor: rgb(0, 149, 255);
 
 .line-text {
     font-size: 10px;
-    font-weight: bold;
+    font-weight: 400;
     color: white;
+}
+
+.line-text__number {
+    font-weight: 700;
+}
+
+.line-text__destination {
+    font-weight: 400;
 }
 
 .user-location {
@@ -104,10 +115,11 @@ $userColor: rgb(0, 149, 255);
 
     &.--visible {
         opacity: 1;
-        transform: translate(35%, -75%);
+        transform: translate(25%, -25%);
     }
 }
 
 .user-location__text {
     @extend .line-text;
+
 }

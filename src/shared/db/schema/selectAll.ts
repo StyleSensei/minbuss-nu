@@ -12,6 +12,9 @@ export const selectAllSchema = z.object({
 	trip_id: z.string().nullable(),
 	// route_id: z.string().nullable(),
 	route_short_name: z.string().nullable(),
+	route_long_name: z.string().nullable().optional(),
+	route_type: z.number().nullable().optional(),
+	route_desc: z.string().nullable().optional(),
 	stop_headsign: z.string().nullable(),
 	feed_version: z.string().nullable(),
 });

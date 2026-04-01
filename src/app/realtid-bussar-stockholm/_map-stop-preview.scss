@@ -38,18 +38,18 @@
 	pointer-events: auto;
 	z-index: 10;
 	display: flex;
-	transform: translate(25%, -25%);
 	flex-direction: column;
 	gap: 6px;
 	min-width: 160px;
 	max-width: min(90vw, 280px);
-	padding: 8px 10px;
-	border-radius: 10px;
+	padding: 1rem;
+	border-radius: 20px;
 	background: rgba(v.$primary-color, 0.95);
-	border: 1px solid v.$tertiary-color;
+	border: 1px solid v.$primary-color--muted;
 	color: v.$secondary-color;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 	@include m.backdropFilter;
+	animation: mapStopPreviewIn 0.3s v.$bounce both;
 
 	&__title {
 		font-size: 0.75rem;
@@ -95,6 +95,7 @@
 	}
 
 	&__route-btn {
+		touch-action: manipulation;
 		cursor: pointer;
 		border: 1px solid v.$accent-color;
 		background: transparent;

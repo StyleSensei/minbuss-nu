@@ -54,6 +54,9 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 				stop_id: stops.stop_id,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
+				route_long_name: routes.route_long_name,
+				route_type: routes.route_type,
+				route_desc: routes.route_desc,
 				feed_version: trips.feed_version,
 			})
 			.from(trips)
@@ -205,7 +208,9 @@ export const selectRoutesForStopFromDatabase = async (
 export const selectRoutesForStopsFromDatabase = async (
 	stopIds: string[],
 ): Promise<Record<string, string[]>> => {
-	const cleanedStopIds = [...new Set(stopIds.map((id) => id.trim()).filter(Boolean))];
+	const cleanedStopIds = [
+		...new Set(stopIds.map((id) => id.trim()).filter(Boolean)),
+	];
 	if (cleanedStopIds.length === 0) {
 		return {};
 	}
@@ -516,6 +521,9 @@ export const selectUpcomingTripsFromDatabase = async (
 				shape_id: trips.shape_id,
 				trip_id: trips.trip_id,
 				route_short_name: routes.route_short_name,
+				route_long_name: routes.route_long_name,
+				route_type: routes.route_type,
+				route_desc: routes.route_desc,
 				stop_headsign: stop_times.stop_headsign,
 				departure_time: stop_times.departure_time,
 				stop_name: stops.stop_name,
@@ -547,6 +555,9 @@ export const selectUpcomingTripsFromDatabase = async (
 			.groupBy(
 				trips.trip_id,
 				routes.route_short_name,
+				routes.route_long_name,
+				routes.route_type,
+				routes.route_desc,
 				stop_times.stop_headsign,
 				stop_times.departure_time,
 				stops.stop_name,
@@ -554,6 +565,8 @@ export const selectUpcomingTripsFromDatabase = async (
 				stops.stop_id,
 				stops.stop_lat,
 				stops.stop_lon,
+				trips.feed_version,
+				trips.shape_id,
 			)
 			.orderBy(stop_times.departure_time)
 			.limit(100);
