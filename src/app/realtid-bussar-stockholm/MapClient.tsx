@@ -11,6 +11,7 @@ import {
 	ControlPosition,
 	type MapCameraChangedEvent,
 	type MapEvent,
+	type MapMouseEvent,
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
 	RenderingType,
@@ -37,6 +38,17 @@ import { Paths } from "../paths";
 
 /** Limits React re-renders + stop marker work during continuous zoom/pan (camera events are very frequent). */
 const CAMERA_STATE_THROTTLE_MS = 120;
+
+/** På mobil kan kartans click köas före markör/knapp — då rensas preview innan linjeval. Ignorera klick som kommer från vårt hållplats-UI. */
+function isClickFromStopUi(e: MapMouseEvent): boolean {
+	const raw = e.domEvent?.target;
+	if (!raw || !(raw instanceof Element)) return false;
+	return Boolean(
+		raw.closest(".map-stop-preview") ||
+			raw.closest("[data-stop-marker]") ||
+			raw.closest(".stop-marker-visibility-wrap"),
+	);
+}
 
 function stopPositionToPlaceholderDb(s: IStopPositionJson): IDbData {
 	return {
@@ -135,15 +147,32 @@ export default function MapClient() {
 	);
 
 	const handlePreviewLineClick = useCallback(
-		(routeShortName: string) => {
-			if (!mapStopPreview || mapStopPreview.routesLoading) return;
-			setSelectedStopForSchedule(mapStopPreview.stop);
+		(routeShortName: string, stop: IDbData) => {
+			setSelectedStopForSchedule(stop);
 			setMapStopPreview(null);
 			router.push(
 				`${Paths.Search}?linje=${encodeURIComponent(routeShortName)}`,
 			);
 		},
-		[mapStopPreview, router, setMapStopPreview, setSelectedStopForSchedule],
+		[router, setMapStopPreview, setSelectedStopForSchedule],
+	);
+
+	const lastRoutePickAtRef = useRef(0);
+	const pickRouteFromPreview = useCallback(
+		(
+			name: string,
+			stop: IDbData,
+			_source: "click" | "pointerup" | "touchend",
+		) => {
+			const now = Date.now();
+			// Guard against double-fire on some mobile browsers (pointerup + click).
+			if (now - lastRoutePickAtRef.current < 350) {
+				return;
+			}
+			lastRoutePickAtRef.current = now;
+			handlePreviewLineClick(name, stop);
+		},
+		[handlePreviewLineClick],
 	);
 
 	const handleStopMarkerClick = useCallback(
@@ -515,7 +544,8 @@ export default function MapClient() {
 					mapTypeControl={false}
 					streetViewControl={false}
 					fullscreenControl={false}
-					onClick={() => {
+					onClick={(e: MapMouseEvent) => {
+						if (isClickFromStopUi(e)) return;
 						setClickedOutside(true);
 						setMapStopPreview(null);
 					}}
@@ -631,9 +661,29 @@ export default function MapClient() {
 														key={name}
 														type="button"
 														className="map-stop-preview__route-btn"
+														onPointerUp={(e) => {
+															e.stopPropagation();
+															pickRouteFromPreview(
+																name,
+																mapStopPreview.stop,
+																"pointerup",
+															);
+														}}
+														onTouchEnd={(e) => {
+															e.stopPropagation();
+															pickRouteFromPreview(
+																name,
+																mapStopPreview.stop,
+																"touchend",
+															);
+														}}
 														onClick={(e) => {
 															e.stopPropagation();
-															handlePreviewLineClick(name);
+															pickRouteFromPreview(
+																name,
+																mapStopPreview.stop,
+																"click",
+															);
 														}}
 													>
 														{name}

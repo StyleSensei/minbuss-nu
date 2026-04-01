@@ -20,10 +20,18 @@ $containerWidth: 278px;
     &.--active {
         border: 2px solid rgba(v.$accent-color, 0.75);
         box-shadow: 0 0 0 1px rgba(v.$accent-color, 0.12), 0 10px 36px rgba(0, 0, 0, 0.28);
-        transform: translateY(calc(50vh - 50% - 4rem)) scale(1.2);
+        transform: translateY(calc(32dvh - 50% - 1.5rem)) scale(1.2);
+
+        @supports not (height: 100dvh) {
+            transform: translateY(calc(32vh - 50% - 1.5rem)) scale(1.2);
+        }
 
         @include m.desktop {
-            transform: translateY(calc(50vh - 50% - 4rem)) scale(1.5);
+            transform: translateY(calc(50dvh - 50% - 4rem)) scale(1.5);
+
+            @supports not (height: 100dvh) {
+                transform: translateY(calc(50vh - 50% - 4rem)) scale(1.5);
+            }
         }
     }
 
@@ -133,7 +141,7 @@ $containerWidth: 278px;
         width: 100%;
         max-width: min(92vw, $containerWidth + 48px);
         margin-top: 8px;
-        max-height: min(40vh, 320px);
+        max-height: min(30vh, 320px);
         overflow: auto;
         border-radius: 12px;
         border: 1px solid v.$tertiary-color;

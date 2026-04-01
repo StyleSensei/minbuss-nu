@@ -9,6 +9,7 @@ import {
 	Suspense,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -493,13 +494,15 @@ export const SearchBar = ({
 		routeExists,
 	]);
 
-	useEffect(() => {
-		const linje = searchParams.get("linje");
-		if (linje) {
-			const next = linje.toUpperCase();
-			setUserInput((prev) => (prev !== next ? next : prev));
-		}
-	}, [searchParams]);
+	// Primitiv `linjeFromUrl` (inte searchParams-referens) + layout: mobil kan få stabil searchParams-ref så useEffect([searchParams]) triggade inte.
+	useLayoutEffect(() => {
+		if (!linjeFromUrl) return;
+		const next = linjeFromUrl.toUpperCase();
+		setUserInput(next);
+		latestVehicleLineRef.current = next;
+		setStopSearchList([]);
+		setNearbyStopsList([]);
+	}, [linjeFromUrl]);
 
 	useEffect(() => {
 		if (!routesLoaded) return;
@@ -555,15 +558,15 @@ export const SearchBar = ({
 
 	useEffect(() => {
 		if (!routesLoaded) return;
-		const urlQuery = searchParams.get("linje");
-		if (urlQuery && urlQuery === userInput && userInput.length > 0) {
-			try {
-				handleOnChangeRef.current?.(urlQuery);
-			} catch (error) {
-				console.error("Error handling URL query:", error);
-			}
+		if (!linjeFromUrl) return;
+		const normalizedUrl = linjeFromUrl.toUpperCase();
+		if (normalizedUrl !== userInput.trim().toUpperCase()) return;
+		try {
+			handleOnChangeRef.current?.(linjeFromUrl);
+		} catch (error) {
+			console.error("Error handling URL query:", error);
 		}
-	}, [searchParams, userInput, routesLoaded]);
+	}, [linjeFromUrl, userInput, routesLoaded]);
 
 	const handleKeyDown = (event: KeyboardEvent) => {
 		if (
@@ -673,7 +676,9 @@ export const SearchBar = ({
 
 		const routeCandidate = query.toUpperCase();
 		if (allRoutes.asObject[routeCandidate]) {
-			router.push(`${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`);
+			router.push(
+				`${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`,
+			);
 			return;
 		}
 
