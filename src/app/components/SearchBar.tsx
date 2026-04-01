@@ -343,11 +343,17 @@ export const SearchBar = ({
 					tripDataFetchedForLineRef.current = "";
 					return;
 				}
-				setTripData({
-					currentTrips,
-					upcomingTrips: [],
-					lineStops: lineStops ?? [],
-					lineShapes: lineShapes ?? [],
+				setTripData((prev) => {
+					const prevLine = prev.currentTrips[0]?.route_short_name ?? "";
+					const keepExistingUpcoming =
+						prevLine === lineAtStart || Boolean(scheduleStopName);
+					return {
+						currentTrips,
+						// Prevent late base-fetch writes from wiping already fetched stop-specific upcoming trips.
+						upcomingTrips: keepExistingUpcoming ? prev.upcomingTrips : [],
+						lineStops: lineStops ?? [],
+						lineShapes: lineShapes ?? [],
+					};
 				});
 			} catch {
 				tripDataFetchedForLineRef.current = "";
@@ -494,7 +500,6 @@ export const SearchBar = ({
 		routeExists,
 	]);
 
-	// Primitiv `linjeFromUrl` (inte searchParams-referens) + layout: mobil kan få stabil searchParams-ref så useEffect([searchParams]) triggade inte.
 	useLayoutEffect(() => {
 		if (!linjeFromUrl) return;
 		const next = linjeFromUrl.toUpperCase();
