@@ -1,6 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"lib": ["esnext", "dom"],
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"outDir": "./dist-cron",
