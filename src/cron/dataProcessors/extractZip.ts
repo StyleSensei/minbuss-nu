@@ -7,6 +7,7 @@ import type { ITrip } from "../../shared/models/ITrip";
 import type { IStop } from "../../shared/models/IStop";
 import type { IStopTime } from "../../shared/models/IStopTime";
 import type { ICalendarDates } from "../../shared/models/ICalendarDates";
+import type { IShapes } from "../../shared/models/IShapes";
 
 export const extractZip = async () => {
 	const routes: IRoute[] = [];
@@ -14,6 +15,7 @@ export const extractZip = async () => {
 	const stops: IStop[] = [];
 	const stopTimes: IStopTime[] = [];
 	const calendarDates: ICalendarDates[] = [];
+	const shapes: IShapes[] = [];
 
 	const zip: Readable = (await getStaticData()).pipe(
 		unzipper.Parse({ forceStream: true }),
@@ -26,13 +28,14 @@ export const extractZip = async () => {
 			fileName === "trips.txt" ||
 			fileName === "stops.txt" ||
 			fileName === "stop_times.txt" ||
-			fileName === "calendar_dates.txt"
+			fileName === "calendar_dates.txt" ||
+			fileName === "shapes.txt"
 		) {
 			entry
 				.pipe(csvParser())
 				.on(
 					"data",
-					(data: IRoute | ITrip | IStop | IStopTime | ICalendarDates) => {
+					(data: IRoute | ITrip | IStop | IStopTime | ICalendarDates | IShapes) => {
 						switch (fileName) {
 							case "routes.txt":
 								routes.push(data as IRoute);
@@ -45,6 +48,9 @@ export const extractZip = async () => {
 								break;
 							case "calendar_dates.txt":
 								calendarDates.push(data as ICalendarDates);
+								break;
+							case "shapes.txt":
+								shapes.push(data as IShapes);
 								break;
 							default:
 								trips.push(data as ITrip);
@@ -100,11 +106,17 @@ export const extractZip = async () => {
 		exception_type: Number(date.exception_type),
 	}));
 
+	const shapesWithCorrectTypes = shapes.map((shape) => ({
+		...shape,
+		shape_pt_sequence: Number(shape.shape_pt_sequence),
+	}));
+
 	return {
 		routes: routesWithCorrectTypes,
 		trips: tripsWithCorrectTypes,
 		stops: stopsWithCorrectTypes,
 		stopTimes: stopTimesWithCorrectTypes,
 		calendarDates: calendarDatesWithCorrectTypes,
+		shapes: shapesWithCorrectTypes,
 	};
 };

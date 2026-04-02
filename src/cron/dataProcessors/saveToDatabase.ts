@@ -1,15 +1,3 @@
-import { routes, routesInsertSchemaArray } from "../../shared/db/schema/routes";
-import {
-	stop_times,
-	stopTimesInsertSchemaArray,
-} from "../../shared/db/schema/stop_times";
-import { stops, stopsInsertSchemaArray } from "../../shared/db/schema/stops";
-import { trips, tripsInsertSchemaArray } from "../../shared/db/schema/trips";
-import type { IRoute } from "../../shared/models/IRoute";
-import type { ITrip } from "../../shared/models/ITrip";
-import type { IStop } from "../../shared/models/IStop";
-import type { IStopTime } from "../../shared/models/IStopTime";
-import type { ICalendarDates } from "../../shared/models/ICalendarDates";
 import { inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -17,6 +5,20 @@ import {
 	calendarDates,
 	calendarDatesInsertSchemaArray,
 } from "../../shared/db/schema/calendar_dates";
+import { routes, routesInsertSchemaArray } from "../../shared/db/schema/routes";
+import { shapes, shapesInsertSchemaArray } from "../../shared/db/schema/shapes";
+import {
+	stop_times,
+	stopTimesInsertSchemaArray,
+} from "../../shared/db/schema/stop_times";
+import { stops, stopsInsertSchemaArray } from "../../shared/db/schema/stops";
+import { trips, tripsInsertSchemaArray } from "../../shared/db/schema/trips";
+import type { ICalendarDates } from "../../shared/models/ICalendarDates";
+import type { IRoute } from "../../shared/models/IRoute";
+import type { IShapes } from "../../shared/models/IShapes";
+import type { IStop } from "../../shared/models/IStop";
+import type { IStopTime } from "../../shared/models/IStopTime";
+import type { ITrip } from "../../shared/models/ITrip";
 
 if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not defined");
@@ -42,7 +44,13 @@ const checkTripIdsExist = async (tripIds: string[]) => {
 };
 
 export const saveToDatabase = async (
-	data: IRoute[] | ITrip[] | IStop[] | IStopTime[] | ICalendarDates[],
+	data:
+		| IRoute[]
+		| ITrip[]
+		| IStop[]
+		| IStopTime[]
+		| ICalendarDates[]
+		| IShapes[],
 	table: string,
 ) => {
 	let batchSize = 10000;
@@ -180,8 +188,34 @@ export const saveToDatabase = async (
 				break;
 			}
 
+			case "shapes": {
+				const shapesBatch = batch as IShapes[];
+				const shapesBatchParsed = shapesInsertSchemaArray.parse(shapesBatch);
+				await db
+					.insert(shapes)
+					.values(
+						shapesBatchParsed.map((row) => ({
+							...row,
+							feed_version: sql`CURRENT_DATE`,
+						})),
+					)
+					.onConflictDoUpdate({
+						target: [shapes.shape_id, shapes.shape_pt_sequence],
+						set: {
+							shape_pt_lat: sql`excluded.shape_pt_lat`,
+							shape_pt_lon: sql`excluded.shape_pt_lon`,
+							shape_dist_traveled: sql`excluded.shape_dist_traveled`,
+							feed_version: sql`CURRENT_DATE`,
+						},
+					});
+				console.log(
+					`Updated batch ${i + 1} of ${totalBatches} for shapes in database`,
+				);
+				break;
+			}
+
 			default:
 				console.log("Unknown data type");
 		}
 	}
-}
+};
