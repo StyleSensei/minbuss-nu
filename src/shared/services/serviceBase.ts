@@ -7,16 +7,15 @@ export const get = async <T>(
 		headers?: HeadersInit;
 	},
 ): Promise<T> => {
+	// `next` is a Next.js extension to fetch; standard RequestInit omits it (e.g. cron tsc).
 	const res = await fetch(url, {
 		method: "GET",
 		headers: options?.headers,
 		signal: options?.signal,
-		// Enable Next.js data cache for server-side fetches.
-		next:
-			typeof options?.revalidateSeconds === "number"
-				? { revalidate: options.revalidateSeconds }
-				: undefined,
-	});
+		...(typeof options?.revalidateSeconds === "number"
+			? { next: { revalidate: options.revalidateSeconds } }
+			: {}),
+	} as RequestInit);
 
 	if (!res.ok) {
 		throw new Error(`Request failed: ${res.status} ${res.statusText}`);
