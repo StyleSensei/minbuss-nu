@@ -1,9 +1,10 @@
 "use server";
 
+import { lineSelectSchema, routes } from "@shared/db/schema/routes";
+import { trips } from "@shared/db/schema/trips";
+import { asc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { lineSelectSchema, routes } from "@shared/db/schema/routes";
-import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 if (!process.env.DATABASE_URL) {
@@ -12,6 +13,22 @@ if (!process.env.DATABASE_URL) {
 
 const queryClient = postgres(process.env.DATABASE_URL);
 const db = drizzle({ client: queryClient });
+
+export const getLatestFeedVersionFromDb = async (): Promise<string | null> => {
+	const rows = await db
+		.select({ v: sql<string>`MAX(${trips.feed_version})::text` })
+		.from(trips);
+	const v = rows[0]?.v;
+	return v ?? null;
+};
+
+export const selectAllroutesForLatestFeed = async () => {
+	const feedVersion = await getLatestFeedVersionFromDb();
+	if (!feedVersion) {
+		return [];
+	}
+	return selectAllroutes(feedVersion);
+};
 
 export const selectAllroutes = async (feedVersion: string) => {
 	try {

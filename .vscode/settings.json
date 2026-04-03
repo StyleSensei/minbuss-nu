@@ -2,5 +2,10 @@
 	"editor.defaultFormatter": "biomejs.biome",
 	"[scss]": {
 		"editor.defaultFormatter": "vscode.css-language-features"
+	},
+	"editor.codeActionsOnSave": {
+
+		"source.biome": "never",
+		"source.fixAll.biome": "never"
 	}
 }

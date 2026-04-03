@@ -1,6 +1,7 @@
+import { put } from "@vercel/blob";
 import { extractZip } from "../cron/dataProcessors/extractZip";
 import { saveToDatabase } from "../cron/dataProcessors/saveToDatabase";
-import { put } from "@vercel/blob";
+import { revalidateFeedCache } from "./revalidateFeedCache";
 
 export async function updateGTFSData() {
 	try {
@@ -30,6 +31,9 @@ export async function updateGTFSData() {
 			token: process.env.BLOB_READ_WRITE_TOKEN,
 			allowOverwrite: true,
 		});
+
+		console.log("Revalidating feed API cache...");
+		await revalidateFeedCache();
 
 		console.log("GTFS data update completed successfully!");
 	} catch (error) {

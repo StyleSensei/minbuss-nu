@@ -1,23 +1,23 @@
-import { trips } from "@shared/db/schema/trips";
 import { routes } from "@shared/db/schema/routes";
-import { eq, inArray, and, sql, gte, lte } from "drizzle-orm";
+import { selectAllSchema } from "@shared/db/schema/selectAll";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
+import { trips } from "@shared/db/schema/trips";
 import type { IDbData } from "@shared/models/IDbData";
-import { selectAllSchema } from "@shared/db/schema/selectAll";
-import { z } from "zod";
-import { MetricsTracker } from "@/app/utilities/MetricsTracker";
-import { calendarDates } from "@/shared/db/schema/calendar_dates";
-import { getDb } from "./db";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
+import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
 import {
 	calculateTimeFilter,
 	createMinutesFilter,
 } from "@/app/utilities/calculateTimeFilter";
-import { shapes } from "@/shared/db/schema/shapes";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
+import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
+import { calendarDates } from "@/shared/db/schema/calendar_dates";
+import { shapes } from "@/shared/db/schema/shapes";
+import { getDb } from "./db";
 
 const db = getDb();
 
@@ -590,7 +590,12 @@ export const selectShapesFromDatabase = async (shapeId: string) => {
 				shape_dist_traveled: shapes.shape_dist_traveled,
 			})
 			.from(shapes)
-			.where(eq(shapes.shape_id, shapeId))
+			.where(
+				and(
+					eq(shapes.shape_id, shapeId),
+					eq(shapes.feed_version, latestFeedVersion),
+				),
+			)
 			.orderBy(shapes.shape_pt_sequence);
 
 		// Convert numeric strings to numbers (PostgreSQL numeric() returns strings)

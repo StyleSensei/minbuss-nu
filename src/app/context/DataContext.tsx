@@ -21,11 +21,9 @@ export interface ITripData {
 	lineShapes: { shape_id: string; points: IShapes[] }[];
 }
 
-/** Preview marker on map when user picks a stop from search; includes lines serving that stop. */
 export interface IMapStopPreview {
 	stop: IDbData;
 	routeShortNames: string[];
-	/** Set while fetching `/api/stops/.../routes` after clicking a map stop marker. */
 	routesLoading?: boolean;
 }
 
@@ -46,7 +44,6 @@ interface IDataContext {
 	setIsCurrentTripsOpen: Dispatch<SetStateAction<boolean>>;
 	mapStopPreview: IMapStopPreview | null;
 	setMapStopPreview: Dispatch<SetStateAction<IMapStopPreview | null>>;
-	/** When set, upcoming trips use this stop instead of GPS closest stop (e.g. after choosing a line from map preview). */
 	selectedStopForSchedule: IDbData | null;
 	setSelectedStopForSchedule: Dispatch<SetStateAction<IDbData | null>>;
 }
