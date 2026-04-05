@@ -54,7 +54,7 @@ $userColor: rgb(0, 149, 255);
     position: absolute;
     bottom: 0;
     left: 50%;
-    transform: translate(0%, -100%);
+    transform: translate(-50%, -100%);
     width: fit-content;
     height: fit-content;
     background: rgba(v.$primary-color, 0.85);
@@ -73,7 +73,7 @@ $userColor: rgb(0, 149, 255);
 
     &.--visible {
         opacity: 1;
-        transform: translate(35%, -75%);
+        transform: translate(15%, -75%);
     }
 }
 

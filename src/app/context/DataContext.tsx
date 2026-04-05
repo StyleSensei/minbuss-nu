@@ -46,6 +46,8 @@ interface IDataContext {
 	setMapStopPreview: Dispatch<SetStateAction<IMapStopPreview | null>>;
 	selectedStopForSchedule: IDbData | null;
 	setSelectedStopForSchedule: Dispatch<SetStateAction<IDbData | null>>;
+	selectedStopRouteLines: string[] | null;
+	setSelectedStopRouteLines: Dispatch<SetStateAction<string[] | null>>;
 }
 const DataContext = createContext<IDataContext>({
 	filteredVehicles: { data: [], error: undefined },
@@ -69,6 +71,8 @@ const DataContext = createContext<IDataContext>({
 	setMapStopPreview: () => {},
 	selectedStopForSchedule: null,
 	setSelectedStopForSchedule: () => {},
+	selectedStopRouteLines: null,
+	setSelectedStopRouteLines: () => {},
 });
 
 export const useDataContext = () => useContext(DataContext);
@@ -93,6 +97,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 	);
 	const [selectedStopForSchedule, setSelectedStopForSchedule] =
 		useState<IDbData | null>(null);
+	const [selectedStopRouteLines, setSelectedStopRouteLines] = useState<
+		string[] | null
+	>(null);
 	const geoPosition = useGeolocation(tripData.lineStops, tripData.currentTrips);
 
 	useEffect(() => {
@@ -120,6 +127,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 				setMapStopPreview,
 				selectedStopForSchedule,
 				setSelectedStopForSchedule,
+				selectedStopRouteLines,
+				setSelectedStopRouteLines,
 			}}
 		>
 			{children}

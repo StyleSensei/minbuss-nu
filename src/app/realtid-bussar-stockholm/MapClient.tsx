@@ -18,7 +18,7 @@ import {
 	type MapMouseEvent,
 	RenderingType,
 } from "@vis.gl/react-google-maps";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { MapControlButtons } from "../components/MapControlButtons";
@@ -32,6 +32,8 @@ import { MapStopPreview } from "./MapStopPreview";
 import { StopMarkersLayer } from "./StopMarkersLayer";
 import {
 	filterStopsInViewport,
+	STOP_MARKERS_COMPACT_ZOOM,
+	STOP_MARKERS_DETAIL_ZOOM,
 	type IStopPositionJson,
 	type StopsPositionsFile,
 } from "./stopPositionsTypes";
@@ -50,22 +52,6 @@ function isClickFromStopUi(e: MapMouseEvent): boolean {
 	);
 }
 
-function stopPositionToPlaceholderDb(s: IStopPositionJson): IDbData {
-	return {
-		trip_id: "",
-		shape_id: "",
-		route_short_name: "",
-		stop_headsign: "",
-		stop_id: s.id,
-		departure_time: "",
-		stop_name: "",
-		stop_sequence: 0,
-		stop_lat: s.lat,
-		stop_lon: s.lon,
-		feed_version: "",
-	};
-}
-
 export default function MapClient() {
 	const {
 		filteredVehicles,
@@ -77,8 +63,10 @@ export default function MapClient() {
 		setMapStopPreview,
 		selectedStopForSchedule,
 		setSelectedStopForSchedule,
+		setSelectedStopRouteLines,
 	} = useDataContext();
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const [zoomWindowLevel, setCurrentWindowZoomLevel] = useState(100);
@@ -109,6 +97,7 @@ export default function MapClient() {
 		typeof setTimeout
 	> | null>(null);
 	const stopPreviewFetchGenRef = useRef(0);
+	const mapStopPanRequestIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -148,30 +137,36 @@ export default function MapClient() {
 
 	const handlePreviewLineClick = useCallback(
 		(routeShortName: string, stop: IDbData) => {
+			const names = mapStopPreview?.routeShortNames;
+			setSelectedStopRouteLines(
+				names?.length
+					? [...names].sort((a, b) => a.localeCompare(b, "sv"))
+					: null,
+			);
 			setSelectedStopForSchedule(stop);
 			setMapStopPreview(null);
 			router.push(
 				`${Paths.Search}?linje=${encodeURIComponent(routeShortName)}`,
 			);
 		},
-		[router, setMapStopPreview, setSelectedStopForSchedule],
+		[
+			mapStopPreview,
+			router,
+			setMapStopPreview,
+			setSelectedStopForSchedule,
+			setSelectedStopRouteLines,
+		],
 	);
 
 	const handleStopMarkerClick = useCallback(
 		async (stop: IStopPositionJson) => {
 			const gen = ++stopPreviewFetchGenRef.current;
-			setMapStopPreview({
-				stop: stopPositionToPlaceholderDb(stop),
-				routeShortNames: [],
-				routesLoading: true,
-			});
 			try {
 				const res = await fetch(
 					`/api/stops/${encodeURIComponent(stop.id)}/routes`,
 				);
 				if (gen !== stopPreviewFetchGenRef.current) return;
 				if (!res.ok) {
-					setMapStopPreview(null);
 					return;
 				}
 				const data = (await res.json()) as {
@@ -183,30 +178,46 @@ export default function MapClient() {
 					routes: string[];
 				};
 				if (gen !== stopPreviewFetchGenRef.current) return;
-				setMapStopPreview({
-					stop: {
-						trip_id: "",
-						shape_id: "",
-						route_short_name: "",
-						stop_headsign: "",
-						stop_id: data.stop_id,
-						departure_time: "",
-						stop_name: data.stop_name,
-						stop_sequence: 0,
-						stop_lat: data.stop_lat,
-						stop_lon: data.stop_lon,
-						feed_version: data.feed_version ?? "",
-					},
-					routeShortNames: data.routes,
-					routesLoading: false,
-				});
+				const sortedRoutes = [...data.routes].sort((a, b) =>
+					a.localeCompare(b, "sv"),
+				);
+				const stopDb: IDbData = {
+					trip_id: "",
+					shape_id: "",
+					route_short_name: "",
+					stop_headsign: "",
+					stop_id: data.stop_id,
+					departure_time: "",
+					stop_name: data.stop_name,
+					stop_sequence: 0,
+					stop_lat: data.stop_lat,
+					stop_lon: data.stop_lon,
+					feed_version: data.feed_version ?? "",
+				};
+				mapStopPanRequestIdRef.current = data.stop_id;
+				setSelectedStopForSchedule(stopDb);
+				setSelectedStopRouteLines(sortedRoutes);
+				setShowCurrentTrips(true);
+
+				const linje = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+				const currentLineServesStop =
+					Boolean(linje) && sortedRoutes.some((r) => r.toUpperCase() === linje);
+				if (sortedRoutes.length > 0 && !currentLineServesStop) {
+					router.push(
+						`${Paths.Search}?linje=${encodeURIComponent(sortedRoutes[0])}`,
+					);
+				}
 			} catch (e) {
 				if (gen !== stopPreviewFetchGenRef.current) return;
 				console.error(e);
-				setMapStopPreview(null);
 			}
 		},
-		[setMapStopPreview],
+		[
+			router,
+			searchParams,
+			setSelectedStopForSchedule,
+			setSelectedStopRouteLines,
+		],
 	);
 
 	const visibleStopMarkers = useMemo(
@@ -219,9 +230,14 @@ export default function MapClient() {
 		[allStopPositions, cameraState],
 	);
 
+	const zoom = cameraState?.zoom ?? 0;
 	const stopMarkersVisible = useMemo(
-		() => (cameraState?.zoom ?? 0) >= 16 && !hideUserPositionForZoom,
-		[cameraState?.zoom, hideUserPositionForZoom],
+		() => zoom >= STOP_MARKERS_COMPACT_ZOOM && !hideUserPositionForZoom,
+		[zoom, hideUserPositionForZoom],
+	);
+	const stopMarkersDetail = useMemo(
+		() => zoom >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
+		[zoom, hideUserPositionForZoom],
 	);
 
 	useEffect(() => {
@@ -355,6 +371,21 @@ export default function MapClient() {
 		}
 	}, [mapStopPreview, mapReady]);
 
+	useEffect(() => {
+		if (!mapReady || !mapRef.current || !selectedStopForSchedule) return;
+		const want = mapStopPanRequestIdRef.current;
+		if (!want || want !== selectedStopForSchedule.stop_id) return;
+		mapStopPanRequestIdRef.current = null;
+		mapRef.current.panTo({
+			lat: selectedStopForSchedule.stop_lat,
+			lng: selectedStopForSchedule.stop_lon,
+		});
+		const z = mapRef.current.getZoom() ?? 10;
+		if (z < 18) {
+			mapRef.current.setZoom(18);
+		}
+	}, [mapReady, selectedStopForSchedule]);
+
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
 	}
@@ -426,7 +457,10 @@ export default function MapClient() {
 					mapRef.current,
 					"zoom_changed",
 					() => {
-						const newZoom = mapRef.current?.getZoom()!;
+						const newZoom = mapRef.current?.getZoom();
+						if (newZoom === undefined || newZoom === null) {
+							return;
+						}
 						if (newZoom !== zoomWindowLevel) {
 							zoomRef.current = newZoom;
 							setHideUserPositionForZoom(true);
@@ -493,7 +527,7 @@ export default function MapClient() {
 
 	const mapZoom = cameraState?.zoom ?? 16;
 	const showMapStopPreview =
-		Boolean(mapStopPreview) && mapReady && mapZoom >= 16;
+		Boolean(mapStopPreview) && mapReady && mapZoom >= STOP_MARKERS_DETAIL_ZOOM;
 
 	useEffect(() => {
 		setIsCurrentTripsOpen(showCurrentTrips);
@@ -586,6 +620,12 @@ export default function MapClient() {
 							mapRef={mapRef}
 							onStopClick={handleStopMarkerClick}
 							stopMarkersVisible={stopMarkersVisible}
+							detailMode={stopMarkersDetail}
+							activeStopId={
+								showCurrentTrips
+									? selectedStopForSchedule?.stop_id
+									: undefined
+							}
 						/>
 					)}
 					{showCurrentTrips && hasRouteData && userPosition && (
@@ -617,14 +657,16 @@ export default function MapClient() {
 							}
 						>
 							<div
-								className={`user-location ${mapRef.current?.getZoom()! >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+								className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
 							/>
 							<div
-								className={`user-location__container ${mapRef.current?.getZoom()! >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+								className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
 							>
 								<span
 									className="user-location__text"
-									style={{ fontSize: mapRef.current?.getZoom()! * 0.8 }}
+									style={{
+										fontSize: (mapRef.current?.getZoom() ?? 10) * 0.8,
+									}}
 								>
 									Min position
 								</span>

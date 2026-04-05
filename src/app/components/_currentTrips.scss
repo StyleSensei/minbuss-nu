@@ -21,6 +21,37 @@
     z-index: 0;
 }
 
+.current-trips__line-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.current-trips__line-btn {
+    touch-action: manipulation;
+    cursor: pointer;
+    border: 1px solid v.$accent-color;
+    background: transparent;
+    color: v.$accent-color;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        background: v.$accent-color;
+        color: v.$primary-color;
+        outline: none;
+    }
+
+    &--active {
+        background: v.$accent-color;
+        color: v.$primary-color;
+    }
+}
+
 .table-container {
     position: relative;
     overflow-y: auto;

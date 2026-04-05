@@ -1,18 +1,27 @@
 import type { IDbData } from "@shared/models/IDbData";
-import { useOverflow } from "../hooks/useOverflow";
-import { useDataContext } from "../context/DataContext";
-import { Icon } from "./Icon";
-import { arrow } from "../../../public/icons";
-import { useEffect, useMemo, useState } from "react";
 import { MapPinned } from "lucide-react";
-import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
-import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
-import { CurrentTripsLoader } from "./CurrentTripsLoader";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
+import { arrow } from "../../../public/icons";
+import { useDataContext } from "../context/DataContext";
+import { useOverflow } from "../hooks/useOverflow";
+import { Paths } from "../paths";
+import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import {
 	gtfsRouteModeShortLabelSv,
 	gtfsRouteVehicleLabelSv,
 } from "../utilities/gtfsRouteTypeLabel";
+import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import { CurrentTripsLoader } from "./CurrentTripsLoader";
+import { Icon } from "./Icon";
 
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
@@ -33,11 +42,31 @@ export const CurrentTrips = ({
 		filteredTripUpdates,
 		userPosition,
 		isLoading,
+		selectedStopRouteLines,
 	} = useDataContext();
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const lastLinePickAtRef = useRef(0);
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
 	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
 	const closestStopToUse = closestStop ?? userPosition?.closestStop;
+	const isPinnedStopMode = selectedStopRouteLines !== null;
+	const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+
+	const pickLineInModal = useCallback(
+		(routeShortName: string) => {
+			const now = Date.now();
+			if (now - lastLinePickAtRef.current < 350) {
+				return;
+			}
+			lastLinePickAtRef.current = now;
+			router.push(
+				`${Paths.Search}?linje=${encodeURIComponent(routeShortName)}`,
+			);
+		},
+		[router],
+	);
 
 	const activeVehiclePositions = useMemo(
 		() =>
@@ -161,23 +190,30 @@ export const CurrentTrips = ({
 		}
 	};
 
-	useEffect(() => {
-		if (
-			hasTripsToDisplay &&
-			containerRef.current &&
-			filteredVehicles.data.length > 0 &&
-			hasFilteredOnce &&
-			!isLoading
-		) {
-			setTimeout(() => checkOverflow(), 50);
-		}
+	useLayoutEffect(() => {
+		if (!hasFilteredOnce || isLoading) return;
+		const el = containerRef.current;
+		if (!el) return;
+
+		const ro = new ResizeObserver(() => {
+			checkOverflow();
+		});
+		ro.observe(el);
+		const t = window.setTimeout(() => checkOverflow(), 50);
+
+		return () => {
+			window.clearTimeout(t);
+			ro.disconnect();
+		};
 	}, [
-		hasTripsToDisplay,
 		checkOverflow,
-		containerRef,
-		filteredVehicles.data.length,
 		hasFilteredOnce,
 		isLoading,
+		hasTripsToDisplay,
+		tripsToDisplay.length,
+		tripData.upcomingTrips.length,
+		closestStopToUse?.stop_id,
+		selectedStopRouteLines?.join("|") ?? "",
 	]);
 
 	if (!hasFilteredOnce || isLoading) {
@@ -194,8 +230,41 @@ export const CurrentTrips = ({
 			>
 				<div className="trips-header">
 					<h2 className="text-left text-2xl font-extrabold tracking-tight text-balance">
-						Avgångar närmast dig
+						{isPinnedStopMode && closestStopToUse
+							? closestStopToUse.stop_name
+							: "Avgångar närmast dig"}
 					</h2>
+					{selectedStopRouteLines && selectedStopRouteLines.length > 0 ? (
+						<section
+							className="current-trips__line-picker"
+							aria-label="Byt linje för denna hållplats"
+						>
+							{selectedStopRouteLines.map((name) => {
+								const active = name.toUpperCase() === urlLine;
+								return (
+									<button
+										key={name}
+										type="button"
+										className={`current-trips__line-btn${active ? " current-trips__line-btn--active" : ""}`}
+										onPointerUp={(e) => {
+											e.stopPropagation();
+											pickLineInModal(name);
+										}}
+										onTouchEnd={(e) => {
+											e.stopPropagation();
+											pickLineInModal(name);
+										}}
+										onClick={(e) => {
+											e.stopPropagation();
+											pickLineInModal(name);
+										}}
+									>
+										{name}
+									</button>
+								);
+							})}
+						</section>
+					) : null}
 					<p title={routeMeta?.route_desc ?? undefined}>
 						<span className="text-muted-foreground dark">Linje: </span>
 						<span className="font-bold">{routeShortName}</span>
@@ -211,7 +280,7 @@ export const CurrentTrips = ({
 							{routeMeta.route_long_name}
 						</p>
 					) : null}
-					{closestStopToUse && (
+					{closestStopToUse && !isPinnedStopMode && (
 						<p className="station-name">
 							<span className="text-muted-foreground dark">
 								Din närmaste hållplats:{" "}
@@ -307,7 +376,7 @@ export const CurrentTrips = ({
 
 										return (
 											<tr
-												// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+												// biome-ignore lint/suspicious/noArrayIndexKey: trip_id not unique across rows
 												key={trip?.trip_id + i}
 												className={`trip-row  ${isActive ? " --active" : ""}`}
 											>

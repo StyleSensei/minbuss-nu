@@ -215,6 +215,8 @@ export const SearchBar = ({
 		setMapStopPreview,
 		setSelectedStopForSchedule,
 		selectedStopForSchedule,
+		selectedStopRouteLines,
+		setSelectedStopRouteLines,
 	} = useDataContext();
 
 	const [nearbyStopsList, setNearbyStopsList] = useState<IStopWithRoutesRow[]>(
@@ -435,6 +437,7 @@ export const SearchBar = ({
 			setFilteredTripUpdates([]);
 			setMapStopPreview(null);
 			setSelectedStopForSchedule(null);
+			setSelectedStopRouteLines(null);
 			return;
 		}
 		if (!userInput) {
@@ -447,6 +450,7 @@ export const SearchBar = ({
 			setFilteredTripUpdates([]);
 			setMapStopPreview(null);
 			setSelectedStopForSchedule(null);
+			setSelectedStopRouteLines(null);
 			return;
 		}
 		if (userInput && filteredVehicles?.data.length > 0) {
@@ -518,8 +522,17 @@ export const SearchBar = ({
 				prevValidLineRef.current !== null &&
 				prevValidLineRef.current !== line
 			) {
-				setSelectedStopForSchedule(null);
-				setMapStopPreview(null);
+				const routeLines = selectedStopRouteLines;
+				const keepPinnedStop =
+					Boolean(selectedStopForSchedule) &&
+					Boolean(routeLines?.length) &&
+					(routeLines?.some((r) => r.toUpperCase() === line.toUpperCase()) ??
+						false);
+				if (!keepPinnedStop) {
+					setSelectedStopForSchedule(null);
+					setSelectedStopRouteLines(null);
+					setMapStopPreview(null);
+				}
 			}
 			prevValidLineRef.current = line;
 		} else if (!line) {
@@ -529,7 +542,10 @@ export const SearchBar = ({
 		userInput,
 		routesLoaded,
 		allRoutes.asObject,
+		selectedStopForSchedule,
+		selectedStopRouteLines,
 		setSelectedStopForSchedule,
+		setSelectedStopRouteLines,
 		setMapStopPreview,
 	]);
 
@@ -796,6 +812,7 @@ export const SearchBar = ({
 								setStopSearchList([]);
 								setMapStopPreview(null);
 								setSelectedStopForSchedule(null);
+								setSelectedStopRouteLines(null);
 								router.push(Paths.Search);
 								handleBlur();
 							}}

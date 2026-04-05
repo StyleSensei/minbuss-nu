@@ -9,10 +9,15 @@ export const useOverflow = <T extends HTMLElement = HTMLDivElement>() => {
 		const container = containerRef.current;
 		if (!container) return;
 
-		setIsOverflowing(container.scrollHeight > container.clientHeight);
+		const sh = container.scrollHeight;
+		const ch = container.clientHeight;
+		const st = container.scrollTop;
+		const overflowing = sh > ch;
+		const distanceFromBottom = sh - st - ch;
+		// Slack for subpixel layout and rubber-band scrolling near the bottom
+		const isAtBottom = !overflowing || distanceFromBottom < 20;
 
-		const isAtBottom =
-			container.scrollHeight - container.scrollTop - container.clientHeight < 5;
+		setIsOverflowing(overflowing);
 		setIsScrolledToBottom(isAtBottom);
 	}, []);
 
