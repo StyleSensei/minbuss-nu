@@ -52,6 +52,55 @@ function isClickFromStopUi(e: MapMouseEvent): boolean {
 	);
 }
 
+type ShapeGroup = { shape_id: string; points: IShapes[] };
+
+const LINE_SHAPE_FIT_PADDING = 56;
+const LINE_SHAPE_FIT_MAX_ZOOM = 16;
+
+function extendBoundsWithPoints(
+	bounds: google.maps.LatLngBounds,
+	points: IShapes[] | undefined,
+): void {
+	if (!points || points.length < 2) return;
+	for (const p of points) {
+		bounds.extend({ lat: p.shape_pt_lat, lng: p.shape_pt_lon });
+	}
+}
+
+function boundsFromLineOrRouteShapes(
+	lineShapes: ShapeGroup[],
+	routeShapesFallback: ShapeGroup[],
+): google.maps.LatLngBounds | null {
+	const bounds = new google.maps.LatLngBounds();
+	for (const ls of lineShapes) {
+		extendBoundsWithPoints(bounds, ls.points);
+	}
+	if (bounds.isEmpty()) {
+		for (const s of routeShapesFallback) {
+			extendBoundsWithPoints(bounds, s.points);
+		}
+	}
+	return bounds.isEmpty() ? null : bounds;
+}
+
+function lineShapeFitSignature(
+	lineShapes: ShapeGroup[],
+	routeShapes: ShapeGroup[],
+): string {
+	const fromLine = lineShapes
+		.filter((ls) => (ls.points?.length ?? 0) >= 2)
+		.map((ls) => `${ls.shape_id}:${ls.points!.length}`)
+		.sort()
+		.join(",");
+	if (fromLine) return `L:${fromLine}`;
+	const fromRoute = routeShapes
+		.filter((s) => (s.points?.length ?? 0) >= 2)
+		.map((s) => `${s.shape_id}:${s.points!.length}`)
+		.sort()
+		.join(",");
+	return `R:${fromRoute}`;
+}
+
 export default function MapClient() {
 	const {
 		filteredVehicles,
@@ -98,6 +147,14 @@ export default function MapClient() {
 	> | null>(null);
 	const stopPreviewFetchGenRef = useRef(0);
 	const mapStopPanRequestIdRef = useRef<string | null>(null);
+	const lastLineShapeFitKeyRef = useRef<string>("");
+
+	const linjeParam =
+		searchParams.get("linje")?.trim().toUpperCase() ?? "";
+
+	useEffect(() => {
+		lastLineShapeFitKeyRef.current = "";
+	}, [linjeParam]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -518,6 +575,52 @@ export default function MapClient() {
 
 		return Array.from(byId.values());
 	}, [filteredVehicles.data, tripData.lineShapes]);
+
+	const lineShapesForFit: ShapeGroup[] = useMemo(
+		() => tripData.lineShapes ?? [],
+		[tripData.lineShapes],
+	);
+
+	const lineShapeFitSignatureMemo = useMemo(
+		() => lineShapeFitSignature(lineShapesForFit, routeShapes),
+		[lineShapesForFit, routeShapes],
+	);
+
+	useEffect(() => {
+		if (!mapReady || !mapRef.current || !linjeParam) return;
+
+		const bounds = boundsFromLineOrRouteShapes(lineShapesForFit, routeShapes);
+		if (!bounds) return;
+
+		const key = `${linjeParam}|${lineShapeFitSignatureMemo}`;
+		if (lastLineShapeFitKeyRef.current === key) return;
+		lastLineShapeFitKeyRef.current = key;
+
+		const map = mapRef.current;
+		setFollowBus(false);
+
+		map.fitBounds(bounds, {
+			top: LINE_SHAPE_FIT_PADDING,
+			right: LINE_SHAPE_FIT_PADDING,
+			bottom: LINE_SHAPE_FIT_PADDING,
+			left: LINE_SHAPE_FIT_PADDING,
+		});
+		const capListener = google.maps.event.addListenerOnce(map, "idle", () => {
+			const zz = map.getZoom();
+			if (zz != null && zz > LINE_SHAPE_FIT_MAX_ZOOM) {
+				map.setZoom(LINE_SHAPE_FIT_MAX_ZOOM);
+			}
+		});
+		return () => {
+			google.maps.event.removeListener(capListener);
+		};
+	}, [
+		mapReady,
+		linjeParam,
+		lineShapesForFit,
+		routeShapes,
+		lineShapeFitSignatureMemo,
+	]);
 
 	const hasRouteData =
 		filteredVehicles.data.length > 0 ||
