@@ -136,8 +136,8 @@ export const MapControlButtons = ({
 								lat: userPosition.lat,
 								lng: userPosition.lng,
 							});
-							if (googleMapRef.current?.getZoom()! < 18) {
-								googleMapRef.current.setZoom(18);
+							if (googleMapRef.current?.getZoom()! < 14) {
+								googleMapRef.current.setZoom(14);
 							}
 						}
 					}}
