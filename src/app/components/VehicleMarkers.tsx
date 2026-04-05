@@ -38,10 +38,27 @@ const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 		return byTripId;
 	}, [tripData.currentTrips]);
 
+	const vehiclesWithShapes = useMemo(() => {
+		if (!vehicles?.length) return vehicles;
+		const shapeById = new Map(
+			tripData.lineShapes.map((s) => [s.shape_id, s.points]),
+		);
+		return vehicles.map((v) => {
+			if ((v.shapePoints?.length ?? 0) >= 2) return v;
+			const tid = v.trip?.tripId ?? "";
+			if (!tid) return v;
+			const sid = tripsByTripId.get(tid)?.[0]?.shape_id;
+			if (!sid) return v;
+			const pts = shapeById.get(sid);
+			if (!pts || pts.length < 2) return v;
+			return { ...v, shapePoints: pts };
+		});
+	}, [vehicles, tripData.lineShapes, tripsByTripId]);
+
 	if (!vehicles || vehicles.length === 0) {
 		return null;
 	}
-	return vehicles.map((vehicle) => (
+	return vehiclesWithShapes.map((vehicle) => (
 		<CustomMarker
 			{...props}
 			currentVehicle={vehicle}
@@ -61,6 +78,7 @@ const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 			onActivateMarker={(id) => props.setActiveMarkerId(id)}
 			showCurrentTrips={props.showCurrentTrips}
 			tripsByTripId={tripsByTripId}
+			zIndex={10}
 		/>
 	));
 };
