@@ -76,6 +76,14 @@ function stopRowToDbData(row: IStopWithRoutesRow): IDbData {
 	};
 }
 
+/**
+ * Linjesök (nummer, prefix/suffix som 4B / L22): minst en siffra i strängen.
+ * Utan siffror antas hållplatssök — hållplatsnamn väntas sakna siffror.
+ */
+function isLikelyLineNumberQuery(trimmed: string): boolean {
+	return /\d/.test(trimmed);
+}
+
 async function fetchNearbyStops(lat: number, lng: number, limit = 10) {
 	return fetchJsonOrThrow<{ stops: IStopWithRoutesRow[] }>(
 		`/api/stops/nearby?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}&limit=${limit}`,
@@ -237,6 +245,27 @@ export const SearchBar = ({
 		},
 		[allRoutes],
 	);
+
+	useEffect(() => {
+		if (!routesLoaded) return;
+		const raw = userInput.trim();
+		if (!raw) {
+			setRouteExists(false);
+			setProposedRoute("");
+			return;
+		}
+		const upper = raw.toUpperCase();
+		const exists = !!allRoutes.asObject[upper];
+		setRouteExists(exists);
+		if (!exists) {
+			if (isLikelyLineNumberQuery(raw)) {
+				setShowError(true);
+			} else {
+				setShowError(false);
+			}
+		}
+	}, [userInput, routesLoaded, allRoutes.asObject]);
+
 	useEffect(() => {
 		if (!allRoutes.asArray.length) {
 			(async () => {
@@ -419,12 +448,32 @@ export const SearchBar = ({
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
+		const trimmedUi = userInput.trim();
+		if (
+			trimmedUi &&
+			!routeExists &&
+			isLikelyLineNumberQuery(trimmedUi) &&
+			(filteredVehicles?.data?.length ?? 0) > 0
+		) {
+			setFilteredVehicles({ data: [] });
+			setFilteredTripUpdates([]);
+			setTripData({
+				currentTrips: [],
+				upcomingTrips: [],
+				lineStops: [],
+				lineShapes: [],
+			});
+			return;
+		}
 		if (userInput && !filteredVehicles?.data.length && !routeExists) {
-			if (!routeExists) {
+			const trimmed = userInput.trim();
+			if (isLikelyLineNumberQuery(trimmed)) {
 				const route = findClosestRoute(userInput);
-				setProposedRoute(route);
-				return;
+				setProposedRoute(route ?? "");
+			} else {
+				setProposedRoute("");
 			}
+			return;
 		}
 		if (!userInput && filteredVehicles?.data.length) {
 			setFilteredVehicles({ data: [] });
@@ -703,6 +752,16 @@ export const SearchBar = ({
 			return;
 		}
 
+		if (isLikelyLineNumberQuery(query)) {
+			router.push(
+				`${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`,
+			);
+			setShowError(true);
+			setMapStopPreview(null);
+			handleBlur();
+			return;
+		}
+
 		const firstStopSuggestion = stopsToShow[0];
 		if (firstStopSuggestion) {
 			handleStopPick(firstStopSuggestion);
@@ -877,12 +936,16 @@ export const SearchBar = ({
 				)}
 				{!routeExists &&
 					userInput &&
-					proposedRoute &&
+					isLikelyLineNumberQuery(userInput.trim()) &&
 					!isLoading &&
 					!isCurrentTripsOpen &&
 					showError && (
 						<Suspense fallback={<p className="error-message">Laddar...</p>}>
-							<SearchError proposedRoute={proposedRoute} />
+							{proposedRoute ? (
+								<SearchError proposedRoute={proposedRoute} />
+							) : (
+								<p className="error-message">Linjen finns inte. 🤷‍♂️</p>
+							)}
 						</Suspense>
 					)}
 				{routeExists &&
