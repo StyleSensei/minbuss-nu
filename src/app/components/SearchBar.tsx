@@ -166,6 +166,10 @@ async function fetchTripUpdatesForPolling(
 	return fetchTripUpdates(query);
 }
 
+function lineSearchUrl(routeCandidate: string): string {
+	return `${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`;
+}
+
 interface SearchBarProps {
 	iconSize: string;
 	fill?: string;
@@ -246,6 +250,16 @@ export const SearchBar = ({
 		[allRoutes],
 	);
 
+	const navigateToValidLineIfUrlDiffers = useCallback(
+		(routeCandidate: string) => {
+			if (!allRoutes.asObject[routeCandidate]) return;
+			const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+			if (urlLine === routeCandidate) return;
+			router.replace(lineSearchUrl(routeCandidate));
+		},
+		[allRoutes.asObject, router, searchParams],
+	);
+
 	useEffect(() => {
 		if (!routesLoaded) return;
 		const raw = userInput.trim();
@@ -295,6 +309,11 @@ export const SearchBar = ({
 				}
 				setFilteredVehicles({ data: result.data, error: result.error });
 
+				const routeCandidate = query.trim().toUpperCase();
+				if (query === latestVehicleLineRef.current) {
+					navigateToValidLineIfUrlDiffers(routeCandidate);
+				}
+
 				if (result.error) {
 					if (
 						result.error.type === "DATA_TOO_OLD" &&
@@ -324,7 +343,13 @@ export const SearchBar = ({
 				setShowError(true);
 			}
 		}, 500);
-	}, [checkIfRouteExists, setFilteredVehicles, setIsLoading, routesLoaded]);
+	}, [
+		checkIfRouteExists,
+		navigateToValidLineIfUrlDiffers,
+		setFilteredVehicles,
+		setIsLoading,
+		routesLoaded,
+	]);
 
 	const {
 		startPolling: pollVehiclePositions,
@@ -746,16 +771,12 @@ export const SearchBar = ({
 
 		const routeCandidate = query.toUpperCase();
 		if (allRoutes.asObject[routeCandidate]) {
-			router.push(
-				`${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`,
-			);
+			router.push(lineSearchUrl(routeCandidate));
 			return;
 		}
 
 		if (isLikelyLineNumberQuery(query)) {
-			router.push(
-				`${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`,
-			);
+			router.push(lineSearchUrl(routeCandidate));
 			setShowError(true);
 			setMapStopPreview(null);
 			handleBlur();
