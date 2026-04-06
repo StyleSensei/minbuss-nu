@@ -41,6 +41,8 @@ import {
 /** Limits React re-renders + stop marker work during continuous zoom/pan (camera events are very frequent). */
 const CAMERA_STATE_THROTTLE_MS = 120;
 
+const DEFAULT_MAP_CENTER_FALLBACK = { lat: 59.33258, lng: 18.0649 } as const;
+
 /** På mobil kan kartans click köas före markör/knapp — då rensas preview innan linjeval. Ignorera klick som kommer från vårt hållplats-UI. */
 function isClickFromStopUi(e: MapMouseEvent): boolean {
 	const raw = e.domEvent?.target;
@@ -148,13 +150,43 @@ export default function MapClient() {
 	const stopPreviewFetchGenRef = useRef(0);
 	const mapStopPanRequestIdRef = useRef<string | null>(null);
 	const lastLineShapeFitKeyRef = useRef<string>("");
+	/** defaultCenter gäller bara vid mount; geolokering kommer ofta senare — pan en gång när position finns (utan linje i URL). */
+	const userGeolocatePanDoneRef = useRef(false);
+	const prevLinjeParamForUserPanRef = useRef("");
 
 	const linjeParam =
 		searchParams.get("linje")?.trim().toUpperCase() ?? "";
 
+	const defaultMapCenter = useMemo(
+		() =>
+			userPosition
+				? { lat: userPosition.lat, lng: userPosition.lng }
+				: DEFAULT_MAP_CENTER_FALLBACK,
+		[userPosition],
+	);
+
 	useEffect(() => {
 		lastLineShapeFitKeyRef.current = "";
 	}, [linjeParam]);
+
+	useEffect(() => {
+		if (prevLinjeParamForUserPanRef.current && !linjeParam) {
+			userGeolocatePanDoneRef.current = false;
+		}
+		prevLinjeParamForUserPanRef.current = linjeParam;
+	}, [linjeParam]);
+
+	useEffect(() => {
+		if (!mapReady || !mapRef.current || !userPosition) return;
+		if (linjeParam) return;
+		if (userGeolocatePanDoneRef.current) return;
+
+		userGeolocatePanDoneRef.current = true;
+		mapRef.current.panTo({
+			lat: userPosition.lat,
+			lng: userPosition.lng,
+		});
+	}, [mapReady, userPosition, linjeParam]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -645,7 +677,7 @@ export default function MapClient() {
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
 					defaultZoom={14}
 					minZoom={10}
-					defaultCenter={{ lat: 59.33258, lng: 18.0649 }}
+					defaultCenter={defaultMapCenter}
 					gestureHandling={"greedy"}
 					onTilesLoaded={(e: MapEvent) => {
 						const map = e.map as google.maps.Map;
