@@ -43,6 +43,16 @@ const CAMERA_STATE_THROTTLE_MS = 120;
 
 const DEFAULT_MAP_CENTER_FALLBACK = { lat: 59.33258, lng: 18.0649 } as const;
 
+/** Utzoomad start när ingen linje är vald — efter första idle zoomar vi in (löser sporadiska svarta rutor / att lager inte hinner med förrän man zoomar manuellt). */
+const MAP_BOOTSTRAP_ZOOM = 11;
+const MAP_TARGET_INITIAL_ZOOM = 14;
+
+/**
+ * Överlever unmount när man lämnar kartrouten (samma flik) så vi inte zoomar ut/in igen vid SPA-tillbaknavigation.
+ * Nollställs vid full sidladdning.
+ */
+let mapBootstrapZoomDoneInTab = false;
+
 /** På mobil kan kartans click köas före markör/knapp — då rensas preview innan linjeval. Ignorera klick som kommer från vårt hållplats-UI. */
 function isClickFromStopUi(e: MapMouseEvent): boolean {
 	const raw = e.domEvent?.target;
@@ -153,9 +163,9 @@ export default function MapClient() {
 	/** defaultCenter gäller bara vid mount; geolokering kommer ofta senare — pan en gång när position finns (utan linje i URL). */
 	const userGeolocatePanDoneRef = useRef(false);
 	const prevLinjeParamForUserPanRef = useRef("");
+	const mapInitialZoomBootstrapDoneRef = useRef(false);
 
-	const linjeParam =
-		searchParams.get("linje")?.trim().toUpperCase() ?? "";
+	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 
 	const defaultMapCenter = useMemo(
 		() =>
@@ -187,6 +197,26 @@ export default function MapClient() {
 			lng: userPosition.lng,
 		});
 	}, [mapReady, userPosition, linjeParam]);
+
+	useEffect(() => {
+		if (!mapReady || !mapRef.current || linjeParam) return;
+		if (mapInitialZoomBootstrapDoneRef.current) return;
+		const map = mapRef.current;
+		const listener = google.maps.event.addListenerOnce(map, "idle", () => {
+			mapInitialZoomBootstrapDoneRef.current = true;
+			google.maps.event.trigger(map, "resize");
+			if (!mapBootstrapZoomDoneInTab) {
+				const z = map.getZoom();
+				if (z != null && z <= MAP_BOOTSTRAP_ZOOM) {
+					map.setZoom(MAP_TARGET_INITIAL_ZOOM);
+				}
+				mapBootstrapZoomDoneInTab = true;
+			}
+		});
+		return () => {
+			google.maps.event.removeListener(listener);
+		};
+	}, [mapReady, linjeParam]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -660,7 +690,7 @@ export default function MapClient() {
 		tripData.lineStops.length > 0 ||
 		tripData.lineShapes.length > 0;
 
-	const mapZoom = cameraState?.zoom ?? 16;
+	const mapZoom = cameraState?.zoom ?? MAP_TARGET_INITIAL_ZOOM;
 	const showMapStopPreview =
 		Boolean(mapStopPreview) && mapReady && mapZoom >= STOP_MARKERS_DETAIL_ZOOM;
 
@@ -675,7 +705,11 @@ export default function MapClient() {
 				<GoogleMap
 					mapId={"fb3dad0c952dfd27"}
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
-					defaultZoom={14}
+					defaultZoom={
+						linjeParam || mapBootstrapZoomDoneInTab
+							? MAP_TARGET_INITIAL_ZOOM
+							: MAP_BOOTSTRAP_ZOOM
+					}
 					minZoom={10}
 					defaultCenter={defaultMapCenter}
 					gestureHandling={"greedy"}
@@ -757,9 +791,7 @@ export default function MapClient() {
 							stopMarkersVisible={stopMarkersVisible}
 							detailMode={stopMarkersDetail}
 							activeStopId={
-								showCurrentTrips
-									? selectedStopForSchedule?.stop_id
-									: undefined
+								showCurrentTrips ? selectedStopForSchedule?.stop_id : undefined
 							}
 						/>
 					)}

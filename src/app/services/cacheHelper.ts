@@ -15,7 +15,7 @@ import type { IDbData } from "@shared/models/IDbData";
 import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "../utilities/MetricsTracker";
 import type { ITripData } from "../context/DataContext";
-import { IShapes } from "@/shared/models/IShapes";
+import type { IShapes } from "@/shared/models/IShapes";
 
 interface VehiclePositionResult {
 	data: IVehiclePosition[];
@@ -55,15 +55,15 @@ export const getCachedVehiclePositions = cache(
 			MetricsTracker.trackCacheHit();
 			return cached as VehiclePositionResult;
 		}
-            const lockAcquired = await redis.set(VEHICLE_LOCK_KEY, "locked", {
-                nx: true,
-                ex: LOCK_TTL,
-            });
+		const lockAcquired = await redis.set(VEHICLE_LOCK_KEY, "locked", {
+			nx: true,
+			ex: LOCK_TTL,
+		});
 
-            if (!lockAcquired) {
-				return await waitForCachedData();
-            }
-			
+		if (!lockAcquired) {
+			return await waitForCachedData();
+		}
+
 		try {
 			MetricsTracker.trackCacheMiss();
 			const response = await getVehiclePositions();
@@ -121,28 +121,28 @@ export const getCachedVehiclePositions = cache(
 				},
 			};
 		} finally {
-        await redis.del(VEHICLE_LOCK_KEY);
-    }
+			await redis.del(VEHICLE_LOCK_KEY);
+		}
 	},
 );
 
 async function waitForCachedData(): Promise<VehiclePositionResult> {
-    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
-        await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
-        
-        const cached = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
-        if (cached) {
-            return cached as VehiclePositionResult;
-        }
-    }
-    
-    return {
-        data: [],
-        error: {
-            message: "Timeout waiting for vehicle data",
-            type: "TIMEOUT_ERROR",
-        },
-    };
+	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
+		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
+
+		const cached = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
+		if (cached) {
+			return cached as VehiclePositionResult;
+		}
+	}
+
+	return {
+		data: [],
+		error: {
+			message: "Timeout waiting for vehicle data",
+			type: "TIMEOUT_ERROR",
+		},
+	};
 }
 
 export const getCachedTripUpdates = cache(async () => {
@@ -208,7 +208,6 @@ async function getLineShapesForTrips(
 	return results.filter((x): x is NonNullable<typeof x> => x !== null);
 }
 
-
 export const getCachedDbData = cache(
 	async (busLine: string, busStopName?: string) => {
 		let currentTrips: IDbData[] = [];
@@ -258,12 +257,11 @@ export const getCachedDbData = cache(
 );
 
 export const getCachedShapesData = cache(
-	async (feedVersion: string, shapeId: string) => {
+	async (_feedVersion: string, shapeId: string) => {
 		MetricsTracker.trackDbQuery();
 		const shapePoints = await selectShapesFromDatabase(shapeId);
 		return shapePoints;
 	},
 );
-
 
 MetricsTracker.enableLogging(false);
