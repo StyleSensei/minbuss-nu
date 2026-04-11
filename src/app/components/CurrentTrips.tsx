@@ -29,6 +29,19 @@ interface ICurrentTripsProps {
 	closestStop?: IDbData;
 }
 
+function tripIdsSignature(arr: IDbData[]): string {
+	return arr.map((t) => t.trip_id).join("|");
+}
+
+type TableAnimSync = {
+	committed: IDbData[];
+	animating: boolean;
+	timeoutId: ReturnType<typeof setTimeout> | null;
+	pending: IDbData[] | null;
+	towardSig: string | null;
+	removalTarget: IDbData[] | null;
+};
+
 export const CurrentTrips = ({
 	onTripSelect,
 	mapRef,
@@ -49,7 +62,16 @@ export const CurrentTrips = ({
 	const lastLinePickAtRef = useRef(0);
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
-	const [tripsToDisplay, setTripsToDisplay] = useState<IDbData[]>([]);
+	const [displayTrips, setDisplayTrips] = useState<IDbData[]>([]);
+	const [isTableAnimating, setIsTableAnimating] = useState(false);
+	const tableAnim = useRef<TableAnimSync>({
+		committed: [],
+		animating: false,
+		timeoutId: null,
+		pending: null,
+		towardSig: null,
+		removalTarget: null,
+	});
 	const closestStopToUse = closestStop ?? userPosition?.closestStop;
 	const isPinnedStopMode = selectedStopRouteLines !== null;
 	const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
@@ -76,82 +98,157 @@ export const CurrentTrips = ({
 		[filteredVehicles.data],
 	);
 
+	const getUpdatedDepartureTime = useCallback(
+		(tripId: string, stop: IDbData | null | undefined): string | undefined => {
+			if (!stop?.stop_id) return undefined;
+			if (!filteredTripUpdates.length) return undefined;
+
+			const tripUpdate = filteredTripUpdates.find(
+				(t) => t.trip.tripId === tripId,
+			);
+
+			if (!tripUpdate) return undefined;
+
+			const stopIdPrefix = stop.stop_id.slice(0, -3);
+			const stopUpdate = tripUpdate.stopTimeUpdate?.find(
+				(update) => update.stopId.slice(0, -3) === stopIdPrefix,
+			);
+
+			if (!stopUpdate?.departure?.time) return undefined;
+
+			const departureDate = new Date(Number(stopUpdate.departure.time) * 1000);
+			return departureDate.toLocaleTimeString().slice(0, 5);
+		},
+		[filteredTripUpdates],
+	);
+
 	useEffect(() => {
-		filterTrips();
-		setHasFilteredOnce(true);
+		function syncDeparturesDisplay(incoming: IDbData[]) {
+			const b = tableAnim.current;
+			const incSig = tripIdsSignature(incoming);
 
-		const intervalId = setInterval(() => {
-			filterTrips();
-		}, 30000);
+			if (b.committed.length === 0) {
+				setDisplayTrips(incoming);
+				b.committed = [...incoming];
+				return;
+			}
 
-		return () => clearInterval(intervalId);
+			if (incSig === tripIdsSignature(b.committed)) {
+				if (!b.animating) {
+					setDisplayTrips(incoming);
+					b.committed = [...incoming];
+				} else {
+					b.pending = [...incoming];
+				}
+				return;
+			}
+
+			if (b.animating && b.towardSig != null && incSig === b.towardSig) {
+				b.pending = [...incoming];
+				return;
+			}
+
+			const newIds = new Set(incoming.map((t) => t.trip_id));
+			const removed = b.committed.filter((t) => !newIds.has(t.trip_id));
+
+			if (removed.length > 0) {
+				if (b.timeoutId != null) {
+					window.clearTimeout(b.timeoutId);
+				}
+				b.removalTarget = [...incoming];
+				b.towardSig = incSig;
+				b.animating = true;
+				setIsTableAnimating(true);
+				b.timeoutId = window.setTimeout(() => {
+					const bag = tableAnim.current;
+					bag.timeoutId = null;
+					const target = bag.removalTarget ?? [];
+					bag.removalTarget = null;
+					bag.towardSig = null;
+					bag.animating = false;
+					setIsTableAnimating(false);
+					setDisplayTrips(target);
+					bag.committed = [...target];
+					const p = bag.pending;
+					if (p) {
+						bag.pending = null;
+						setDisplayTrips(p);
+						bag.committed = [...p];
+					}
+				}, 1000);
+				return;
+			}
+
+			if (!b.animating) {
+				setDisplayTrips(incoming);
+				b.committed = [...incoming];
+			} else {
+				b.pending = [...incoming];
+			}
+		}
 
 		function filterTrips() {
+			let newList: IDbData[];
 			if (closestStopToUse) {
 				const stopName = closestStopToUse.stop_name;
-				setTripsToDisplay(
-					tripData.upcomingTrips.filter((trip) => {
-						if (trip.stop_name !== stopName) {
+				newList = tripData.upcomingTrips.filter((trip) => {
+					if (trip.stop_name !== stopName) {
+						return false;
+					}
+
+					try {
+						const updatedTimeStr = getUpdatedDepartureTime(
+							trip.trip_id,
+							closestStopToUse,
+						);
+						const departureTime = updatedTimeStr
+							? convertGTFSTimeToDate(updatedTimeStr)
+							: convertGTFSTimeToDate(trip.departure_time);
+
+						const minutesSinceScheduledDeparture =
+							(Date.now() - departureTime.getTime()) / (1000 * 60);
+
+						if (minutesSinceScheduledDeparture > 0) {
 							return false;
 						}
 
-						try {
-							const updatedTimeStr = getUpdatedDepartureTime(
-								trip.trip_id,
-								closestStopToUse,
-							);
-							const departureTime = updatedTimeStr
-								? convertGTFSTimeToDate(updatedTimeStr)
-								: convertGTFSTimeToDate(trip.departure_time);
-
-							const minutesSinceScheduledDeparture =
-								(Date.now() - departureTime.getTime()) / (1000 * 60);
-
-							if (minutesSinceScheduledDeparture > 0) {
-								return false;
-							}
-
-							return true;
-						} catch (error) {
-							console.error(`Error checking trip ${trip.trip_id}:`, error);
-							return true;
-						}
-					}),
-				);
+						return true;
+					} catch (error) {
+						console.error(`Error checking trip ${trip.trip_id}:`, error);
+						return true;
+					}
+				});
 			} else {
-				setTripsToDisplay(tripData.upcomingTrips);
+				newList = tripData.upcomingTrips;
 			}
+			syncDeparturesDisplay(newList);
 		}
-	}, [closestStopToUse?.stop_id, tripData.upcomingTrips, closestStopToUse]);
-	function getUpdatedDepartureTime(
-		tripId: string,
-		stop: IDbData | null | undefined,
-	): string | undefined {
-		if (!stop?.stop_id) return undefined;
-		if (!filteredTripUpdates.length) return undefined;
 
-		const tripUpdate = filteredTripUpdates.find(
-			(t) => t.trip.tripId === tripId,
-		);
+		filterTrips();
+		setHasFilteredOnce(true);
 
-		if (!tripUpdate) return undefined;
+		const intervalId = setInterval(filterTrips, 30000);
 
-		const stopIdPrefix = stop.stop_id.slice(0, -3);
-		const stopUpdate = tripUpdate.stopTimeUpdate?.find(
-			(update) => update.stopId.slice(0, -3) === stopIdPrefix,
-		);
-
-		if (!stopUpdate?.departure?.time) return undefined;
-
-		const departureDate = new Date(Number(stopUpdate.departure.time) * 1000);
-		return departureDate.toLocaleTimeString().slice(0, 5);
-	}
+		return () => {
+			window.clearInterval(intervalId);
+			const t = tableAnim.current.timeoutId;
+			if (t != null) {
+				window.clearTimeout(t);
+				tableAnim.current.timeoutId = null;
+			}
+		};
+	}, [
+		closestStopToUse?.stop_id,
+		tripData.upcomingTrips,
+		closestStopToUse,
+		getUpdatedDepartureTime,
+	]);
 
 	let nextBus: IDbData | undefined;
 	let rest: IDbData[] = [];
 
-	if (tripsToDisplay.length > 0) {
-		[nextBus, ...rest] = tripsToDisplay;
+	if (displayTrips.length > 0) {
+		[nextBus, ...rest] = displayTrips;
 	}
 
 	const nextBusUpdatedTime = nextBus
@@ -174,7 +271,7 @@ export const CurrentTrips = ({
 
 	const routeMeta =
 		nextBus ??
-		tripsToDisplay[0] ??
+		displayTrips[0] ??
 		tripData.upcomingTrips[0] ??
 		tripData.currentTrips[0];
 	const vehicleLabel = gtfsRouteVehicleLabelSv(routeMeta?.route_type);
@@ -210,7 +307,7 @@ export const CurrentTrips = ({
 		hasFilteredOnce,
 		isLoading,
 		hasTripsToDisplay,
-		tripsToDisplay.length,
+		displayTrips.length,
 		tripData.upcomingTrips.length,
 		closestStopToUse?.stop_id,
 		selectedStopRouteLines?.join("|") ?? "",
@@ -304,7 +401,7 @@ export const CurrentTrips = ({
 								isActive ? "Visa position" : `${vehicleLabel} är inte i trafik`
 							}
 							aria-label={`Visa nästa avgång mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
-							className={`next-departure ${isActive ? " --active" : ""}`}
+							className={`next-departure ${isActive ? " --active" : ""}${isTableAnimating ? " row-slide-0" : ""}`}
 							onClick={() => {
 								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
 							}}
@@ -358,7 +455,9 @@ export const CurrentTrips = ({
 										<th>Avgår</th>
 									</tr>
 								</thead>
-								<tbody>
+								<tbody
+									className={`tbody${isTableAnimating ? " tbody-fade" : ""}`}
+								>
 									{rest.map((trip, i) => {
 										const updatedTime = getUpdatedDepartureTime(
 											trip?.trip_id,
@@ -374,11 +473,13 @@ export const CurrentTrips = ({
 											trip.route_type,
 										);
 
+										const rowSlideClass =
+											isTableAnimating && i < 9 ? ` row-slide-${i + 1}` : "";
 										return (
 											<tr
 												// biome-ignore lint/suspicious/noArrayIndexKey: trip_id not unique across rows
 												key={trip?.trip_id + i}
-												className={`trip-row  ${isActive ? " --active" : ""}`}
+												className={`trip-row  ${isActive ? " --active" : ""}${rowSlideClass}`}
 											>
 												<td>
 													<span

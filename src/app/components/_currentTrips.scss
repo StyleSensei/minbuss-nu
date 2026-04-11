@@ -19,6 +19,19 @@
     border-radius: v.$border-radius-standard;
     transition: all .5s ease;
     z-index: 0;
+
+    /** Samma som InfoWindow vid borttagna rader: fadeTable + slideUpTableRow. */
+    .tbody-fade {
+        animation: fadeTable 1s ease-out forwards;
+        position: relative;
+    }
+
+    @for $i from 0 through 9 {
+        .row-slide-#{$i} {
+            $delay: $i * 0.1s;
+            animation: slideUpTableRow 0.8s ease-out $delay forwards;
+        }
+    }
 }
 
 .current-trips__line-picker {
