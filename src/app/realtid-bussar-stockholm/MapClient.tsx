@@ -826,6 +826,7 @@ export default function MapClient() {
 						<AdvancedMarker
 							title={"Min position"}
 							anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
+							zIndex={50}
 							position={
 								new google.maps.LatLng({
 									lat: userPosition.lat,

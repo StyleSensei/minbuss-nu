@@ -36,6 +36,7 @@ export function StopMarkersLayer({
 						key={s.id}
 						position={new google.maps.LatLng({ lat: s.lat, lng: s.lon })}
 						title={s.id}
+						zIndex={isActive ? 2 : 1}
 						clickable
 						onClick={(ev) => {
 							ev.stop?.();

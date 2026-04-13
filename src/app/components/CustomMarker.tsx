@@ -61,7 +61,7 @@ export default function CustomMarker({
 	showCurrentTrips,
 	onActivateMarker,
 	tripsByTripId,
-	zIndex = 1,
+	zIndex = 100,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);

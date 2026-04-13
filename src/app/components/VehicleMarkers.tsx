@@ -1,9 +1,9 @@
-import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
-import CustomMarker from "./CustomMarker";
 import type { MutableRefObject } from "react";
 import { useMemo } from "react";
-import { useDataContext } from "../context/DataContext";
 import type { IDbData } from "@/shared/models/IDbData";
+import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
+import { useDataContext } from "../context/DataContext";
+import CustomMarker from "./CustomMarker";
 
 interface IVehicleMarkersProps {
 	vehicles: IVehiclePosition[];
@@ -58,28 +58,31 @@ const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 	if (!vehicles || vehicles.length === 0) {
 		return null;
 	}
-	return vehiclesWithShapes.map((vehicle) => (
-		<CustomMarker
-			{...props}
-			currentVehicle={vehicle}
-			key={vehicle.vehicle.id}
-			position={{
-				lat: vehicle.position.latitude,
-				lng: vehicle.position.longitude,
-			}}
-			googleMapRef={props.googleMapRef}
-			clickedOutside={props.clickedOutside}
-			setClickedOutside={props.setClickedOutside}
-			infoWindowActiveExternal={props.infoWindowActiveExternal}
-			setInfoWindowActiveExternal={props.setInfoWindowActiveExternal}
-			followBus={props.followBus}
-			setFollowBus={props.setFollowBus}
-			isActive={props.activeMarkerId === vehicle.vehicle.id}
-			onActivateMarker={(id) => props.setActiveMarkerId(id)}
-			showCurrentTrips={props.showCurrentTrips}
-			tripsByTripId={tripsByTripId}
-			zIndex={10}
-		/>
-	));
+	return vehiclesWithShapes.map((vehicle) => {
+		const isActive = props.activeMarkerId === vehicle.vehicle.id;
+		return (
+			<CustomMarker
+				{...props}
+				currentVehicle={vehicle}
+				key={vehicle.vehicle.id}
+				position={{
+					lat: vehicle.position.latitude,
+					lng: vehicle.position.longitude,
+				}}
+				googleMapRef={props.googleMapRef}
+				clickedOutside={props.clickedOutside}
+				setClickedOutside={props.setClickedOutside}
+				infoWindowActiveExternal={props.infoWindowActiveExternal}
+				setInfoWindowActiveExternal={props.setInfoWindowActiveExternal}
+				followBus={props.followBus}
+				setFollowBus={props.setFollowBus}
+				isActive={isActive}
+				onActivateMarker={(id) => props.setActiveMarkerId(id)}
+				showCurrentTrips={props.showCurrentTrips}
+				tripsByTripId={tripsByTripId}
+				zIndex={isActive ? 200 : 100}
+			/>
+		);
+	});
 };
 export default VehicleMarkers;

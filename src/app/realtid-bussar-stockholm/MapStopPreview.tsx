@@ -35,7 +35,7 @@ export function MapStopPreview({
 	return (
 		<AdvancedMarker
 			className="map-stop-preview-marker"
-			zIndex={10}
+			zIndex={20}
 			title={preview.stop.stop_name}
 			position={
 				new google.maps.LatLng({
