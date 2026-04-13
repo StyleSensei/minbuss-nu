@@ -48,6 +48,14 @@ interface IDataContext {
 	setSelectedStopForSchedule: Dispatch<SetStateAction<IDbData | null>>;
 	selectedStopRouteLines: string[] | null;
 	setSelectedStopRouteLines: Dispatch<SetStateAction<string[] | null>>;
+	/**
+	 * Hållplats längs vald fordons tur (samma som InfoWindow / findClosestOrNextStop).
+	 * Används av CurrentTrips så avgångslistan följer bussens läge, inte bara användarens närmaste hållplats.
+	 */
+	activeVehicleBoardStop: IDbData | null;
+	setActiveVehicleBoardStop: (stop: IDbData | null) => void;
+	activeFollowedTripId: string | null;
+	setActiveFollowedTripId: (tripId: string | null) => void;
 }
 const DataContext = createContext<IDataContext>({
 	filteredVehicles: { data: [], error: undefined },
@@ -73,6 +81,10 @@ const DataContext = createContext<IDataContext>({
 	setSelectedStopForSchedule: () => {},
 	selectedStopRouteLines: null,
 	setSelectedStopRouteLines: () => {},
+	activeVehicleBoardStop: null,
+	setActiveVehicleBoardStop: () => {},
+	activeFollowedTripId: null,
+	setActiveFollowedTripId: () => {},
 });
 
 export const useDataContext = () => useContext(DataContext);
@@ -100,6 +112,11 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 	const [selectedStopRouteLines, setSelectedStopRouteLines] = useState<
 		string[] | null
 	>(null);
+	const [activeVehicleBoardStop, setActiveVehicleBoardStop] =
+		useState<IDbData | null>(null);
+	const [activeFollowedTripId, setActiveFollowedTripId] = useState<string | null>(
+		null,
+	);
 	const geoPosition = useGeolocation(tripData.lineStops, tripData.currentTrips);
 
 	useEffect(() => {
@@ -129,6 +146,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 				setSelectedStopForSchedule,
 				selectedStopRouteLines,
 				setSelectedStopRouteLines,
+				activeVehicleBoardStop,
+				setActiveVehicleBoardStop,
+				activeFollowedTripId,
+				setActiveFollowedTripId,
 			}}
 		>
 			{children}

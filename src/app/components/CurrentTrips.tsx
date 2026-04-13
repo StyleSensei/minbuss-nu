@@ -27,16 +27,78 @@ interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string) => void;
 	mapRef?: React.MutableRefObject<google.maps.Map | null>;
 	closestStop?: IDbData;
+	followedTripId?: string | null;
 }
 
 function tripIdsSignature(arr: IDbData[]): string {
-	return arr.map((t) => t.trip_id).join("|");
+	return arr.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`).join("|");
+}
+
+function stopIdMatchesBoardRow(
+	rowStopId: string | undefined,
+	boardStopId: string | undefined,
+): boolean {
+	if (!rowStopId || !boardStopId) return rowStopId === boardStopId;
+	if (rowStopId === boardStopId) return true;
+	if (rowStopId.length > 3 && boardStopId.length > 3) {
+		return rowStopId.slice(0, -3) === boardStopId.slice(0, -3);
+	}
+	return false;
+}
+
+function resolveBoardStopSequenceForTripAtBoard(
+	tripId: string,
+	board: IDbData,
+	currentTrips: IDbData[],
+	upcomingTrips: IDbData[],
+): number | undefined {
+	const tryRows = (rows: IDbData[]): number | undefined => {
+		const byStopId = rows.find(
+			(s) =>
+				s.trip_id === tripId &&
+				stopIdMatchesBoardRow(s.stop_id, board.stop_id),
+		);
+		if (byStopId != null) return byStopId.stop_sequence;
+		const byName = rows.find(
+			(s) =>
+				s.trip_id === tripId &&
+				s.stop_name.trim() === board.stop_name.trim(),
+		);
+		return byName?.stop_sequence;
+	};
+	return tryRows(currentTrips) ?? tryRows(upcomingTrips);
+}
+
+function injectFollowedTripRowAtBoard(
+	tripId: string,
+	board: IDbData,
+	boardSeq: number | undefined,
+	currentTrips: IDbData[],
+	upcomingTrips: IDbData[],
+): IDbData | undefined {
+	const bySeqOrStopId = (rows: IDbData[]) => {
+		if (boardSeq != null) {
+			const m = rows.find(
+				(s) =>
+					s.trip_id === tripId &&
+					(s.stop_sequence === boardSeq ||
+						stopIdMatchesBoardRow(s.stop_id, board.stop_id)),
+			);
+			if (m) return m;
+		}
+		return rows.find(
+			(s) =>
+				s.trip_id === tripId &&
+				s.stop_name.trim() === board.stop_name.trim(),
+		);
+	};
+	return bySeqOrStopId(currentTrips) ?? bySeqOrStopId(upcomingTrips);
 }
 
 type TableAnimSync = {
 	committed: IDbData[];
 	animating: boolean;
-	timeoutId: ReturnType<typeof setTimeout> | null;
+	timeoutId: number | null;
 	pending: IDbData[] | null;
 	towardSig: string | null;
 	removalTarget: IDbData[] | null;
@@ -46,6 +108,7 @@ export const CurrentTrips = ({
 	onTripSelect,
 	mapRef,
 	closestStop,
+	followedTripId = null,
 }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
@@ -56,7 +119,9 @@ export const CurrentTrips = ({
 		userPosition,
 		isLoading,
 		selectedStopRouteLines,
+		activeFollowedTripId,
 	} = useDataContext();
+	const effectiveFollowedTripId = activeFollowedTripId ?? followedTripId ?? null;
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const lastLinePickAtRef = useRef(0);
@@ -107,17 +172,52 @@ export const CurrentTrips = ({
 				(t) => t.trip.tripId === tripId,
 			);
 
-			if (!tripUpdate) return undefined;
+			if (!tripUpdate?.stopTimeUpdate?.length) return undefined;
 
-			const stopIdPrefix = stop.stop_id.slice(0, -3);
-			const stopUpdate = tripUpdate.stopTimeUpdate?.find(
-				(update) => update.stopId.slice(0, -3) === stopIdPrefix,
-			);
+			const stopUpdate =
+				tripUpdate.stopTimeUpdate.find((s) => s.stopId === stop.stop_id) ??
+				tripUpdate.stopTimeUpdate.find(
+					(s) => s.stopId.slice(0, -3) === stop.stop_id.slice(0, -3),
+				);
 
 			if (!stopUpdate?.departure?.time) return undefined;
 
 			const departureDate = new Date(Number(stopUpdate.departure.time) * 1000);
 			return departureDate.toLocaleTimeString().slice(0, 5);
+		},
+		[filteredTripUpdates],
+	);
+
+	const getDepartureInstantForFilter = useCallback(
+		(trip: IDbData, boardRef: IDbData): Date => {
+			if (!filteredTripUpdates.length) {
+				return convertGTFSTimeToDate(trip.departure_time);
+			}
+			const tripUpdate = filteredTripUpdates.find(
+				(t) => t.trip.tripId === trip.trip_id,
+			);
+			const su = tripUpdate?.stopTimeUpdate;
+			if (!su?.length) {
+				return convertGTFSTimeToDate(trip.departure_time);
+			}
+			const byTripStop = trip.stop_id
+				? su.find(
+						(s) =>
+							s.stopId === trip.stop_id && s.departure?.time != null,
+					)
+				: undefined;
+			if (byTripStop?.departure?.time != null) {
+				return new Date(Number(byTripStop.departure.time) * 1000);
+			}
+			if (boardRef?.stop_id) {
+				const byBoard = su.find(
+					(s) => s.stopId === boardRef.stop_id && s.departure?.time != null,
+				);
+				if (byBoard?.departure?.time != null) {
+					return new Date(Number(byBoard.departure.time) * 1000);
+				}
+			}
+			return convertGTFSTimeToDate(trip.departure_time);
 		},
 		[filteredTripUpdates],
 	);
@@ -190,34 +290,93 @@ export const CurrentTrips = ({
 		function filterTrips() {
 			let newList: IDbData[];
 			if (closestStopToUse) {
-				const stopName = closestStopToUse.stop_name;
-				newList = tripData.upcomingTrips.filter((trip) => {
-					if (trip.stop_name !== stopName) {
-						return false;
-					}
+				const boardStop = closestStopToUse;
+				const stopNameNorm = boardStop.stop_name.trim();
+				const boardStopSequenceForFollowed =
+					effectiveFollowedTripId && closestStopToUse
+						? resolveBoardStopSequenceForTripAtBoard(
+								effectiveFollowedTripId,
+								closestStopToUse,
+								tripData.currentTrips,
+								tripData.upcomingTrips,
+							)
+						: undefined;
 
+			
+				const FOLLOWED_MAX_PAST_MIN = 1;
+
+				function rowPassesDepartureTimeRule(trip: IDbData): boolean {
 					try {
-						const updatedTimeStr = getUpdatedDepartureTime(
-							trip.trip_id,
-							closestStopToUse,
+						const departureTime = getDepartureInstantForFilter(
+							trip,
+							boardStop,
 						);
-						const departureTime = updatedTimeStr
-							? convertGTFSTimeToDate(updatedTimeStr)
-							: convertGTFSTimeToDate(trip.departure_time);
-
-						const minutesSinceScheduledDeparture =
+						const minutesSince =
 							(Date.now() - departureTime.getTime()) / (1000 * 60);
+						if (minutesSince <= 0) return true;
 
-						if (minutesSinceScheduledDeparture > 0) {
-							return false;
+						if (
+							effectiveFollowedTripId &&
+							trip.trip_id === effectiveFollowedTripId
+						) {
+							const atCurrentBoardStop =
+								stopIdMatchesBoardRow(
+									trip.stop_id,
+									boardStop.stop_id,
+								) ||
+								(boardStopSequenceForFollowed != null &&
+									trip.stop_sequence ===
+										boardStopSequenceForFollowed);
+							return (
+								atCurrentBoardStop &&
+								minutesSince <= FOLLOWED_MAX_PAST_MIN
+							);
 						}
 
-						return true;
+						const PAST_GRACE_MIN = 0.5;
+						if (minutesSince <= PAST_GRACE_MIN) return true;
+						return false;
 					} catch (error) {
 						console.error(`Error checking trip ${trip.trip_id}:`, error);
 						return true;
 					}
+				}
+
+				newList = tripData.upcomingTrips.filter((trip) => {
+					const rowNameNorm = trip.stop_name.trim();
+					const nameMatchesBoard = rowNameNorm === stopNameNorm;
+					const followedRowAlignsWithBoard =
+						effectiveFollowedTripId != null &&
+						trip.trip_id === effectiveFollowedTripId &&
+						boardStopSequenceForFollowed != null &&
+						trip.stop_sequence === boardStopSequenceForFollowed;
+
+					if (!nameMatchesBoard && !followedRowAlignsWithBoard) {
+						return false;
+					}
+						return rowPassesDepartureTimeRule(trip);
 				});
+
+				if (effectiveFollowedTripId && closestStopToUse) {
+					const injected = injectFollowedTripRowAtBoard(
+						effectiveFollowedTripId,
+						closestStopToUse,
+						boardStopSequenceForFollowed,
+						tripData.currentTrips,
+						tripData.upcomingTrips,
+					);
+			
+					if (injected) {
+						newList = [
+							injected,
+							...newList.filter(
+								(t) => t.trip_id !== effectiveFollowedTripId,
+							),
+						];
+					}
+				}
+
+				newList = newList.filter(rowPassesDepartureTimeRule);
 			} else {
 				newList = tripData.upcomingTrips;
 			}
@@ -240,8 +399,13 @@ export const CurrentTrips = ({
 	}, [
 		closestStopToUse?.stop_id,
 		tripData.upcomingTrips,
+		tripData.currentTrips,
 		closestStopToUse,
 		getUpdatedDepartureTime,
+		getDepartureInstantForFilter,
+		followedTripId,
+		activeFollowedTripId,
+		activeVehiclePositions,
 	]);
 
 	let nextBus: IDbData | undefined;

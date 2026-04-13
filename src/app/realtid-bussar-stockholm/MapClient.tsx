@@ -125,6 +125,7 @@ export default function MapClient() {
 		selectedStopForSchedule,
 		setSelectedStopForSchedule,
 		setSelectedStopRouteLines,
+		activeVehicleBoardStop,
 	} = useDataContext();
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -135,6 +136,13 @@ export default function MapClient() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+	const followedTripId = useMemo(() => {
+		if (!activeMarkerId) return null;
+		return (
+			filteredVehicles.data.find((v) => v.vehicle.id === activeMarkerId)?.trip
+				?.tripId ?? null
+		);
+	}, [activeMarkerId, filteredVehicles.data]);
 	const [mapReady, setMapReady] = useState(false);
 	const [cameraState, setCameraState] = useState<{
 		zoom: number;
@@ -799,8 +807,10 @@ export default function MapClient() {
 						<CurrentTrips
 							onTripSelect={handleTripSelect}
 							mapRef={mapRef}
+							followedTripId={followedTripId}
 							closestStop={
 								selectedStopForSchedule ??
+								activeVehicleBoardStop ??
 								userPosition?.closestStop ??
 								undefined
 							}

@@ -69,7 +69,11 @@ export default function CustomMarker({
 		currentVehicle,
 	);
 
-	const { filteredVehicles } = useDataContext();
+	const {
+		filteredVehicles,
+		setActiveVehicleBoardStop,
+		setActiveFollowedTripId,
+	} = useDataContext();
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
@@ -351,6 +355,32 @@ export default function CustomMarker({
 			}
 		}
 	}, [isActive, currentBus, findClosestOrNextStop]);
+
+	/** Synka CurrentTrips med samma referenshållplats som InfoWindow när detta fordon är aktivt. */
+	useEffect(() => {
+		if (!isActive) return;
+		if (closestStopState) {
+			setActiveVehicleBoardStop(closestStopState);
+		}
+		return () => {
+			setActiveVehicleBoardStop(null);
+		};
+	}, [isActive, closestStopState, setActiveVehicleBoardStop]);
+
+	useEffect(() => {
+		if (!isActive) {
+			setActiveFollowedTripId(null);
+			return;
+		}
+		const tid =
+			currentBus?.trip?.tripId ?? currentVehicle.trip?.tripId ?? null;
+		setActiveFollowedTripId(tid ?? null);
+	}, [
+		isActive,
+		currentBus?.trip?.tripId,
+		currentVehicle.trip?.tripId,
+		setActiveFollowedTripId,
+	]);
 
 	useEffect(() => {
 		if (infoWindowActive) {
