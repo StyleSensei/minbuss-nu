@@ -19,7 +19,15 @@ import {
 	RenderingType,
 } from "@vis.gl/react-google-maps";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	startTransition,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { MapControlButtons } from "../components/MapControlButtons";
 import RouteShapePolyline from "../components/RouteShapePolyline";
@@ -38,8 +46,11 @@ import {
 	type StopsPositionsFile,
 } from "./stopPositionsTypes";
 
-/** Limits React re-renders + stop marker work during continuous zoom/pan (camera events are very frequent). */
-const CAMERA_STATE_THROTTLE_MS = 120;
+/**
+ * All map camera-driven React state (stops viewport, zoom thresholds, preview) updates via this debounce
+ * so we do not re-render the full map subtree on every Maps camera frame.
+ */
+const MAP_VIEWPORT_DEBOUNCE_MS = 320;
 
 const DEFAULT_MAP_CENTER_FALLBACK = { lat: 59.33258, lng: 18.0649 } as const;
 
@@ -143,8 +154,53 @@ export default function MapClient() {
 				?.tripId ?? null
 		);
 	}, [activeMarkerId, filteredVehicles.data]);
+	/** Stabil avsedd så zoom/pan inte invaliderar useMemo när fordonslistan är oförändrad. */
+	const vehicleSig = useMemo(
+		() =>
+			filteredVehicles.data
+				.map(
+					(v) =>
+						`${v.trip?.tripId ?? ""}:${v.position.latitude.toFixed(4)}:${v.position.longitude.toFixed(4)}`,
+				)
+				.sort()
+				.join("|"),
+		[filteredVehicles.data],
+	);
+	const fallbackFollowed = useMemo(() => {
+		const baseStop = selectedStopForSchedule ?? userPosition?.closestStop ?? null;
+		if (!baseStop || filteredVehicles.data.length === 0) {
+			return { tripId: null as string | null };
+		}
+		const matchingRows = tripData.currentTrips.filter(
+			(row) =>
+				row.stop_id === baseStop.stop_id ||
+				row.stop_name.trim() === baseStop.stop_name.trim(),
+		);
+		let candidateTripId =
+			matchingRows.find((row) =>
+				filteredVehicles.data.some((v) => v.trip.tripId === row.trip_id),
+			)?.trip_id ?? null;
+		if (!candidateTripId) {
+			candidateTripId =
+				tripData.upcomingTrips.find((row) =>
+					filteredVehicles.data.some((v) => v.trip.tripId === row.trip_id),
+				)?.trip_id ?? null;
+		}
+		if (!candidateTripId) {
+			return { tripId: null as string | null };
+		}
+		return { tripId: candidateTripId };
+	}, [
+		selectedStopForSchedule?.stop_id,
+		selectedStopForSchedule?.stop_name,
+		userPosition?.closestStop?.stop_id,
+		userPosition?.closestStop?.stop_name,
+		vehicleSig,
+		tripData.currentTrips,
+		tripData.upcomingTrips,
+	]);
 	const [mapReady, setMapReady] = useState(false);
-	const [cameraState, setCameraState] = useState<{
+	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
 		bounds: google.maps.LatLngBoundsLiteral;
 	} | null>(null);
@@ -153,14 +209,9 @@ export default function MapClient() {
 	>(null);
 	const isMobile = useIsMobile();
 	const zoomRef = useRef<number>(8);
-	const cameraThrottleLastEmitRef = useRef(0);
-	const cameraThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+	const mapViewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
-	const pendingCameraRef = useRef<{
-		zoom: number;
-		bounds: google.maps.LatLngBoundsLiteral;
-	} | null>(null);
 	const [hideUserPositionForZoom, setHideUserPositionForZoom] = useState(false);
 	const hideUserPositionTimeoutRef = useRef<ReturnType<
 		typeof setTimeout
@@ -347,24 +398,48 @@ export default function MapClient() {
 		],
 	);
 
+	const viewportForStops = mapViewport;
+
+	const queueMapViewport = useCallback(
+		(zoom: number, bounds: google.maps.LatLngBoundsLiteral) => {
+			if (mapViewportDebounceRef.current) {
+				clearTimeout(mapViewportDebounceRef.current);
+				mapViewportDebounceRef.current = null;
+			}
+			mapViewportDebounceRef.current = setTimeout(() => {
+				mapViewportDebounceRef.current = null;
+				startTransition(() => {
+					setMapViewport({ zoom, bounds });
+				});
+			}, MAP_VIEWPORT_DEBOUNCE_MS);
+		},
+		[],
+	);
+
 	const visibleStopMarkers = useMemo(
 		() =>
 			filterStopsInViewport(
 				allStopPositions,
-				cameraState?.zoom ?? 0,
-				cameraState?.bounds ?? null,
+				viewportForStops?.zoom ?? 0,
+				viewportForStops?.bounds ?? null,
 			),
-		[allStopPositions, cameraState],
+		[allStopPositions, viewportForStops],
 	);
 
-	const zoom = cameraState?.zoom ?? 0;
+	/** Lägre prioritet under kamerarörelse så tusentals markör-DOM inte blockerar huvudtråden på en gång. */
+	const stopsForStopLayer = useDeferredValue(visibleStopMarkers);
+
+	/** Samma källa som viewport-filter: undviker att hållplatsmarkörer följer varje kamerasteg i React. */
+	const zoomForStopUi = viewportForStops?.zoom ?? 0;
 	const stopMarkersVisible = useMemo(
-		() => zoom >= STOP_MARKERS_COMPACT_ZOOM && !hideUserPositionForZoom,
-		[zoom, hideUserPositionForZoom],
+		() =>
+			zoomForStopUi >= STOP_MARKERS_COMPACT_ZOOM && !hideUserPositionForZoom,
+		[zoomForStopUi, hideUserPositionForZoom],
 	);
 	const stopMarkersDetail = useMemo(
-		() => zoom >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
-		[zoom, hideUserPositionForZoom],
+		() =>
+			zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
+		[zoomForStopUi, hideUserPositionForZoom],
 	);
 
 	useEffect(() => {
@@ -403,47 +478,20 @@ export default function MapClient() {
 
 	useEffect(() => {
 		return () => {
-			if (cameraThrottleTimerRef.current) {
-				clearTimeout(cameraThrottleTimerRef.current);
-				cameraThrottleTimerRef.current = null;
+			if (mapViewportDebounceRef.current) {
+				clearTimeout(mapViewportDebounceRef.current);
+				mapViewportDebounceRef.current = null;
 			}
 		};
 	}, []);
 
-	const handleCameraChanged = useCallback((e: MapCameraChangedEvent) => {
-		const detail = e.detail;
-		pendingCameraRef.current = {
-			zoom: detail.zoom,
-			bounds: detail.bounds,
-		};
-		const now = Date.now();
-		const ms = CAMERA_STATE_THROTTLE_MS;
-
-		if (cameraThrottleTimerRef.current) {
-			clearTimeout(cameraThrottleTimerRef.current);
-			cameraThrottleTimerRef.current = null;
-		}
-
-		if (now - cameraThrottleLastEmitRef.current >= ms) {
-			cameraThrottleLastEmitRef.current = now;
-			setCameraState({
-				zoom: detail.zoom,
-				bounds: detail.bounds,
-			});
-		} else {
-			cameraThrottleTimerRef.current = setTimeout(
-				() => {
-					cameraThrottleTimerRef.current = null;
-					cameraThrottleLastEmitRef.current = Date.now();
-					const p = pendingCameraRef.current;
-					if (p) {
-						setCameraState({ zoom: p.zoom, bounds: p.bounds });
-					}
-				},
-				ms - (now - cameraThrottleLastEmitRef.current),
-			);
-		}
-	}, []);
+	const handleCameraChanged = useCallback(
+		(e: MapCameraChangedEvent) => {
+			const d = e.detail;
+			queueMapViewport(d.zoom, d.bounds);
+		},
+		[queueMapViewport],
+	);
 
 	useEffect(() => {
 		if (!mapReady) return;
@@ -556,7 +604,7 @@ export default function MapClient() {
 						});
 					}
 					if (isMobile) {
-						setShowCurrentTrips(false);
+						setShowCurrentTrips(true);
 					}
 				}, 50);
 				mapRef?.current?.setZoom(17);
@@ -578,41 +626,33 @@ export default function MapClient() {
 	}, [getWindowZoomLevel]);
 
 	useEffect(() => {
-		if (mapRef.current) {
-			if (mapRef.current) {
-				const listener = google.maps.event.addListener(
-					mapRef.current,
-					"zoom_changed",
-					() => {
-						const newZoom = mapRef.current?.getZoom();
-						if (newZoom === undefined || newZoom === null) {
-							return;
-						}
-						if (newZoom !== zoomWindowLevel) {
-							zoomRef.current = newZoom;
-							setHideUserPositionForZoom(true);
-							if (hideUserPositionTimeoutRef.current) {
-								clearTimeout(hideUserPositionTimeoutRef.current);
-							}
-							hideUserPositionTimeoutRef.current = setTimeout(() => {
-								setHideUserPositionForZoom(false);
-								hideUserPositionTimeoutRef.current = null;
-							}, 400);
-						}
-					},
-				);
-
-				return () => {
-					if (hideUserPositionTimeoutRef.current) {
-						clearTimeout(hideUserPositionTimeoutRef.current);
-					}
-					if (listener) {
-						google.maps.event.removeListener(listener);
-					}
-				};
+		if (!mapReady || !mapRef.current) return;
+		const map = mapRef.current;
+		const listener = google.maps.event.addListener(map, "zoom_changed", () => {
+			const newZoom = mapRef.current?.getZoom();
+			if (newZoom === undefined || newZoom === null) {
+				return;
 			}
-		}
-	}, [zoomWindowLevel]);
+			if (zoomRef.current !== newZoom) {
+				zoomRef.current = newZoom;
+				setHideUserPositionForZoom(true);
+				if (hideUserPositionTimeoutRef.current) {
+					clearTimeout(hideUserPositionTimeoutRef.current);
+				}
+				hideUserPositionTimeoutRef.current = setTimeout(() => {
+					setHideUserPositionForZoom(false);
+					hideUserPositionTimeoutRef.current = null;
+				}, 400);
+			}
+		});
+
+		return () => {
+			if (hideUserPositionTimeoutRef.current) {
+				clearTimeout(hideUserPositionTimeoutRef.current);
+			}
+			google.maps.event.removeListener(listener);
+		};
+	}, [mapReady]);
 
 	const routeShapesCacheRef = useRef<Map<string, IShapes[]>>(new Map());
 	const routeShapes = useMemo(() => {
@@ -698,7 +738,7 @@ export default function MapClient() {
 		tripData.lineStops.length > 0 ||
 		tripData.lineShapes.length > 0;
 
-	const mapZoom = cameraState?.zoom ?? MAP_TARGET_INITIAL_ZOOM;
+	const mapZoom = mapViewport?.zoom ?? MAP_TARGET_INITIAL_ZOOM;
 	const showMapStopPreview =
 		Boolean(mapStopPreview) && mapReady && mapZoom >= STOP_MARKERS_DETAIL_ZOOM;
 
@@ -707,7 +747,7 @@ export default function MapClient() {
 		return () => setIsCurrentTripsOpen(false);
 	}, [showCurrentTrips, setIsCurrentTripsOpen]);
 
-	return (
+		return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
@@ -728,7 +768,15 @@ export default function MapClient() {
 						const z = map.getZoom() ?? 10;
 						const b = map.getBounds();
 						if (b) {
-							setCameraState({ zoom: z, bounds: b.toJSON() });
+							const boundsJson = b.toJSON();
+							if (mapViewportDebounceRef.current) {
+								clearTimeout(mapViewportDebounceRef.current);
+								mapViewportDebounceRef.current = null;
+							}
+							zoomRef.current = z;
+							startTransition(() => {
+								setMapViewport({ zoom: z, bounds: boundsJson });
+							});
 						}
 					}}
 					onCameraChanged={handleCameraChanged}
@@ -793,7 +841,7 @@ export default function MapClient() {
 						)}
 					{mapReady && visibleStopMarkers.length > 0 && (
 						<StopMarkersLayer
-							stops={visibleStopMarkers}
+							stops={stopsForStopLayer}
 							mapRef={mapRef}
 							onStopClick={handleStopMarkerClick}
 							stopMarkersVisible={stopMarkersVisible}
@@ -807,7 +855,7 @@ export default function MapClient() {
 						<CurrentTrips
 							onTripSelect={handleTripSelect}
 							mapRef={mapRef}
-							followedTripId={followedTripId}
+							followedTripId={followedTripId ?? fallbackFollowed.tripId}
 							closestStop={
 								selectedStopForSchedule ??
 								activeVehicleBoardStop ??

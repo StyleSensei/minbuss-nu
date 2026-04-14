@@ -15,6 +15,7 @@ import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
 import { Paths } from "../paths";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
+import { getClosest } from "../utilities/getClosest";
 import {
 	gtfsRouteModeShortLabelSv,
 	gtfsRouteVehicleLabelSv,
@@ -120,6 +121,7 @@ export const CurrentTrips = ({
 		isLoading,
 		selectedStopRouteLines,
 		activeFollowedTripId,
+		activeVehicleBoardStop,
 	} = useDataContext();
 	const effectiveFollowedTripId = activeFollowedTripId ?? followedTripId ?? null;
 	const router = useRouter();
@@ -162,6 +164,14 @@ export const CurrentTrips = ({
 			),
 		[filteredVehicles.data],
 	);
+
+	const vehiclePositionSig = filteredVehicles.data
+		.map(
+			(v) =>
+				`${v.trip?.tripId ?? ""}:${v.position.latitude.toFixed(4)}:${v.position.longitude.toFixed(4)}`,
+		)
+		.sort()
+		.join("|");
 
 	const getUpdatedDepartureTime = useCallback(
 		(tripId: string, stop: IDbData | null | undefined): string | undefined => {
@@ -288,6 +298,27 @@ export const CurrentTrips = ({
 		}
 
 		function filterTrips() {
+			const anim = tableAnim.current;
+			if (anim.timeoutId != null) {
+				window.clearTimeout(anim.timeoutId);
+				anim.timeoutId = null;
+			}
+			if (anim.animating) {
+				anim.animating = false;
+				setIsTableAnimating(false);
+				anim.towardSig = null;
+				const target = anim.removalTarget ?? [];
+				anim.removalTarget = null;
+				setDisplayTrips(target);
+				anim.committed = [...target];
+				const p = anim.pending;
+				if (p) {
+					anim.pending = null;
+					setDisplayTrips(p);
+					anim.committed = [...p];
+				}
+			}
+
 			let newList: IDbData[];
 			if (closestStopToUse) {
 				const boardStop = closestStopToUse;
@@ -303,7 +334,8 @@ export const CurrentTrips = ({
 						: undefined;
 
 			
-				const FOLLOWED_MAX_PAST_MIN = 1;
+				/** RT-försening: följd tur vid bräda får ligga kvar längre efter "passerad" tid. */
+				const FOLLOWED_MAX_PAST_MIN = 20;
 
 				function rowPassesDepartureTimeRule(trip: IDbData): boolean {
 					try {
@@ -313,25 +345,78 @@ export const CurrentTrips = ({
 						);
 						const minutesSince =
 							(Date.now() - departureTime.getTime()) / (1000 * 60);
-						if (minutesSince <= 0) return true;
 
 						if (
 							effectiveFollowedTripId &&
 							trip.trip_id === effectiveFollowedTripId
 						) {
-							const atCurrentBoardStop =
-								stopIdMatchesBoardRow(
-									trip.stop_id,
-									boardStop.stop_id,
-								) ||
-								(boardStopSequenceForFollowed != null &&
-									trip.stop_sequence ===
-										boardStopSequenceForFollowed);
-							return (
+							const vehicleBoard =
+								activeVehicleBoardStop?.trip_id === trip.trip_id
+									? activeVehicleBoardStop
+									: null;
+							let passedThisStopByVehicle =
+								vehicleBoard != null &&
+								vehicleBoard.stop_sequence > trip.stop_sequence;
+
+							if (!passedThisStopByVehicle) {
+								const veh = filteredVehicles.data.find(
+									(v: IVehiclePosition) => v.trip.tripId === trip.trip_id,
+								);
+								if (veh?.position) {
+									const stopsOnTrip = tripData.currentTrips
+										.filter((s) => s.trip_id === trip.trip_id)
+										.sort((a, b) => a.stop_sequence - b.stop_sequence);
+									if (stopsOnTrip.length > 0) {
+										const closest = getClosest(
+											stopsOnTrip,
+											veh.position.latitude,
+											veh.position.longitude,
+										) as IDbData;
+										passedThisStopByVehicle =
+											closest.stop_sequence > trip.stop_sequence;
+									}
+								}
+							}
+
+							if (passedThisStopByVehicle) {
+								return false;
+							}
+
+							let atCurrentBoardStop: boolean;
+							if (vehicleBoard != null) {
+								atCurrentBoardStop =
+									stopIdMatchesBoardRow(
+										trip.stop_id,
+										vehicleBoard.stop_id,
+									) ||
+									trip.stop_sequence === vehicleBoard.stop_sequence ||
+									stopIdMatchesBoardRow(
+										trip.stop_id,
+										boardStop.stop_id,
+									) ||
+									(boardStopSequenceForFollowed != null &&
+										trip.stop_sequence ===
+											boardStopSequenceForFollowed);
+							} else {
+								atCurrentBoardStop =
+									stopIdMatchesBoardRow(
+										trip.stop_id,
+										boardStop.stop_id,
+									) ||
+									(boardStopSequenceForFollowed != null &&
+										trip.stop_sequence ===
+											boardStopSequenceForFollowed);
+							}
+
+							if (minutesSince <= 0) return true;
+
+							const keep =
 								atCurrentBoardStop &&
-								minutesSince <= FOLLOWED_MAX_PAST_MIN
-							);
+								minutesSince <= FOLLOWED_MAX_PAST_MIN;
+							return keep;
 						}
+
+						if (minutesSince <= 0) return true;
 
 						const PAST_GRACE_MIN = 0.5;
 						if (minutesSince <= PAST_GRACE_MIN) return true;
@@ -377,6 +462,12 @@ export const CurrentTrips = ({
 				}
 
 				newList = newList.filter(rowPassesDepartureTimeRule);
+				newList = [...newList].sort((a, b) => {
+					const ta = getDepartureInstantForFilter(a, boardStop).getTime();
+					const tb = getDepartureInstantForFilter(b, boardStop).getTime();
+					if (ta !== tb) return ta - tb;
+					return (a.trip_id ?? "").localeCompare(b.trip_id ?? "");
+				});
 			} else {
 				newList = tripData.upcomingTrips;
 			}
@@ -398,14 +489,19 @@ export const CurrentTrips = ({
 		};
 	}, [
 		closestStopToUse?.stop_id,
+		closestStopToUse?.stop_sequence,
+		closestStopToUse?.stop_name,
 		tripData.upcomingTrips,
 		tripData.currentTrips,
-		closestStopToUse,
 		getUpdatedDepartureTime,
 		getDepartureInstantForFilter,
 		followedTripId,
 		activeFollowedTripId,
+		activeVehicleBoardStop?.stop_id,
+		activeVehicleBoardStop?.stop_sequence,
+		activeVehicleBoardStop?.trip_id,
 		activeVehiclePositions,
+		vehiclePositionSig,
 	]);
 
 	let nextBus: IDbData | undefined;

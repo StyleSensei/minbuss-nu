@@ -5,6 +5,7 @@ import {
 	type SetStateAction,
 	useContext,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 import type { IDbData } from "@shared/models/IDbData";
@@ -125,34 +126,47 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 		}
 	}, [geoPosition]);
 
+	const contextValue = useMemo(
+		() => ({
+			filteredVehicles,
+			setFilteredVehicles,
+			tripData,
+			setTripData,
+			filteredTripUpdates,
+			setFilteredTripUpdates,
+			userPosition,
+			setUserPosition,
+			isLoading,
+			setIsLoading,
+			isCurrentTripsOpen,
+			setIsCurrentTripsOpen,
+			mapStopPreview,
+			setMapStopPreview,
+			selectedStopForSchedule,
+			setSelectedStopForSchedule,
+			selectedStopRouteLines,
+			setSelectedStopRouteLines,
+			activeVehicleBoardStop,
+			setActiveVehicleBoardStop,
+			activeFollowedTripId,
+			setActiveFollowedTripId,
+		}),
+		[
+			filteredVehicles,
+			tripData,
+			filteredTripUpdates,
+			userPosition,
+			isLoading,
+			isCurrentTripsOpen,
+			mapStopPreview,
+			selectedStopForSchedule,
+			selectedStopRouteLines,
+			activeVehicleBoardStop,
+			activeFollowedTripId,
+		],
+	);
+
 	return (
-		<DataContext.Provider
-			value={{
-				filteredVehicles,
-				setFilteredVehicles,
-				tripData,
-				setTripData,
-				filteredTripUpdates,
-				setFilteredTripUpdates,
-				userPosition,
-				setUserPosition,
-				isLoading,
-				setIsLoading,
-				isCurrentTripsOpen,
-				setIsCurrentTripsOpen,
-				mapStopPreview,
-				setMapStopPreview,
-				selectedStopForSchedule,
-				setSelectedStopForSchedule,
-				selectedStopRouteLines,
-				setSelectedStopRouteLines,
-				activeVehicleBoardStop,
-				setActiveVehicleBoardStop,
-				activeFollowedTripId,
-				setActiveFollowedTripId,
-			}}
-		>
-			{children}
-		</DataContext.Provider>
+		<DataContext.Provider value={contextValue}>{children}</DataContext.Provider>
 	);
 };

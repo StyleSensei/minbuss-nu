@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import type { MutableRefObject } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -30,7 +30,7 @@ interface RouteShapePolylineProps {
 
 }
 
-export default function RouteShapePolyline({
+function RouteShapePolyline({
 	googleMapRef,
 	hasActiveVehicle,
 	shapePoints,
@@ -149,3 +149,5 @@ export default function RouteShapePolyline({
 
 	return null;
 }
+
+export default memo(RouteShapePolyline);

@@ -9,6 +9,9 @@ export interface IUser {
 	tripsAtClosestStop: IDbData[];
 }
 
+/** ~2.5 m — under detta hoppar vi setState så kartan inte renderas om i onödan vid GPS-bruset. */
+const COORD_EPS = 0.000025;
+
 export function useGeolocation(
 	lineStops: IDbData[],
 	currentTrips: IDbData[],
@@ -37,13 +40,33 @@ export function useGeolocation(
 					? (getClosest(candidateStops, lat, lng) as IDbData)
 					: null;
 
-			setPosition({
-				lat,
-				lng,
-				closestStop: newClosestStop,
-				tripsAtClosestStop: currentTrips.filter(
-					(stop) => stop.stop_name === newClosestStop?.stop_name,
-				),
+			const tripsAtClosestStop = currentTrips.filter(
+				(stop) => stop.stop_name === newClosestStop?.stop_name,
+			);
+			const tripsSig = tripsAtClosestStop
+				.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
+				.join("|");
+
+			setPosition((prev) => {
+				if (prev) {
+					const sameStop =
+						prev.closestStop?.stop_id === newClosestStop?.stop_id;
+					const sameCoords =
+						Math.abs(prev.lat - lat) < COORD_EPS &&
+						Math.abs(prev.lng - lng) < COORD_EPS;
+					const prevTripsSig = prev.tripsAtClosestStop
+						.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
+						.join("|");
+					if (sameStop && sameCoords && prevTripsSig === tripsSig) {
+						return prev;
+					}
+				}
+				return {
+					lat,
+					lng,
+					closestStop: newClosestStop,
+					tripsAtClosestStop,
+				};
 			});
 		},
 		[lineStops, currentTrips],
@@ -74,7 +97,11 @@ export function useGeolocation(
 		const watchId = navigator.geolocation.watchPosition(
 			updateUserPosition,
 			errorHandler,
-			{ enableHighAccuracy: true, maximumAge: 0 },
+			{
+				enableHighAccuracy: true,
+				// Undvik att spamma React/state vid små GPS-rörelser (kartan blev seg).
+				maximumAge: 5000,
+			},
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);

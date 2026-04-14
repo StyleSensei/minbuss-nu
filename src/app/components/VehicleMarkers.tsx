@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { IDbData } from "@/shared/models/IDbData";
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 import { useDataContext } from "../context/DataContext";
@@ -19,7 +19,10 @@ interface IVehicleMarkersProps {
 	showCurrentTrips: boolean;
 }
 
-const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
+const VehicleMarkers = memo(function VehicleMarkers({
+	vehicles,
+	...props
+}: IVehicleMarkersProps) {
 	const { tripData } = useDataContext();
 	const tripsByTripId = useMemo(() => {
 		const byTripId = new Map<string, IDbData[]>();
@@ -84,5 +87,5 @@ const VehicleMarkers = ({ vehicles, ...props }: IVehicleMarkersProps) => {
 			/>
 		);
 	});
-};
+});
 export default VehicleMarkers;

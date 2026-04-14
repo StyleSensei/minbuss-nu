@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { AdvancedMarker } from "@vis.gl/react-google-maps";
 import { busStop } from "public/icons";
 import colors from "../colors";
@@ -17,7 +18,7 @@ type Props = {
 	activeStopId?: string | null;
 };
 
-export function StopMarkersLayer({
+export const StopMarkersLayer = memo(function StopMarkersLayer({
 	stops,
 	onStopClick,
 	mapRef: _mapRef,
@@ -66,4 +67,4 @@ export function StopMarkersLayer({
 			})}
 		</>
 	);
-}
+});

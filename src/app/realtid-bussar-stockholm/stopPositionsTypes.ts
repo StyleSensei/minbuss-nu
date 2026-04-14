@@ -9,7 +9,22 @@ export const STOP_MARKERS_MIN_ZOOM = 10;
 export const STOP_MARKERS_COMPACT_ZOOM = 13;
 /** Full markör med buss-ikon från denna zoom. */
 export const STOP_MARKERS_DETAIL_ZOOM = 16;
-export const STOP_MARKERS_MAX_VISIBLE = 500;
+/** Övre tak vid hög zoom; vid låg zoom används lägre tak (färre AdvancedMarker = mindre lagg). */
+export const STOP_MARKERS_MAX_VISIBLE = 320;
+
+/**
+ * Tak på antal hållplatsmarkörer beroende på zoom — vid mycket utzoomad karta är ytan enorm; få markörer räcker visuellt och spar prestanda.
+ */
+export function stopMarkersCapForZoom(zoom: number): number {
+	if (zoom < 10.35) return 20;
+	if (zoom < 10.65) return 30;
+	if (zoom < 11) return 45;
+	if (zoom < 11.5) return 60;
+	if (zoom < 12) return 95;
+	if (zoom < 13) return 140;
+	if (zoom < STOP_MARKERS_DETAIL_ZOOM) return 230;
+	return STOP_MARKERS_MAX_VISIBLE;
+}
 
 export function filterStopsInViewport(
 	all: IStopPositionJson[] | null,
@@ -28,5 +43,6 @@ export function filterStopsInViewport(
 			s.lon >= west &&
 			s.lon <= east,
 	);
-	return inView.slice(0, STOP_MARKERS_MAX_VISIBLE);
+	const cap = stopMarkersCapForZoom(zoom);
+	return inView.slice(0, cap);
 }
