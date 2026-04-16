@@ -110,24 +110,6 @@ function boundsFromLineOrRouteShapes(
 	return bounds.isEmpty() ? null : bounds;
 }
 
-function lineShapeFitSignature(
-	lineShapes: ShapeGroup[],
-	routeShapes: ShapeGroup[],
-): string {
-	const fromLine = lineShapes
-		.filter((ls) => (ls.points?.length ?? 0) >= 2)
-		.map((ls) => `${ls.shape_id}:${ls.points!.length}`)
-		.sort()
-		.join(",");
-	if (fromLine) return `L:${fromLine}`;
-	const fromRoute = routeShapes
-		.filter((s) => (s.points?.length ?? 0) >= 2)
-		.map((s) => `${s.shape_id}:${s.points!.length}`)
-		.sort()
-		.join(",");
-	return `R:${fromRoute}`;
-}
-
 export default function MapClient() {
 	const {
 		filteredVehicles,
@@ -224,12 +206,28 @@ export default function MapClient() {
 	const stopPreviewFetchGenRef = useRef(0);
 	const mapStopPanRequestIdRef = useRef<string | null>(null);
 	const lastLineShapeFitKeyRef = useRef<string>("");
+	/** `linje` som fanns i dokumentets URL vid MapClient första mount (klient). */
+	const initialLinjeFromDocumentRef = useRef<string | null>(null);
+	/** Efter första rutt-zoom (mapfit, initial URL-linje eller båda). */
+	const hasDoneInitialDocumentLinjeFitRef = useRef(false);
 	/** defaultCenter gäller bara vid mount; geolokering kommer ofta senare — pan en gång när position finns (utan linje i URL). */
 	const userGeolocatePanDoneRef = useRef(false);
 	const prevLinjeParamForUserPanRef = useRef("");
 	const mapInitialZoomBootstrapDoneRef = useRef(false);
 
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+	const mapFitParam = searchParams.get("mapfit") === "1";
+
+	if (
+		typeof window !== "undefined" &&
+		initialLinjeFromDocumentRef.current === null
+	) {
+		initialLinjeFromDocumentRef.current =
+			new URLSearchParams(window.location.search)
+				.get("linje")
+				?.trim()
+				.toUpperCase() ?? "";
+	}
 
 	const defaultMapCenter = useMemo(
 		() =>
@@ -737,20 +735,29 @@ export default function MapClient() {
 		[tripData.lineShapes],
 	);
 
-	const lineShapeFitSignatureMemo = useMemo(
-		() => lineShapeFitSignature(lineShapesForFit, routeShapes),
-		[lineShapesForFit, routeShapes],
-	);
-
 	useEffect(() => {
 		if (!mapReady || !mapRef.current || !linjeParam) return;
 
 		const bounds = boundsFromLineOrRouteShapes(lineShapesForFit, routeShapes);
-		if (!bounds) return;
+		const initialLinje = initialLinjeFromDocumentRef.current ?? "";
+		const allowInitialDocumentFit =
+			!hasDoneInitialDocumentLinjeFitRef.current &&
+			Boolean(initialLinje) &&
+			linjeParam === initialLinje;
 
-		const key = `${linjeParam}|${lineShapeFitSignatureMemo}`;
-		if (lastLineShapeFitKeyRef.current === key) return;
-		lastLineShapeFitKeyRef.current = key;
+		const shouldFit = mapFitParam || allowInitialDocumentFit;
+
+		if (!bounds) {
+			return;
+		}
+
+		if (!shouldFit) {
+			lastLineShapeFitKeyRef.current = linjeParam;
+			return;
+		}
+
+		hasDoneInitialDocumentLinjeFitRef.current = true;
+		lastLineShapeFitKeyRef.current = linjeParam;
 
 		const map = mapRef.current;
 		setFollowBus(false);
@@ -766,6 +773,14 @@ export default function MapClient() {
 			if (zz != null && zz > LINE_SHAPE_FIT_MAX_ZOOM) {
 				map.setZoom(LINE_SHAPE_FIT_MAX_ZOOM);
 			}
+			if (mapFitParam && typeof window !== "undefined") {
+				const params = new URLSearchParams(window.location.search);
+				if (params.has("mapfit")) {
+					params.delete("mapfit");
+					const qs = params.toString();
+					router.replace(qs ? `${Paths.Search}?${qs}` : Paths.Search);
+				}
+			}
 		});
 		return () => {
 			google.maps.event.removeListener(capListener);
@@ -775,7 +790,8 @@ export default function MapClient() {
 		linjeParam,
 		lineShapesForFit,
 		routeShapes,
-		lineShapeFitSignatureMemo,
+		mapFitParam,
+		router,
 	]);
 
 	const hasRouteData =

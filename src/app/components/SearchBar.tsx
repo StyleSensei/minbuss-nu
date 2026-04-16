@@ -166,8 +166,26 @@ async function fetchTripUpdatesForPolling(
 	return fetchTripUpdates(query);
 }
 
-function lineSearchUrl(routeCandidate: string): string {
-	return `${Paths.Search}?linje=${encodeURIComponent(routeCandidate)}`;
+function lineSearchUrl(
+	routeCandidate: string,
+	options?: { mapFit?: boolean },
+): string {
+	const params = new URLSearchParams();
+	params.set("linje", routeCandidate);
+	if (options?.mapFit) {
+		params.set("mapfit", "1");
+	}
+	return `${Paths.Search}?${params.toString()}`;
+}
+
+function currentUrlLinjeUpper(): string {
+	if (typeof window === "undefined") return "";
+	return (
+		new URLSearchParams(window.location.search)
+			.get("linje")
+			?.trim()
+			.toUpperCase() ?? ""
+	);
 }
 
 interface SearchBarProps {
@@ -251,13 +269,15 @@ export const SearchBar = ({
 	);
 
 	const navigateToValidLineIfUrlDiffers = useCallback(
-		(routeCandidate: string) => {
+		(routeCandidate: string, opts?: { mapFit?: boolean }) => {
 			if (!allRoutes.asObject[routeCandidate]) return;
-			const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+			const urlLine = currentUrlLinjeUpper();
 			if (urlLine === routeCandidate) return;
-			router.replace(lineSearchUrl(routeCandidate));
+			router.replace(
+				lineSearchUrl(routeCandidate, { mapFit: opts?.mapFit ?? false }),
+			);
 		},
-		[allRoutes.asObject, router, searchParams],
+		[allRoutes.asObject, router],
 	);
 
 	useEffect(() => {
@@ -311,7 +331,7 @@ export const SearchBar = ({
 
 				const routeCandidate = query.trim().toUpperCase();
 				if (query === latestVehicleLineRef.current) {
-					navigateToValidLineIfUrlDiffers(routeCandidate);
+					navigateToValidLineIfUrlDiffers(routeCandidate, { mapFit: true });
 				}
 
 				if (result.error) {
@@ -771,12 +791,12 @@ export const SearchBar = ({
 
 		const routeCandidate = query.toUpperCase();
 		if (allRoutes.asObject[routeCandidate]) {
-			router.push(lineSearchUrl(routeCandidate));
+			router.push(lineSearchUrl(routeCandidate, { mapFit: true }));
 			return;
 		}
 
 		if (isLikelyLineNumberQuery(query)) {
-			router.push(lineSearchUrl(routeCandidate));
+			router.push(lineSearchUrl(routeCandidate, { mapFit: true }));
 			setShowError(true);
 			setMapStopPreview(null);
 			handleBlur();
