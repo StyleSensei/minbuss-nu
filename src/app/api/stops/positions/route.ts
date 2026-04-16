@@ -1,21 +1,62 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
 	selectAllStopPositionsFromDatabase,
 	selectLatestFeedVersionFromDatabase,
+	selectStopPositionsInBoundsFromDatabase,
 } from "@/app/services/dataProcessors/stopPositionsStaticQueries";
 
 export const revalidate = 3600;
+export const preferredRegion = "arn1";
+
+function parseBounds(sp: URLSearchParams): {
+	north: number;
+	south: number;
+	east: number;
+	west: number;
+} | null {
+	const n = sp.get("north");
+	const s = sp.get("south");
+	const e = sp.get("east");
+	const w = sp.get("west");
+	if (n == null || s == null || e == null || w == null) {
+		return null;
+	}
+	const north = Number(n);
+	const south = Number(s);
+	const east = Number(e);
+	const west = Number(w);
+	if (
+		Number.isNaN(north) ||
+		Number.isNaN(south) ||
+		Number.isNaN(east) ||
+		Number.isNaN(west) ||
+		north <= south ||
+		east <= west
+	) {
+		return null;
+	}
+	return { north, south, east, west };
+}
 
 /**
  * Same shape as public/stops-positions.json — used when the static file is empty
  * (e.g. fresh clone) so the map can still load stop positions (cached at the edge).
+ *
+ * Optional query: north, south, east, west — returns only stops inside the box (smaller payload).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
 	try {
-		const [stops, v] = await Promise.all([
-			selectAllStopPositionsFromDatabase(),
-			selectLatestFeedVersionFromDatabase(),
-		]);
+		const bbox = parseBounds(request.nextUrl.searchParams);
+
+		const [stops, v] = bbox
+			? await Promise.all([
+					selectStopPositionsInBoundsFromDatabase(bbox),
+					selectLatestFeedVersionFromDatabase(),
+				])
+			: await Promise.all([
+					selectAllStopPositionsFromDatabase(),
+					selectLatestFeedVersionFromDatabase(),
+				]);
 
 		return NextResponse.json(
 			{ v: v ?? "0", stops },

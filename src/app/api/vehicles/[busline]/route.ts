@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import {
-	getCachedVehiclePositions,
-	getCachedDbData,
-} from "@/app/services/cacheHelper";
 import type { ITripData } from "@/app/context/DataContext";
+import {
+	getCachedDbData,
+	getCachedVehiclePositions,
+} from "@/app/services/cacheHelper";
 
 export const revalidate = 2;
+export const preferredRegion = "arn1";
 
 export async function GET(
 	_request: Request,
@@ -51,10 +52,6 @@ export async function GET(
 			if (!vehicle?.trip?.tripId) return false;
 			return tripById.has(vehicle.trip.tripId);
 		});
-
-		filteredData.sort((a, b) =>
-			(a.trip?.tripId || "").localeCompare(b.trip?.tripId || ""),
-		);
 
 		return NextResponse.json(
 			{ data: filteredData, error: cachedVehiclePositions.error },
