@@ -18,7 +18,7 @@ const metrics: MetricCounter = {
 	lastReset: Date.now(),
 };
 
-let loggingEnabled = true;
+let loggingEnabled = false;
 
 // Funktion för att logga statistik periodiskt (var 60:e sekund)
 const interval = 60000;

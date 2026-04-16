@@ -357,7 +357,7 @@ export const SearchBar = ({
 	} = usePolling<IVehicleFilterResult>(
 		fetchVehiclesForPolling,
 		setFilteredVehicles,
-		4000,
+		5000,
 		{
 			onError: () =>
 				setFilteredVehicles({
