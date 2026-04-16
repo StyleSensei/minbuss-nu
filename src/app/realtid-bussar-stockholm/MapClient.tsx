@@ -39,11 +39,13 @@ import { Paths } from "../paths";
 import { MapStopPreview } from "./MapStopPreview";
 import { StopMarkersLayer } from "./StopMarkersLayer";
 import {
+	expandStopQueryBounds,
 	filterStopsInViewport,
+	type IStopPositionJson,
 	STOP_MARKERS_COMPACT_ZOOM,
 	STOP_MARKERS_DETAIL_ZOOM,
-	type IStopPositionJson,
 	type StopsPositionsFile,
+	snapStopQueryBounds,
 } from "./stopPositionsTypes";
 
 /**
@@ -51,6 +53,8 @@ import {
  * so we do not re-render the full map subtree on every Maps camera frame.
  */
 const MAP_VIEWPORT_DEBOUNCE_MS = 320;
+/** Extra marginal runt kartans synliga ruta innan hållplatser hämtas (mindre payload än hela stops-positions.json). */
+const MAP_STOPS_BOUNDS_EXPAND_RATIO = 0.4;
 
 const DEFAULT_MAP_CENTER_FALLBACK = { lat: 59.33258, lng: 18.0649 } as const;
 
@@ -167,7 +171,8 @@ export default function MapClient() {
 		[filteredVehicles.data],
 	);
 	const fallbackFollowed = useMemo(() => {
-		const baseStop = selectedStopForSchedule ?? userPosition?.closestStop ?? null;
+		const baseStop =
+			selectedStopForSchedule ?? userPosition?.closestStop ?? null;
 		if (!baseStop || filteredVehicles.data.length === 0) {
 			return { tripId: null as string | null };
 		}
@@ -399,6 +404,8 @@ export default function MapClient() {
 	);
 
 	const viewportForStops = mapViewport;
+	const viewportForStopsRef = useRef(viewportForStops);
+	viewportForStopsRef.current = viewportForStops;
 
 	const queueMapViewport = useCallback(
 		(zoom: number, bounds: google.maps.LatLngBoundsLiteral) => {
@@ -437,44 +444,83 @@ export default function MapClient() {
 		[zoomForStopUi, hideUserPositionForZoom],
 	);
 	const stopMarkersDetail = useMemo(
-		() =>
-			zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
+		() => zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
 		[zoomForStopUi, hideUserPositionForZoom],
 	);
 
+	const stopFetchBoundsKey = viewportForStops?.bounds
+		? `${viewportForStops.bounds.north.toFixed(5)},${viewportForStops.bounds.south.toFixed(5)},${viewportForStops.bounds.east.toFixed(5)},${viewportForStops.bounds.west.toFixed(5)}`
+		: null;
+
 	useEffect(() => {
-		if (!mapReady) return;
+		if (!mapReady || !stopFetchBoundsKey) return;
+		const bounds = viewportForStopsRef.current?.bounds;
+		if (!bounds) return;
 		let cancelled = false;
-		(async () => {
+		const ctrl = new AbortController();
+		void (async () => {
 			try {
-				const res = await fetch("/stops-positions.json", {
+				const expanded = expandStopQueryBounds(
+					bounds,
+					MAP_STOPS_BOUNDS_EXPAND_RATIO,
+				);
+				const snapped = snapStopQueryBounds(expanded);
+				const q = new URLSearchParams({
+					north: String(snapped.north),
+					south: String(snapped.south),
+					east: String(snapped.east),
+					west: String(snapped.west),
+				});
+				const res = await fetch(`/api/stops/positions?${q}`, {
+					signal: ctrl.signal,
 					cache: "force-cache",
 				});
-				if (!res.ok) {
-					return;
-				}
-				let data = (await res.json()) as StopsPositionsFile;
-				if (
-					!cancelled &&
-					Array.isArray(data.stops) &&
-					data.stops.length === 0
-				) {
-					const resApi = await fetch("/api/stops/positions");
-					if (resApi.ok) {
-						data = (await resApi.json()) as StopsPositionsFile;
-					}
-				}
+				if (!res.ok || cancelled) return;
+				const data = (await res.json()) as StopsPositionsFile;
 				if (!cancelled && Array.isArray(data.stops) && data.stops.length > 0) {
-					setAllStopPositions(data.stops);
+					setAllStopPositions((prev) => {
+						if (!prev?.length) return data.stops;
+						const m = new Map<string, IStopPositionJson>();
+						for (const s of prev) m.set(s.id, s);
+						for (const s of data.stops) m.set(s.id, s);
+						return Array.from(m.values());
+					});
 				}
 			} catch {
-				// ignore missing or invalid static file
+				if (cancelled || ctrl.signal.aborted) return;
+				try {
+					const res = await fetch("/stops-positions.json", {
+						cache: "force-cache",
+					});
+					if (!res.ok || cancelled) return;
+					let data = (await res.json()) as StopsPositionsFile;
+					if (
+						!cancelled &&
+						Array.isArray(data.stops) &&
+						data.stops.length === 0
+					) {
+						const resApi = await fetch("/api/stops/positions");
+						if (resApi.ok) {
+							data = (await resApi.json()) as StopsPositionsFile;
+						}
+					}
+					if (
+						!cancelled &&
+						Array.isArray(data.stops) &&
+						data.stops.length > 0
+					) {
+						setAllStopPositions(data.stops);
+					}
+				} catch {
+					// ignore
+				}
 			}
 		})();
 		return () => {
 			cancelled = true;
+			ctrl.abort();
 		};
-	}, [mapReady]);
+	}, [mapReady, stopFetchBoundsKey]);
 
 	useEffect(() => {
 		return () => {
@@ -747,7 +793,7 @@ export default function MapClient() {
 		return () => setIsCurrentTripsOpen(false);
 	}, [showCurrentTrips, setIsCurrentTripsOpen]);
 
-		return (
+	return (
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap

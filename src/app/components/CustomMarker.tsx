@@ -1,12 +1,14 @@
 "use client";
 import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-
+import type { IDbData } from "@shared/models/IDbData";
+import type { IShapes } from "@shared/models/IShapes";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
 	useAdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
+import gsap from "gsap";
 import {
 	type MutableRefObject,
 	useCallback,
@@ -17,18 +19,18 @@ import {
 	useState,
 } from "react";
 import { useDataContext } from "../context/DataContext";
-import type { IDbData } from "@shared/models/IDbData";
-import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
-import type { IShapes } from "@shared/models/IShapes";
-import { InfoWindow } from "./InfoWindow";
-import { getClosest } from "../utilities/getClosest";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
-import { useSetZoom } from "../hooks/useSetZoom";
-import { useIsMobile } from "../hooks/useIsMobile";
 import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { useRtTimeline } from "../hooks/useRtTimeline";
-import { snapToShapeInitial } from "../utilities/snapToShape";
+import { useSetZoom } from "../hooks/useSetZoom";
+import { getClosest } from "../utilities/getClosest";
 import { projectRtToShape } from "../utilities/projectPointOnSegment";
+import { snapToShapeInitial } from "../utilities/snapToShape";
+import { InfoWindow } from "./InfoWindow";
+
+/** Matchar useRtTimeline duration={8} för markören — samma mjuka easeInOut mot målposition. */
+const FOLLOW_CAMERA_GSAP_DURATION = 8;
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -87,6 +89,7 @@ export default function CustomMarker({
 	> | null>(null);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
+	const followCamProxyRef = useRef<{ lat: number; lng: number } | null>(null);
 	const lastShapeIndexRef = useRef<number | null>(null);
 	const [markerReady, setMarkerReady] = useState(false);
 	const lockedShapeRef = useRef<{ shapeId: string; points: IShapes[] } | null>(
@@ -140,10 +143,10 @@ export default function CustomMarker({
 
 		return locked.points;
 	}, [
-		incomingShapeId, 
-		incomingShapePoints, 
-		vehiclePosition.lat, 
-		vehiclePosition.lng
+		incomingShapeId,
+		incomingShapePoints,
+		vehiclePosition.lat,
+		vehiclePosition.lng,
 	]);
 
 	const initialSnapPosition =
@@ -301,7 +304,26 @@ export default function CustomMarker({
 							typeof marker.position.lng === "function"
 								? marker.position.lng()
 								: marker.position.lng;
-						googleMapRef.current.setCenter(new google.maps.LatLng(+lat, +lng));
+						const nlat = +lat;
+						const nlng = +lng;
+						const map = googleMapRef.current;
+						let cam = followCamProxyRef.current;
+						if (!cam) {
+							const c = map.getCenter();
+							if (!c) return;
+							cam = { lat: c.lat(), lng: c.lng() };
+							followCamProxyRef.current = cam;
+						}
+						gsap.to(cam, {
+							lat: nlat,
+							lng: nlng,
+							duration: FOLLOW_CAMERA_GSAP_DURATION,
+							ease: "easeInOut",
+							overwrite: "auto",
+							onUpdate: () => {
+								map.setCenter(new google.maps.LatLng(cam.lat, cam.lng));
+							},
+						});
 					}
 				},
 			});
@@ -312,13 +334,24 @@ export default function CustomMarker({
 				followAnimationRef.current.kill();
 				followAnimationRef.current = null;
 			}
+			const cam = followCamProxyRef.current;
+			if (cam) {
+				gsap.killTweensOf(cam);
+			}
 		};
 	}, [marker, isActive, followBus, googleMapRef]);
 
 	useEffect(() => {
-		if (!followBus && followAnimationRef.current) {
-			followAnimationRef.current.kill();
-			followAnimationRef.current = null;
+		if (!followBus) {
+			const cam = followCamProxyRef.current;
+			if (cam) {
+				gsap.killTweensOf(cam);
+			}
+			followCamProxyRef.current = null;
+			if (followAnimationRef.current) {
+				followAnimationRef.current.kill();
+				followAnimationRef.current = null;
+			}
 		}
 	}, [followBus]);
 
@@ -372,8 +405,7 @@ export default function CustomMarker({
 			setActiveFollowedTripId(null);
 			return;
 		}
-		const tid =
-			currentBus?.trip?.tripId ?? currentVehicle.trip?.tripId ?? null;
+		const tid = currentBus?.trip?.tripId ?? currentVehicle.trip?.tripId ?? null;
 		setActiveFollowedTripId(tid ?? null);
 	}, [
 		isActive,

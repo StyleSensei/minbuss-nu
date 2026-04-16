@@ -26,6 +26,46 @@ export function stopMarkersCapForZoom(zoom: number): number {
 	return STOP_MARKERS_MAX_VISIBLE;
 }
 
+/** Expand bounds by `ratio` of the lat/lng span; clips to the map restriction box. */
+export function expandStopQueryBounds(
+	bounds: google.maps.LatLngBoundsLiteral,
+	ratio: number,
+): google.maps.LatLngBoundsLiteral {
+	const latSpan = bounds.north - bounds.south;
+	const lngSpan = bounds.east - bounds.west;
+	const dLat = (latSpan * ratio) / 2;
+	const dLng = (lngSpan * ratio) / 2;
+	return {
+		north: Math.min(60, bounds.north + dLat),
+		south: Math.max(58.5, bounds.south - dLat),
+		east: Math.min(20, bounds.east + dLng),
+		west: Math.max(16.5, bounds.west - dLng),
+	};
+}
+
+/** Snap to a degree grid so nearby viewports share CDN cache keys. */
+export function snapStopQueryBounds(
+	bounds: google.maps.LatLngBoundsLiteral,
+	stepDeg = 0.02,
+): google.maps.LatLngBoundsLiteral {
+	return {
+		north: Math.ceil(bounds.north / stepDeg) * stepDeg,
+		south: Math.floor(bounds.south / stepDeg) * stepDeg,
+		east: Math.ceil(bounds.east / stepDeg) * stepDeg,
+		west: Math.floor(bounds.west / stepDeg) * stepDeg,
+	};
+}
+
+export function filterStopsByLatLngBounds(
+	stops: IStopPositionJson[],
+	bounds: google.maps.LatLngBoundsLiteral,
+): IStopPositionJson[] {
+	const { north, south, east, west } = bounds;
+	return stops.filter(
+		(s) => s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east,
+	);
+}
+
 export function filterStopsInViewport(
 	all: IStopPositionJson[] | null,
 	zoom: number,
