@@ -775,10 +775,25 @@ export const SearchBar = ({
 	};
 
 	const handleStopPick = (row: IStopWithRoutesRow) => {
+		const stop = stopRowToDbData(row);
+		const sortedRoutes = [...row.routes].sort((a, b) => a.localeCompare(b, "sv"));
+		const currentLine = currentUrlLinjeUpper();
+		const currentLineServesStop =
+			Boolean(currentLine) &&
+			sortedRoutes.some((route) => route.toUpperCase() === currentLine);
+
+		setSelectedStopForSchedule(stop);
+		setSelectedStopRouteLines(sortedRoutes.length ? sortedRoutes : null);
+		setShowError(false);
 		setMapStopPreview({
-			stop: stopRowToDbData(row),
-			routeShortNames: row.routes,
+			stop,
+			routeShortNames: sortedRoutes,
 		});
+
+		if (sortedRoutes.length > 0 && !currentLineServesStop) {
+			router.push(lineSearchUrl(sortedRoutes[0]));
+		}
+
 		setNearbyStopsList([]);
 		setStopSearchList([]);
 		handleBlur();

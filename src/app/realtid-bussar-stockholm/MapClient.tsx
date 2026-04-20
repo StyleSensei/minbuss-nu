@@ -242,9 +242,6 @@ export default function MapClient() {
 	}, [linjeParam]);
 
 	useEffect(() => {
-		if (prevLinjeParamForUserPanRef.current && !linjeParam) {
-			userGeolocatePanDoneRef.current = false;
-		}
 		prevLinjeParamForUserPanRef.current = linjeParam;
 	}, [linjeParam]);
 
@@ -604,6 +601,11 @@ export default function MapClient() {
 			mapRef.current.setZoom(18);
 		}
 	}, [mapReady, selectedStopForSchedule]);
+
+	useEffect(() => {
+		if (!selectedStopForSchedule) return;
+		setShowCurrentTrips(true);
+	}, [selectedStopForSchedule]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
