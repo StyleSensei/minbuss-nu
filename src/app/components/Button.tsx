@@ -7,6 +7,7 @@ interface ButtonProps {
 	text?: string;
 	className?: string;
 	onClick?: () => void;
+	disabled?: boolean;
 	path?: string;
 	path2?: string;
 	pathFillRule1?: string;
@@ -23,6 +24,7 @@ export const Button = ({
 	text,
 	className,
 	onClick,
+	disabled = false,
 	path,
 	path2,
 	pathFillRule1,
@@ -34,6 +36,7 @@ export const Button = ({
 }: ButtonProps) => {
 	const { isClicked, setIsClicked } = useResetClicked();
 	const handleOnClick = () => {
+		if (disabled) return;
 		if (onClick) {
 			onClick();
 		}
@@ -46,6 +49,8 @@ export const Button = ({
 			type="button"
 			id={id}
 			onClick={handleOnClick}
+			disabled={disabled}
+			aria-disabled={disabled}
 			tabIndex={0}
 		>
 			{/* biome-ignore lint/a11y/noSvgWithoutTitle: <the button is described with button text> */}

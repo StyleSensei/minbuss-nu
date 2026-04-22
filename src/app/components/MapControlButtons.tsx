@@ -22,6 +22,7 @@ interface MapControlButtonsProps {
 	followBus: boolean;
 	activeMarker: boolean;
 	mapReady: boolean;
+	onMyPositionClick: () => void;
 }
 
 export const MapControlButtons = ({
@@ -35,6 +36,7 @@ export const MapControlButtons = ({
 	followBus,
 	activeMarker,
 	mapReady,
+	onMyPositionClick,
 }: MapControlButtonsProps) => {
 	const { userPosition, tripData } = useDataContext();
 	const canShowTripsButton =
@@ -129,18 +131,9 @@ export const MapControlButtons = ({
 					path={myPosition.pathD}
 					viewBox={myPosition.viewBox}
 					fill={colors.secondary}
-					className="--my-position"
-					onClick={() => {
-						if (mapReady && userPosition && googleMapRef.current) {
-							googleMapRef.current.panTo({
-								lat: userPosition.lat,
-								lng: userPosition.lng,
-							});
-							if (googleMapRef.current?.getZoom()! < 14) {
-								googleMapRef.current.setZoom(14);
-							}
-						}
-					}}
+					className={`--my-position ${!userPosition ? "--disabled" : ""}`}
+					disabled={!userPosition}
+					onClick={onMyPositionClick}
 				/>
 			</div>
 		</div>

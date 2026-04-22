@@ -18,66 +18,72 @@ export function useGeolocation(
 ) {
 	const [position, setPosition] = useState<IUser | null>(null);
 	const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+	const lineStopsRef = useRef(lineStops);
+	const currentTripsRef = useRef(currentTrips);
+	lineStopsRef.current = lineStops;
+	currentTripsRef.current = currentTrips;
 
-	const computeUserPosition = useCallback(
-		(lat: number, lng: number) => {
-			lastCoordsRef.current = { lat, lng };
+	const computeUserPosition = useCallback((lat: number, lng: number) => {
+		const trips = currentTripsRef.current;
+		const stops = lineStopsRef.current;
+		lastCoordsRef.current = { lat, lng };
 
-			// Prefer active-trip stops when available so closest stop matches
-			// currently active route patterns/directions on the map.
-			const activeTripStops = Array.from(
-				new Map(
-					currentTrips
-						.filter((stop) => stop.stop_id)
-						.map((stop) => [stop.stop_id, stop] as const),
-				).values(),
-			);
-			const candidateStops =
-				activeTripStops.length > 0 ? activeTripStops : lineStops;
+		// Prefer active-trip stops when available so closest stop matches
+		// currently active route patterns/directions on the map.
+		const activeTripStops = Array.from(
+			new Map(
+				trips
+					.filter((stop) => stop.stop_id)
+					.map((stop) => [stop.stop_id, stop] as const),
+			).values(),
+		);
+		const candidateStops =
+			activeTripStops.length > 0 ? activeTripStops : stops;
 
-			const newClosestStop =
-				candidateStops.length > 0
-					? (getClosest(candidateStops, lat, lng) as IDbData)
-					: null;
+		const newClosestStop =
+			candidateStops.length > 0
+				? (getClosest(candidateStops, lat, lng) as IDbData)
+				: null;
 
-			const tripsAtClosestStop = currentTrips.filter(
-				(stop) => stop.stop_name === newClosestStop?.stop_name,
-			);
-			const tripsSig = tripsAtClosestStop
-				.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
-				.join("|");
+		const tripsAtClosestStop = trips.filter(
+			(stop) => stop.stop_name === newClosestStop?.stop_name,
+		);
+		const tripsSig = tripsAtClosestStop
+			.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
+			.join("|");
 
-			setPosition((prev) => {
-				if (prev) {
-					const sameStop =
-						prev.closestStop?.stop_id === newClosestStop?.stop_id;
-					const sameCoords =
-						Math.abs(prev.lat - lat) < COORD_EPS &&
-						Math.abs(prev.lng - lng) < COORD_EPS;
-					const prevTripsSig = prev.tripsAtClosestStop
-						.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
-						.join("|");
-					if (sameStop && sameCoords && prevTripsSig === tripsSig) {
-						return prev;
-					}
+		setPosition((prev) => {
+			if (prev) {
+				const sameStop =
+					prev.closestStop?.stop_id === newClosestStop?.stop_id;
+				const sameCoords =
+					Math.abs(prev.lat - lat) < COORD_EPS &&
+					Math.abs(prev.lng - lng) < COORD_EPS;
+				const prevTripsSig = prev.tripsAtClosestStop
+					.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
+					.join("|");
+				if (sameStop && sameCoords && prevTripsSig === tripsSig) {
+					return prev;
 				}
-				return {
-					lat,
-					lng,
-					closestStop: newClosestStop,
-					tripsAtClosestStop,
-				};
-			});
-		},
-		[lineStops, currentTrips],
-	);
+			}
+			return {
+				lat,
+				lng,
+				closestStop: newClosestStop,
+				tripsAtClosestStop,
+			};
+		});
+	}, []);
+
+	/** Primitiv nyckel — undvik [lineStops, currentTrips] (nya []-referenser varje render → effect-storm). */
+	const geoDataKey = `${lineStops.length}|${currentTrips.length}|${lineStops[0]?.stop_id ?? ""}|${currentTrips[0]?.trip_id ?? ""}`;
 
 	useEffect(() => {
 		const last = lastCoordsRef.current;
 		if (last) {
 			computeUserPosition(last.lat, last.lng);
 		}
-	}, [computeUserPosition]);
+	}, [geoDataKey, computeUserPosition]);
 
 	useEffect(() => {
 		if (!navigator.geolocation) {

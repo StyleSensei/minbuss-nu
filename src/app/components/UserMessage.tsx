@@ -1,7 +1,15 @@
 import { info2 } from "../../../public/icons";
 import { Icon } from "./Icon";
 
-const UserMessage = () => {
+type UserMessageProps = {
+	title?: string;
+	message?: string;
+};
+
+const UserMessage = ({
+	title = "Platstjänster avslaget.",
+	message = "Aktivera platstjänster för full funktionallitet.",
+}: UserMessageProps) => {
 	return (
 		<>
 			<p className="warn-message">
@@ -12,8 +20,7 @@ const UserMessage = () => {
 					title="info"
 					className="no-position-icon"
 				/>
-				<strong>Platstjänster avslaget.</strong> Aktivera platstjänster för full
-				funktionallitet.
+				<strong>{title}</strong> {message}
 			</p>
 		</>
 	);

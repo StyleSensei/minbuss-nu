@@ -1,23 +1,17 @@
 "use client";
 
-import { Paths } from "@/app/paths";
+import { isRealtimeMapPath, Paths } from "@/app/paths";
 import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 
 export const MenuBarSelection = () => {
 	const pathname = usePathname();
 
-	const getClassNames = useCallback((pathname: string) => {
-		switch (pathname) {
-			case "/":
-				return "home";
-			case `${Paths.Search}`:
-				return "map";
-			case `${Paths.About}`:
-				return "info";
-			default:
-				return "not-found";
-		}
+	const getClassNames = useCallback((path: string) => {
+		if (path === "/") return "home";
+		if (isRealtimeMapPath(path)) return "map";
+		if (path === Paths.About) return "info";
+		return "not-found";
 	}, []);
 
 	return (

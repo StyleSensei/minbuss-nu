@@ -11,7 +11,7 @@ import {
 import { MenuBarSelection } from "./MenuBarSelection";
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Paths } from "@/app/paths";
+import { isRealtimeMapPath, Paths } from "@/app/paths";
 
 export default function Menu() {
 	const router = useRouter();
@@ -48,7 +48,7 @@ export default function Menu() {
 						href={`${Paths.Search}`}
 						iconSize={iconSize}
 						className="link__map"
-						path={pathname === Paths.Search ? searchFill : search}
+						path={isRealtimeMapPath(pathname) ? searchFill : search}
 						fill="currentColor"
 					/>
 					<MenuItem

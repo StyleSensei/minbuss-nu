@@ -1,6 +1,6 @@
 import type { IDbData } from "@shared/models/IDbData";
 import { MapPinned } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	useCallback,
 	useEffect,
@@ -13,7 +13,10 @@ import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 import { arrow } from "../../../public/icons";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
-import { Paths } from "../paths";
+import {
+	lineSearchUrl,
+	parseOperatorFromRealtimePathname,
+} from "../paths";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { getClosest } from "../utilities/getClosest";
 import {
@@ -125,7 +128,14 @@ export const CurrentTrips = ({
 	} = useDataContext();
 	const effectiveFollowedTripId = activeFollowedTripId ?? followedTripId ?? null;
 	const router = useRouter();
+	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
+	const operatorForLineLinks = useMemo(() => {
+		const pathOp = parseOperatorFromRealtimePathname(pathname);
+		const q = searchParams.get("operator")?.trim().toLowerCase() ?? "";
+		return (pathOp ?? q) || "sl";
+	}, [pathname, searchParams]);
 	const lastLinePickAtRef = useRef(0);
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
@@ -150,11 +160,9 @@ export const CurrentTrips = ({
 				return;
 			}
 			lastLinePickAtRef.current = now;
-			router.push(
-				`${Paths.Search}?linje=${encodeURIComponent(routeShortName)}`,
-			);
+			router.push(lineSearchUrl(routeShortName, operatorForLineLinks));
 		},
-		[router],
+		[router, operatorForLineLinks],
 	);
 
 	const activeVehiclePositions = useMemo(
