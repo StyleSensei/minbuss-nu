@@ -8,7 +8,7 @@
 	"redirects": [
 		{
 			"source": "/karta",
-			"destination": "/realtid-bussar-stockholm",
+			"destination": "/realtid-bussar/stockholm",
 			"permanent": true
 		}
 	]

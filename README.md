@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  <i align="center">Search for a bus line and instantly display busses from SL, Storstockholms Lokaltrafik 🚀</i>
+  <i align="center">Search for bus lines or stops and instantly display real-time buses across Swedish regional operators 🚀</i>
 </p>
 
 
@@ -19,7 +19,7 @@
 
 ## Introduction
 
-`Min Buss.nu` is a Next.js application that show real-time bus information from SL (Storstockholms Lokaltrafik). It uses both static GTFS data and real-time GTFS-RT data from [Trafiklab](https://www.trafiklab.se). The data is rendered on a map from [Google Maps](https://developers.google.com/maps). 
+`Min Buss.nu` is a Next.js application that shows real-time bus information across Swedish regional transit operators. It uses both static GTFS data and real-time GTFS-RT data from [Trafiklab](https://www.trafiklab.se). The data is rendered on a map from [Google Maps](https://developers.google.com/maps). 
 
 <details>
 <summary>
@@ -30,9 +30,9 @@ Flowchart
 </p>
 </details>
 
-## Apply for API-keys 
+## Apply for API keys
 
-To get started with `Min Buss.nu`, you will need to apply for for two API-keys from Trafiklab. You can get started immediately by following the guide on [Trafiklab](https://www.trafiklab.se/docs/getting-started/using-trafiklab/). For this project you will need one key for `GTFS Regional Realtime` and one key for `GTFS Regional Static Data`. Since we will ask for real-time data quite frequently, you will also need to upgrade the quota for GTFS Regional Realtime to silver.
+To get started with `Min Buss.nu`, you need to apply for two API keys from Trafiklab. You can get started immediately by following the guide on [Trafiklab](https://www.trafiklab.se/docs/getting-started/using-trafiklab/). For this project, you need one key for `GTFS Regional Realtime` and one key for `GTFS Regional Static Data`. Since the app requests real-time data frequently, you should also upgrade the GTFS Regional Realtime quota to Silver.
 
 Next, you need to apply for a key from Google for the [Maps Javascript API](https://developers.google.com/maps/get-started#create-project).
 
@@ -119,6 +119,37 @@ npm run dev
 
 ```
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Add a new region
+
+This project uses region routes in the format `/realtid-bussar/[region]`.
+The source of truth for operator metadata is now `src/shared/config/operatorsRegistry.ts`.
+
+1. **Enable the operator in environment**
+   - Add the operator slug to `GTFS_OPERATORS` in `.env.local`.
+   - Example: `GTFS_OPERATORS=sl,ul,skane,gotland,orebro,newop`
+
+2. **Add operator metadata in the registry**
+   - File: `src/shared/config/operatorsRegistry.ts`
+   - Add a new `OPERATOR_REGISTRY` entry with:
+     - `id` (canonical operator slug)
+     - `aliases` (optional alternate slugs)
+     - `displayLabel` (name shown in UI)
+     - `regionSlug` (URL part for `/realtid-bussar/[region]`)
+     - `seoArea` (human-readable area used in metadata/SEO)
+     - `mapView.defaultCenter` and `mapView.restriction` (map start + bounds)
+
+3. **Keep region path mapping in sync**
+   - File: `src/shared/config/realtimeRegionPaths.ts`
+   - Ensure the operator/region mapping includes the new canonical operator and region slug.
+   - Keep slugs stable and lowercase (SEO + redirects).
+
+4. **Verify**
+   - Run: `npm run dev`
+   - Open `/realtid-bussar/<your-region-slug>` and verify:
+     - map starts in correct area
+     - operator/region selector switches correctly
+     - `/sitemap.xml` includes the new region route
 
 ## Tech stack 🏗️
 <details open>
@@ -271,8 +302,16 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Attributions
+- Havsjö, based on image by Leonid 2, CC BY-SA 3.0 <https://creativecommons.org/licenses/by-sa/3.0>, via Wikimedia Commons
+- Koyos, CC BY-SA 2.5 <https://creativecommons.org/licenses/by-sa/2.5>, via Wikimedia Commons
+- Vladimir Sagerlund / Riksarkivet Sverige, CC BY-SA 3.0 <https://creativecommons.org/licenses/by-sa/3.0>, via Wikimedia Commons
+
+
 ## Contact
 Got questions? Reach out!
 - Email: hello@patrikarell.se
 - GitHub: [@StyleSensei](https://github.com/StyleSensei)
 - Linkedin: https://www.linkedin.com/in/patrikarell/
+
+
