@@ -24,7 +24,7 @@ $buttonHeightDesktop: 6vh;
     max-width: 80vw;
     max-height: 12vh;
     line-height: 1.1;
-    border: solid 1px v.$tertiary-color;
+    border: solid 1px rgba(v.$tertiary-color, 0.2);
 
     &:hover {
         background-color: color.adjust(v.$accent-color, $lightness: 30%);
@@ -104,6 +104,10 @@ $buttonHeightDesktop: 6vh;
     &.--my-position {
         @extend .--follow;
         margin-bottom: unset;
+
+        &.--disabled {
+            opacity: 0.5;
+        }
     }
 
     &.--table {

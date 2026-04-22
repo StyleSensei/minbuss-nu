@@ -51,7 +51,8 @@ nav.wrapper {
     display: flex;
     align-items: center;
     flex-direction: column;
-    opacity: 80%;
+    // opacity: 80%;
+    opacity: 0.95;
 }
 
 .inner-container {
@@ -60,7 +61,7 @@ nav.wrapper {
     justify-content: space-evenly;
     background-color: v.$primary-color;
     border-radius: 24.5px;
-    border: 1px solid v.$tertiary-color;
+    border: 1px solid rgba(v.$tertiary-color, 0.2);
 }
 
 .menu-item {
