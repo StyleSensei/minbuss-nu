@@ -16,6 +16,10 @@ import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 import { calendarDates } from "@/shared/db/schema/calendar_dates";
+import {
+	getDefaultOperator,
+	resolveOperator,
+} from "@/shared/config/gtfsOperators";
 import { shapes } from "@/shared/db/schema/shapes";
 import { getDb } from "./db";
 
@@ -32,11 +36,17 @@ function getDateArray(isEarlyMorning = false) {
 	return [today];
 }
 
-const latestFeedVersion = sql`(SELECT MAX(${trips.feed_version}) FROM trips)`;
+const latestFeedVersionByOperator = (operator: string) =>
+	sql`(SELECT MAX(${trips.feed_version}) FROM trips WHERE ${trips.operator} = ${operator})`;
 
-export const selectCurrentTripsFromDatabase = async (busLine: string) => {
+export const selectCurrentTripsFromDatabase = async (
+	busLine: string,
+	operatorInput = getDefaultOperator(),
+) => {
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
-	const cachedVehiclePositions = await getCachedVehiclePositions();
+	const cachedVehiclePositions = await getCachedVehiclePositions(operator);
 	const filteredTripIds = cachedVehiclePositions.data
 		.map((vehicle) => vehicle?.trip?.tripId)
 		.filter((tripId): tripId is string => typeof tripId === "string");
@@ -44,6 +54,7 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 	try {
 		const data = await db
 			.select({
+				operator: trips.operator,
 				trip_id: trips.trip_id,
 				shape_id: trips.shape_id,
 				route_short_name: routes.route_short_name,
@@ -60,11 +71,30 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 				feed_version: trips.feed_version,
 			})
 			.from(trips)
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
-			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
-			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+				),
+			)
+			.innerJoin(
+				stops,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+				),
+			)
 			.where(
 				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.operator, operator),
+					eq(stops.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(stop_times.feed_version, latestFeedVersion),
@@ -87,11 +117,15 @@ export const selectCurrentTripsFromDatabase = async (busLine: string) => {
 /** Distinct stops served by the route (static GTFS), independent of realtime vehicles. */
 export const selectDistinctStopsForLineFromDatabase = async (
 	busLine: string,
+	operatorInput = getDefaultOperator(),
 ): Promise<IDbData[]> => {
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
 			.select({
+				operator: trips.operator,
 				stop_id: stops.stop_id,
 				stop_name: stops.stop_name,
 				stop_lat: stops.stop_lat,
@@ -100,11 +134,30 @@ export const selectDistinctStopsForLineFromDatabase = async (
 				feed_version: trips.feed_version,
 			})
 			.from(trips)
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
-			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
-			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+				),
+			)
+			.innerJoin(
+				stops,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+				),
+			)
 			.where(
 				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.operator, operator),
+					eq(stops.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(stop_times.feed_version, latestFeedVersion),
@@ -113,6 +166,7 @@ export const selectDistinctStopsForLineFromDatabase = async (
 				),
 			)
 			.groupBy(
+				trips.operator,
 				stops.stop_id,
 				stops.stop_name,
 				stops.stop_lat,
@@ -122,6 +176,7 @@ export const selectDistinctStopsForLineFromDatabase = async (
 			);
 
 		return data.map((row) => ({
+			operator: row.operator ?? operator,
 			trip_id: "",
 			shape_id: "",
 			stop_headsign: "",
@@ -143,7 +198,10 @@ export const selectDistinctStopsForLineFromDatabase = async (
 /** Distinct shape IDs for the route (static GTFS), independent of realtime vehicles. */
 export const selectDistinctShapeIdsForLineFromDatabase = async (
 	busLine: string,
+	operatorInput = getDefaultOperator(),
 ): Promise<string[]> => {
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -151,9 +209,14 @@ export const selectDistinctShapeIdsForLineFromDatabase = async (
 				shape_id: trips.shape_id,
 			})
 			.from(trips)
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
 			.where(
 				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(routes.route_short_name, busLine),
@@ -173,19 +236,34 @@ export const selectDistinctShapeIdsForLineFromDatabase = async (
 /** Distinct route short names that serve a stop (static GTFS). */
 export const selectRoutesForStopFromDatabase = async (
 	stopId: string,
+	operatorInput = getDefaultOperator(),
 ): Promise<string[]> => {
 	if (!stopId.trim()) {
 		return [];
 	}
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
 			.select({ route_short_name: routes.route_short_name })
 			.from(stop_times)
-			.innerJoin(trips, eq(stop_times.trip_id, trips.trip_id))
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(
+				trips,
+				and(
+					eq(stop_times.trip_id, trips.trip_id),
+					eq(stop_times.operator, trips.operator),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
 			.where(
 				and(
+					eq(stop_times.operator, operator),
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(stop_times.feed_version, latestFeedVersion),
@@ -207,6 +285,7 @@ export const selectRoutesForStopFromDatabase = async (
 /** Distinct route short names for many stops in one query (latest feed). */
 export const selectRoutesForStopsFromDatabase = async (
 	stopIds: string[],
+	operatorInput = getDefaultOperator(),
 ): Promise<Record<string, string[]>> => {
 	const cleanedStopIds = [
 		...new Set(stopIds.map((id) => id.trim()).filter(Boolean)),
@@ -215,6 +294,8 @@ export const selectRoutesForStopsFromDatabase = async (
 		return {};
 	}
 
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -223,10 +304,22 @@ export const selectRoutesForStopsFromDatabase = async (
 				route_short_name: routes.route_short_name,
 			})
 			.from(stop_times)
-			.innerJoin(trips, eq(stop_times.trip_id, trips.trip_id))
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
+			.innerJoin(
+				trips,
+				and(
+					eq(stop_times.trip_id, trips.trip_id),
+					eq(stop_times.operator, trips.operator),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
 			.where(
 				and(
+					eq(stop_times.operator, operator),
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(stop_times.feed_version, latestFeedVersion),
@@ -263,10 +356,13 @@ export {
 /** One stop’s meta for map preview / API (latest feed only). */
 export const selectStopMetaFromDatabase = async (
 	stopId: string,
+	operatorInput = getDefaultOperator(),
 ): Promise<(INearbyStopRow & { feed_version: string }) | null> => {
 	if (!stopId.trim()) {
 		return null;
 	}
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const rows = await db
@@ -282,6 +378,7 @@ export const selectStopMetaFromDatabase = async (
 				stop_times,
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
 					eq(stop_times.feed_version, latestFeedVersion),
 				),
 			)
@@ -289,6 +386,7 @@ export const selectStopMetaFromDatabase = async (
 				trips,
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
 					eq(trips.feed_version, latestFeedVersion),
 				),
 			)
@@ -296,12 +394,14 @@ export const selectStopMetaFromDatabase = async (
 				routes,
 				and(
 					eq(routes.route_id, trips.route_id),
+					eq(routes.operator, trips.operator),
 					eq(routes.feed_version, latestFeedVersion),
 				),
 			)
 			.where(
 				and(
 					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.operator, operator),
 					eq(stops.stop_id, stopId),
 				),
 			)
@@ -338,7 +438,10 @@ export const selectNearestStopsFromDatabase = async (
 	lat: number,
 	lng: number,
 	limit = 10,
+	operatorInput = getDefaultOperator(),
 ): Promise<INearbyStopRow[]> => {
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -353,6 +456,7 @@ export const selectNearestStopsFromDatabase = async (
 				stop_times,
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
 					eq(stop_times.feed_version, latestFeedVersion),
 				),
 			)
@@ -360,6 +464,7 @@ export const selectNearestStopsFromDatabase = async (
 				trips,
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
 					eq(trips.feed_version, latestFeedVersion),
 				),
 			)
@@ -367,12 +472,14 @@ export const selectNearestStopsFromDatabase = async (
 				routes,
 				and(
 					eq(routes.route_id, trips.route_id),
+					eq(routes.operator, trips.operator),
 					eq(routes.feed_version, latestFeedVersion),
 				),
 			)
 			.where(
 				and(
 					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.operator, operator),
 					gte(stops.stop_lat, lat - NEARBY_BBOX_DEG),
 					lte(stops.stop_lat, lat + NEARBY_BBOX_DEG),
 					gte(stops.stop_lon, lng - NEARBY_BBOX_DEG),
@@ -414,11 +521,14 @@ export const selectNearestStopsFromDatabase = async (
 export const searchStopsByNameFromDatabase = async (
 	query: string,
 	limit = 20,
+	operatorInput = getDefaultOperator(),
 ): Promise<INearbyStopRow[]> => {
 	const trimmed = query.trim().replace(/[%_]/g, "");
 	if (trimmed.length < 2) {
 		return [];
 	}
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	const pattern = `%${trimmed}%`;
 	try {
@@ -434,6 +544,7 @@ export const searchStopsByNameFromDatabase = async (
 				stop_times,
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
 					eq(stop_times.feed_version, latestFeedVersion),
 				),
 			)
@@ -441,6 +552,7 @@ export const searchStopsByNameFromDatabase = async (
 				trips,
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
 					eq(trips.feed_version, latestFeedVersion),
 				),
 			)
@@ -448,12 +560,14 @@ export const searchStopsByNameFromDatabase = async (
 				routes,
 				and(
 					eq(routes.route_id, trips.route_id),
+					eq(routes.operator, trips.operator),
 					eq(routes.feed_version, latestFeedVersion),
 				),
 			)
 			.where(
 				and(
 					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.operator, operator),
 					sql`lower(${stops.stop_name}) like lower(${pattern})`,
 				),
 			)
@@ -484,11 +598,14 @@ export const searchStopsByNameFromDatabase = async (
 export const selectUpcomingTripsFromDatabase = async (
 	busLine: string,
 	stop_name: string,
+	operatorInput = getDefaultOperator(),
 ): Promise<IDbData[]> => {
 	if (!stop_name.trim()) {
 		return [];
 	}
 
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 
 	const dt = DateTime.local();
@@ -518,6 +635,7 @@ export const selectUpcomingTripsFromDatabase = async (
 	try {
 		const data = await db
 			.select({
+				operator: trips.operator,
 				shape_id: trips.shape_id,
 				trip_id: trips.trip_id,
 				route_short_name: routes.route_short_name,
@@ -534,12 +652,38 @@ export const selectUpcomingTripsFromDatabase = async (
 				feed_version: trips.feed_version,
 			})
 			.from(trips)
-			.innerJoin(routes, eq(trips.route_id, routes.route_id))
-			.innerJoin(stop_times, eq(trips.trip_id, stop_times.trip_id))
-			.innerJoin(stops, eq(stop_times.stop_id, stops.stop_id))
-			.leftJoin(calendarDates, eq(trips.service_id, calendarDates.service_id))
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+				),
+			)
+			.innerJoin(
+				stops,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+				),
+			)
+			.leftJoin(
+				calendarDates,
+				and(
+					eq(trips.service_id, calendarDates.service_id),
+					eq(trips.operator, calendarDates.operator),
+				),
+			)
 			.where(
 				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.operator, operator),
+					eq(stops.operator, operator),
+					eq(calendarDates.operator, operator),
 					eq(trips.feed_version, latestFeedVersion),
 					eq(routes.feed_version, latestFeedVersion),
 					eq(stop_times.feed_version, latestFeedVersion),
@@ -553,6 +697,7 @@ export const selectUpcomingTripsFromDatabase = async (
 				),
 			)
 			.groupBy(
+				trips.operator,
 				trips.trip_id,
 				routes.route_short_name,
 				routes.route_long_name,
@@ -578,7 +723,12 @@ export const selectUpcomingTripsFromDatabase = async (
 	}
 };
 
-export const selectShapesFromDatabase = async (shapeId: string) => {
+export const selectShapesFromDatabase = async (
+	shapeId: string,
+	operatorInput = getDefaultOperator(),
+) => {
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const shapePoints = await db
@@ -593,6 +743,7 @@ export const selectShapesFromDatabase = async (shapeId: string) => {
 			.where(
 				and(
 					eq(shapes.shape_id, shapeId),
+					eq(shapes.operator, operator),
 					eq(shapes.feed_version, latestFeedVersion),
 				),
 			)

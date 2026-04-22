@@ -16,6 +16,10 @@ import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "../utilities/MetricsTracker";
 import type { ITripData } from "../context/DataContext";
 import type { IShapes } from "@/shared/models/IShapes";
+import {
+	getDefaultOperator,
+	resolveOperator,
+} from "@/shared/config/gtfsOperators";
 
 interface VehiclePositionResult {
 	data: IVehiclePosition[];
@@ -48,25 +52,36 @@ const LOCK_RETRY_DELAY = 100;
 const LOCK_MAX_RETRIES = 10;
 const VEHICLE_LOCK_KEY = "vehicle-positions-lock";
 
+const vehiclePositionsCacheKey = (operator: string) =>
+	`${VEHICLE_POSITIONS_CACHE_KEY}:${operator}`;
+const tripUpdatesCacheKey = (operator: string) =>
+	`${TRIP_UPDATES_CACHE_KEY}:${operator}`;
+const tripUpdatesLockKey = (operator: string) =>
+	`${TRIP_UPDATES_LOCK_KEY}:${operator}`;
+const vehicleLockKey = (operator: string) => `${VEHICLE_LOCK_KEY}:${operator}`;
+
 export const getCachedVehiclePositions = cache(
-	async (): Promise<VehiclePositionResult> => {
-		const cached = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
+	async (operatorInput = getDefaultOperator()): Promise<VehiclePositionResult> => {
+		const operator = resolveOperator(operatorInput);
+		const cacheKey = vehiclePositionsCacheKey(operator);
+		const lockKey = vehicleLockKey(operator);
+		const cached = await redis.get(cacheKey);
 		if (cached) {
 			MetricsTracker.trackCacheHit();
 			return cached as VehiclePositionResult;
 		}
-		const lockAcquired = await redis.set(VEHICLE_LOCK_KEY, "locked", {
+		const lockAcquired = await redis.set(lockKey, "locked", {
 			nx: true,
 			ex: LOCK_TTL,
 		});
 
 		if (!lockAcquired) {
-			return await waitForCachedData();
+			return await waitForCachedData(cacheKey);
 		}
 
 		try {
 			MetricsTracker.trackCacheMiss();
-			const response = await getVehiclePositions();
+			const response = await getVehiclePositions(operator);
 
 			if (response.isStale && response.timestampAge) {
 				const result: VehiclePositionResult = {
@@ -79,7 +94,7 @@ export const getCachedVehiclePositions = cache(
 					},
 				};
 
-				await redis.set(VEHICLE_POSITIONS_CACHE_KEY, result, {
+				await redis.set(cacheKey, result, {
 					ex: REALTIME_TTL,
 				});
 				return result;
@@ -87,7 +102,7 @@ export const getCachedVehiclePositions = cache(
 
 			// Normal case - fresh data
 			const result: VehiclePositionResult = { data: response.data };
-			await redis.set(VEHICLE_POSITIONS_CACHE_KEY, result, {
+			await redis.set(cacheKey, result, {
 				ex: REALTIME_TTL,
 			});
 			return result;
@@ -121,16 +136,16 @@ export const getCachedVehiclePositions = cache(
 				},
 			};
 		} finally {
-			await redis.del(VEHICLE_LOCK_KEY);
+			await redis.del(lockKey);
 		}
 	},
 );
 
-async function waitForCachedData(): Promise<VehiclePositionResult> {
+async function waitForCachedData(cacheKey: string): Promise<VehiclePositionResult> {
 	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
 		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
 
-		const cached = await redis.get(VEHICLE_POSITIONS_CACHE_KEY);
+		const cached = await redis.get(cacheKey);
 		if (cached) {
 			return cached as VehiclePositionResult;
 		}
@@ -145,41 +160,46 @@ async function waitForCachedData(): Promise<VehiclePositionResult> {
 	};
 }
 
-export const getCachedTripUpdates = cache(async () => {
-	const cached = await redis.get(TRIP_UPDATES_CACHE_KEY);
-	if (cached) {
-		MetricsTracker.trackCacheHit();
-		return cached as ITripUpdate[];
-	}
+export const getCachedTripUpdates = cache(
+	async (operatorInput = getDefaultOperator()) => {
+		const operator = resolveOperator(operatorInput);
+		const cacheKey = tripUpdatesCacheKey(operator);
+		const lockKey = tripUpdatesLockKey(operator);
+		const cached = await redis.get(cacheKey);
+		if (cached) {
+			MetricsTracker.trackCacheHit();
+			return cached as ITripUpdate[];
+		}
 
-	const lockAcquired = await redis.set(TRIP_UPDATES_LOCK_KEY, "locked", {
-		nx: true,
-		ex: LOCK_TTL,
-	});
+		const lockAcquired = await redis.set(lockKey, "locked", {
+			nx: true,
+			ex: LOCK_TTL,
+		});
 
-	if (!lockAcquired) {
-		return await waitForCachedTripUpdates();
-	}
+		if (!lockAcquired) {
+			return await waitForCachedTripUpdates(cacheKey);
+		}
 
-	try {
-		MetricsTracker.trackCacheMiss();
-		const data = await getTripUpdates();
-		await redis.set(TRIP_UPDATES_CACHE_KEY, data, { ex: REALTIME_TTL });
-		MetricsTracker.trackRedisOperation();
-		return data;
-	} catch (error) {
-		console.error("Error fetching trip updates:", error);
-		return [];
-	} finally {
-		await redis.del(TRIP_UPDATES_LOCK_KEY);
-	}
-});
+		try {
+			MetricsTracker.trackCacheMiss();
+			const data = await getTripUpdates(operator);
+			await redis.set(cacheKey, data, { ex: REALTIME_TTL });
+			MetricsTracker.trackRedisOperation();
+			return data;
+		} catch (error) {
+			console.error("Error fetching trip updates:", error);
+			return [];
+		} finally {
+			await redis.del(lockKey);
+		}
+	},
+);
 
-async function waitForCachedTripUpdates(): Promise<ITripUpdate[]> {
+async function waitForCachedTripUpdates(cacheKey: string): Promise<ITripUpdate[]> {
 	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
 		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
 
-		const cached = await redis.get(TRIP_UPDATES_CACHE_KEY);
+		const cached = await redis.get(cacheKey);
 		if (cached) {
 			return cached as ITripUpdate[];
 		}
@@ -190,6 +210,7 @@ async function waitForCachedTripUpdates(): Promise<ITripUpdate[]> {
 
 async function getLineShapesForTrips(
 	trips: IDbData[],
+	operator: string,
 ): Promise<{ shape_id: string; points: IShapes[] }[]> {
 	const seen = new Set<string>();
 	const shapeIds: string[] = [];
@@ -201,7 +222,7 @@ async function getLineShapesForTrips(
 	}
 	const results = await Promise.all(
 		shapeIds.map(async (shape_id) => {
-			const points = await selectShapesFromDatabase(shape_id);
+			const points = await selectShapesFromDatabase(shape_id, operator);
 			return points.length ? { shape_id, points } : null;
 		}),
 	);
@@ -209,7 +230,12 @@ async function getLineShapesForTrips(
 }
 
 export const getCachedDbData = cache(
-	async (busLine: string, busStopName?: string) => {
+	async (
+		busLine: string,
+		busStopName?: string,
+		operatorInput = getDefaultOperator(),
+	) => {
+		const operator = resolveOperator(operatorInput);
 		let currentTrips: IDbData[] = [];
 		let upcomingTrips: IDbData[] = [];
 		let lineStops: IDbData[] = [];
@@ -221,22 +247,27 @@ export const getCachedDbData = cache(
 			upcomingTrips = await selectUpcomingTripsFromDatabase(
 				busLine,
 				trimmedStopName,
+				operator,
 			);
 		} else {
 			MetricsTracker.trackDbQuery();
 			const [current, stops] = await Promise.all([
-				selectCurrentTripsFromDatabase(busLine),
-				selectDistinctStopsForLineFromDatabase(busLine),
+				selectCurrentTripsFromDatabase(busLine, operator),
+				selectDistinctStopsForLineFromDatabase(busLine, operator),
 			]);
 			currentTrips = current;
 			lineStops = stops;
 		}
 
 		const tripsForShapes = [...currentTrips, ...upcomingTrips];
-		let lineShapes = await getLineShapesForTrips(tripsForShapes);
+		let lineShapes = await getLineShapesForTrips(tripsForShapes, operator);
 		if (!lineShapes.length && !trimmedStopName) {
-			const shapeIds = await selectDistinctShapeIdsForLineFromDatabase(busLine);
+			const shapeIds = await selectDistinctShapeIdsForLineFromDatabase(
+				busLine,
+				operator,
+			);
 			const fallbackTrips = shapeIds.map((shape_id) => ({
+				operator,
 				trip_id: "",
 				shape_id,
 				route_short_name: busLine,
@@ -249,7 +280,7 @@ export const getCachedDbData = cache(
 				stop_lon: 0,
 				feed_version: "",
 			}));
-			lineShapes = await getLineShapesForTrips(fallbackTrips);
+			lineShapes = await getLineShapesForTrips(fallbackTrips, operator);
 		}
 
 		return { currentTrips, upcomingTrips, lineStops, lineShapes } as ITripData;
@@ -257,9 +288,10 @@ export const getCachedDbData = cache(
 );
 
 export const getCachedShapesData = cache(
-	async (_feedVersion: string, shapeId: string) => {
+	async (_feedVersion: string, shapeId: string, operatorInput = getDefaultOperator()) => {
+		const operator = resolveOperator(operatorInput);
 		MetricsTracker.trackDbQuery();
-		const shapePoints = await selectShapesFromDatabase(shapeId);
+		const shapePoints = await selectShapesFromDatabase(shapeId, operator);
 		return shapePoints;
 	},
 );

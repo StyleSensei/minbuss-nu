@@ -4,9 +4,9 @@ import { get } from "@shared/services/serviceBase";
 import type { ITripUpdate } from "@shared/models/ITripUpdate";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 
-export const getTripUpdates = async (): Promise<ITripUpdate[]> => {
+export const getTripUpdates = async (operator: string): Promise<ITripUpdate[]> => {
 	try {
-		const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/TripUpdates.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
+		const url = `https://opendata.samtrafiken.se/gtfs-rt/${operator}/TripUpdates.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
 		const response = await get<ArrayBuffer>(url, "arraybuffer", {
 			revalidateSeconds: 2,
 		});

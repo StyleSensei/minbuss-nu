@@ -16,10 +16,10 @@ export interface VehiclePositionsResult {
 }
 
 export const getVehiclePositions =
-	async (): Promise<VehiclePositionsResult> => {
+	async (operator: string): Promise<VehiclePositionsResult> => {
 		const now = Date.now();
 
-		const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/VehiclePositions.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
+		const url = `https://opendata.samtrafiken.se/gtfs-rt/${operator}/VehiclePositions.pb?key=${process.env.GTFS_REGIONAL_REALTIME}`;
 		const response = await get<ArrayBuffer>(url, "arraybuffer");
 		MetricsTracker.trackApiCall();
 
