@@ -3,15 +3,17 @@ import {
 	getCachedDbData,
 	getCachedTripUpdates,
 } from "@/app/services/cacheHelper";
+import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 20;
 export const preferredRegion = "arn1";
 
 export async function GET(
-	_request: NextRequest,
+	request: NextRequest,
 	context: { params: Promise<{ busline: string }> },
 ) {
 	const { busline } = await context.params;
+	const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
 
 	if (!busline) {
 		return NextResponse.json(
@@ -21,8 +23,8 @@ export async function GET(
 	}
 
 	try {
-		const cachedTripUpdates = await getCachedTripUpdates();
-		const cachedDbData = await getCachedDbData(busline);
+		const cachedTripUpdates = await getCachedTripUpdates(operator);
+		const cachedDbData = await getCachedDbData(busline, undefined, operator);
 		const tripIdsForLine = new Set(
 			cachedDbData.currentTrips
 				.map((trip) => trip?.trip_id)

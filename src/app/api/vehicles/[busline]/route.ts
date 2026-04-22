@@ -4,15 +4,17 @@ import {
 	getCachedDbData,
 	getCachedVehiclePositions,
 } from "@/app/services/cacheHelper";
+import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 2;
 export const preferredRegion = "arn1";
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	context: { params: Promise<{ busline: string }> },
 ) {
 	const { busline } = await context.params;
+	const operator = resolveOperator(new URL(request.url).searchParams.get("operator"));
 
 	if (!busline) {
 		return NextResponse.json(
@@ -22,7 +24,7 @@ export async function GET(
 	}
 
 	try {
-		const cachedVehiclePositions = await getCachedVehiclePositions();
+		const cachedVehiclePositions = await getCachedVehiclePositions(operator);
 
 		const activeTrips = new Set(
 			cachedVehiclePositions.data
@@ -41,7 +43,7 @@ export async function GET(
 			);
 		}
 
-		const cachedDbData = (await getCachedDbData(busline)) as ITripData;
+		const cachedDbData = (await getCachedDbData(busline, undefined, operator)) as ITripData;
 		const tripById = new Map(
 			cachedDbData.currentTrips
 				.filter((trip) => trip?.trip_id)

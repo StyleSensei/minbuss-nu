@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCachedDbData } from "@/app/services/cacheHelper";
+import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 300; // 5 min
 
@@ -14,9 +15,10 @@ export async function GET(
 
 	const { searchParams } = new URL(request.url);
 	const stopName = searchParams.get("stopName") || undefined;
+	const operator = resolveOperator(searchParams.get("operator"));
 
 	try {
-		const data = await getCachedDbData(busline, stopName);
+		const data = await getCachedDbData(busline, stopName, operator);
 		return NextResponse.json(data, {
 			headers: {
 				"Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",

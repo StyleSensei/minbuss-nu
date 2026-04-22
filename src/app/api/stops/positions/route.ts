@@ -4,6 +4,7 @@ import {
 	selectLatestFeedVersionFromDatabase,
 	selectStopPositionsInBoundsFromDatabase,
 } from "@/app/services/dataProcessors/stopPositionsStaticQueries";
+import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 3600;
 export const preferredRegion = "arn1";
@@ -47,15 +48,16 @@ function parseBounds(sp: URLSearchParams): {
 export async function GET(request: NextRequest) {
 	try {
 		const bbox = parseBounds(request.nextUrl.searchParams);
+		const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
 
 		const [stops, v] = bbox
 			? await Promise.all([
-					selectStopPositionsInBoundsFromDatabase(bbox),
-					selectLatestFeedVersionFromDatabase(),
+					selectStopPositionsInBoundsFromDatabase(bbox, operator),
+					selectLatestFeedVersionFromDatabase(operator),
 				])
 			: await Promise.all([
-					selectAllStopPositionsFromDatabase(),
-					selectLatestFeedVersionFromDatabase(),
+					selectAllStopPositionsFromDatabase(operator),
+					selectLatestFeedVersionFromDatabase(operator),
 				]);
 
 		return NextResponse.json(

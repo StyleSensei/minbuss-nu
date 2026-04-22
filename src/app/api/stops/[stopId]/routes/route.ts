@@ -4,13 +4,15 @@ import {
 	selectStopMetaFromDatabase,
 } from "@/app/services/dataProcessors/selectFromDatabase";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
+import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 120;
 
 export async function GET(
-	_request: NextRequest,
+	request: NextRequest,
 	context: { params: Promise<{ stopId: string }> },
 ) {
+	const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
 	const { stopId: rawStopId } = await context.params;
 	const stopId = decodeURIComponent(rawStopId);
 
@@ -27,8 +29,8 @@ export async function GET(
 
 	try {
 		const [meta, routes] = await Promise.all([
-			selectStopMetaFromDatabase(stopId),
-			selectRoutesForStopFromDatabase(stopId),
+			selectStopMetaFromDatabase(stopId, operator),
+			selectRoutesForStopFromDatabase(stopId, operator),
 		]);
 
 		if (!meta) {
