@@ -1,4 +1,5 @@
 export interface IStopTime {
+	operator: string;
 	trip_id: string;
 	departure_time: string;
 	stop_id: string;

@@ -9,7 +9,29 @@ import type { IStopTime } from "../../shared/models/IStopTime";
 import type { ICalendarDates } from "../../shared/models/ICalendarDates";
 import type { IShapes } from "../../shared/models/IShapes";
 
-export const extractZip = async () => {
+const GTFS_TXT_FILES = [
+	"routes.txt",
+	"trips.txt",
+	"stops.txt",
+	"stop_times.txt",
+	"calendar_dates.txt",
+	"shapes.txt",
+] as const;
+
+export type ExtractZipOptions = {
+	/** Om satt parsas bara dessa filer ur zip (t.ex. bara `["shapes.txt"]`). */
+	onlyFiles?: readonly string[];
+};
+
+export const extractZip = async (
+	operator: string,
+	options?: ExtractZipOptions,
+) => {
+	const allowed = new Set<string>(
+		options?.onlyFiles?.length
+			? options.onlyFiles
+			: [...GTFS_TXT_FILES],
+	);
 	const routes: IRoute[] = [];
 	const trips: ITrip[] = [];
 	const stops: IStop[] = [];
@@ -17,20 +39,13 @@ export const extractZip = async () => {
 	const calendarDates: ICalendarDates[] = [];
 	const shapes: IShapes[] = [];
 
-	const zip: Readable = (await getStaticData()).pipe(
+	const zip: Readable = (await getStaticData(operator)).pipe(
 		unzipper.Parse({ forceStream: true }),
 	);
 
 	for await (const entry of zip) {
 		const fileName = entry.path;
-		if (
-			fileName === "routes.txt" ||
-			fileName === "trips.txt" ||
-			fileName === "stops.txt" ||
-			fileName === "stop_times.txt" ||
-			fileName === "calendar_dates.txt" ||
-			fileName === "shapes.txt"
-		) {
+		if (allowed.has(fileName)) {
 			entry
 				.pipe(csvParser())
 				.on(
@@ -72,17 +87,20 @@ export const extractZip = async () => {
 
 	const routesWithCorrectTypes = routes.map((route) => ({
 		...route,
+		operator,
 		route_type: Number(route.route_type),
 	}));
 
 	const tripsWithCorrectTypes = trips.map((trip) => ({
 		...trip,
+		operator,
 		service_id: Number(trip.service_id),
 		direction_id: Number(trip.direction_id),
 	}));
 
 	const stopsWithCorrectTypes = stops.map((stop) => ({
 		...stop,
+		operator,
 		stop_lat: Number(stop.stop_lat),
 		stop_lon: Number(stop.stop_lon),
 		location_type: Number(stop.location_type),
@@ -90,6 +108,7 @@ export const extractZip = async () => {
 
 	const stopTimesWithCorrectTypes = stopTimes.map((stopTime) => ({
 		...stopTime,
+		operator,
 		stop_sequence: Number(stopTime.stop_sequence),
 		pickup_type: Number(stopTime.pickup_type),
 		drop_off_type: Number(stopTime.drop_off_type),
@@ -102,14 +121,31 @@ export const extractZip = async () => {
 
 	const calendarDatesWithCorrectTypes = calendarDates.map((date) => ({
 		...date,
+		operator,
 		service_id: Number(date.service_id),
 		exception_type: Number(date.exception_type),
 	}));
 
-	const shapesWithCorrectTypes = shapes.map((shape) => ({
-		...shape,
-		shape_pt_sequence: Number(shape.shape_pt_sequence),
-	}));
+	const shapesWithCorrectTypes = shapes.map((shape) => {
+		const rawDist = shape.shape_dist_traveled as unknown;
+		const distMissing =
+			rawDist === "" ||
+			rawDist === null ||
+			rawDist === undefined ||
+			(typeof rawDist === "string" && rawDist.trim() === "");
+		const distNum = distMissing ? Number.NaN : Number(rawDist);
+		const shape_dist_traveled =
+			distMissing || Number.isNaN(distNum) ? undefined : distNum;
+
+		return {
+			...shape,
+			operator,
+			shape_pt_lat: Number(shape.shape_pt_lat),
+			shape_pt_lon: Number(shape.shape_pt_lon),
+			shape_pt_sequence: Number(shape.shape_pt_sequence),
+			shape_dist_traveled,
+		};
+	});
 
 	return {
 		routes: routesWithCorrectTypes,

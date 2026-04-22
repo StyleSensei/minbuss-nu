@@ -1,4 +1,4 @@
-import { inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -32,11 +32,11 @@ const calculateBatchSize = (columns: number) => {
 	return Math.floor((maxParameters / columns) * 0.8); // 80% of maxParameters for extra margin
 };
 
-const checkTripIdsExist = async (tripIds: string[]) => {
+const checkTripIdsExist = async (tripIds: string[], operator: string) => {
 	const existingTripIds = await db
 		.select({ trip_id: trips.trip_id })
 		.from(trips)
-		.where(inArray(trips.trip_id, tripIds));
+		.where(and(eq(trips.operator, operator), inArray(trips.trip_id, tripIds)));
 	const existingTripIdsSet = new Set(
 		existingTripIds.map((trip) => trip.trip_id),
 	);
@@ -52,6 +52,7 @@ export const saveToDatabase = async (
 		| ICalendarDates[]
 		| IShapes[],
 	table: string,
+	operator: string,
 ) => {
 	let batchSize = 10000;
 	if (data.length > 0) {
@@ -69,13 +70,14 @@ export const saveToDatabase = async (
 					.insert(routes)
 					.values(routesBatchParsed)
 					.onConflictDoUpdate({
-						target: routes.route_id,
+						target: [routes.operator, routes.route_id],
 						set: {
 							route_short_name: sql`excluded.route_short_name`,
 							route_long_name: sql`excluded.route_long_name`,
 							route_desc: sql`excluded.route_desc`,
 							route_type: sql`excluded.route_type`,
 							agency_id: sql`excluded.agency_id`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});
@@ -91,13 +93,14 @@ export const saveToDatabase = async (
 					.insert(trips)
 					.values(tripsBatchParsed)
 					.onConflictDoUpdate({
-						target: trips.trip_id,
+						target: [trips.operator, trips.trip_id],
 						set: {
 							route_id: sql`excluded.route_id`,
 							service_id: sql`excluded.service_id`,
 							trip_headsign: sql`excluded.trip_headsign`,
 							direction_id: sql`excluded.direction_id`,
 							shape_id: sql`excluded.shape_id`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});
@@ -115,9 +118,14 @@ export const saveToDatabase = async (
 					.insert(calendarDates)
 					.values(calendarDatesBatchParsed)
 					.onConflictDoUpdate({
-						target: [calendarDates.service_id, calendarDates.date],
+						target: [
+							calendarDates.operator,
+							calendarDates.service_id,
+							calendarDates.date,
+						],
 						set: {
 							exception_type: sql`excluded.exception_type`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});
@@ -134,7 +142,7 @@ export const saveToDatabase = async (
 					.insert(stops)
 					.values(stopsBatchParsed)
 					.onConflictDoUpdate({
-						target: stops.stop_id,
+						target: [stops.operator, stops.stop_id],
 						set: {
 							stop_name: sql`excluded.stop_name`,
 							stop_lat: sql`excluded.stop_lat`,
@@ -142,6 +150,7 @@ export const saveToDatabase = async (
 							location_type: sql`excluded.location_type`,
 							parent_station: sql`excluded.parent_station`,
 							platform_code: sql`excluded.platform_code`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});
@@ -153,7 +162,7 @@ export const saveToDatabase = async (
 			case "stop_times": {
 				const stopTimesBatch = batch as IStopTime[];
 				const tripIds = stopTimesBatch.map((stopTime) => stopTime.trip_id);
-				const tripIdsExist = await checkTripIdsExist(tripIds);
+				const tripIdsExist = await checkTripIdsExist(tripIds, operator);
 				if (!tripIdsExist) {
 					console.error(
 						`Error: Some trip_ids in batch ${i + 1} do not exist in the trips table`,
@@ -167,6 +176,7 @@ export const saveToDatabase = async (
 					.values(stopTimesBatchParsed)
 					.onConflictDoUpdate({
 						target: [
+							stop_times.operator,
 							stop_times.trip_id,
 							stop_times.stop_sequence,
 							stop_times.stop_id,
@@ -179,6 +189,7 @@ export const saveToDatabase = async (
 							drop_off_type: sql`excluded.drop_off_type`,
 							shape_dist_traveled: sql`excluded.shape_dist_traveled`,
 							timepoint: sql`excluded.timepoint`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});
@@ -190,7 +201,21 @@ export const saveToDatabase = async (
 
 			case "shapes": {
 				const shapesBatch = batch as IShapes[];
-				const shapesBatchParsed = shapesInsertSchemaArray.parse(shapesBatch);
+				/** drizzle insert för numeric() förväntar sträng; extractZip ger number. */
+				const rowsForSchema = shapesBatch.map((row) => ({
+					operator: row.operator ?? operator,
+					shape_id: row.shape_id,
+					shape_pt_lat: String(row.shape_pt_lat),
+					shape_pt_lon: String(row.shape_pt_lon),
+					shape_pt_sequence: row.shape_pt_sequence,
+					shape_dist_traveled:
+						row.shape_dist_traveled === undefined ||
+						row.shape_dist_traveled === null
+							? undefined
+							: String(row.shape_dist_traveled),
+				}));
+				const shapesBatchParsed =
+					shapesInsertSchemaArray.parse(rowsForSchema);
 				await db
 					.insert(shapes)
 					.values(
@@ -200,11 +225,12 @@ export const saveToDatabase = async (
 						})),
 					)
 					.onConflictDoUpdate({
-						target: [shapes.shape_id, shapes.shape_pt_sequence],
+						target: [shapes.operator, shapes.shape_id, shapes.shape_pt_sequence],
 						set: {
 							shape_pt_lat: sql`excluded.shape_pt_lat`,
 							shape_pt_lon: sql`excluded.shape_pt_lon`,
 							shape_dist_traveled: sql`excluded.shape_dist_traveled`,
+							operator: sql`excluded.operator`,
 							feed_version: sql`CURRENT_DATE`,
 						},
 					});

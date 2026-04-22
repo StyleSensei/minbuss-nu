@@ -2,8 +2,8 @@ import { Readable } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 import { get } from "../../shared/services/serviceBase";
 
-export async function getStaticData(): Promise<Readable> {
-	const url = `https://opendata.samtrafiken.se/gtfs/sl/sl.zip?key=${process.env.GTFS_REGIONAL_STATIC}`;
+export async function getStaticData(operator: string): Promise<Readable> {
+	const url = `https://opendata.samtrafiken.se/gtfs/${operator}/${operator}.zip?key=${process.env.GTFS_REGIONAL_STATIC}`;
 	try {
 		const body = await get<ReadableStream | null>(url, "stream");
 		if (body == null) {
