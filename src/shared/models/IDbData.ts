@@ -1,4 +1,5 @@
 export interface IDbData {
+	operator?: string;
 	trip_id: string;
 	shape_id: string;
 	route_short_name: string;

@@ -1,4 +1,5 @@
 export interface IStop {
+	operator: string;
 	stop_id: string;
 	stop_name: string;
 	stop_lat: number;

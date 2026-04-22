@@ -1,4 +1,5 @@
 export interface ITrip {
+	operator: string;
 	route_id: string;
 	service_id: number;
 	trip_id: string;

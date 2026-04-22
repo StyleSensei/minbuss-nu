@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const stop_times = pgTable("stop_times", {
+	operator: varchar().notNull(),
 	trip_id: varchar(),
 	arrival_time: varchar(),
 	departure_time: varchar(),

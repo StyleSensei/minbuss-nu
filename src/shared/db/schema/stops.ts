@@ -9,6 +9,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const stops = pgTable("stops", {
+	operator: varchar().notNull(),
 	stop_id: varchar(),
 	stop_name: varchar(),
 	stop_lat: doublePrecision(),

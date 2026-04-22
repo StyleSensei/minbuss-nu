@@ -1,8 +1,9 @@
-import { date, integer, pgTable } from "drizzle-orm/pg-core";
+import { date, integer, pgTable, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const calendarDates = pgTable("calendar_dates", {
+	operator: varchar().notNull(),
 	service_id: integer().notNull(),
 	date: date({ mode: "date" }),
 	exception_type: integer(),

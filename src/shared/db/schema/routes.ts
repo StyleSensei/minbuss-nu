@@ -2,6 +2,7 @@ import { date, integer, pgTable, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 export const routes = pgTable("routes", {
+	operator: varchar().notNull(),
 	route_id: varchar(),
 	agency_id: varchar(),
 	route_short_name: varchar(),

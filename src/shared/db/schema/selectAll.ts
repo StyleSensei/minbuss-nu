@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const selectAllSchema = z.object({
+	operator: z.string().nullable(),
 	// date: z.date().nullable(),
 	shape_id: z.string().nullable(),
 	departure_time: z.string().nullable(),

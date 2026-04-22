@@ -1,4 +1,5 @@
 export interface IRoute {
+	operator: string;
 	route_id: string;
 	agency_id: string;
 	route_short_name: string;
