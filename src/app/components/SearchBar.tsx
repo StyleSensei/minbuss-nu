@@ -2,7 +2,8 @@
 import type { IDbData } from "@shared/models/IDbData";
 import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
 import Form from "next/form";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
 	type FormEvent,
 	type KeyboardEvent,
@@ -20,10 +21,21 @@ import colors from "../colors";
 import type { ITripData } from "../context/DataContext";
 import { useDataContext } from "../context/DataContext";
 import { type ResponseWithData, usePolling } from "../hooks/usePolling";
-import { Paths } from "../paths";
+import {
+	lineSearchUrl,
+	parseOperatorFromRealtimePathname,
+	searchPathForOperator,
+} from "../paths";
 import type { IError } from "../services/cacheHelper";
+import { getOperatorDisplayLabel } from "@shared/config/gtfsOperators";
+import {
+	getOperatorRegistryEntryBySlug,
+	getOperatorSeoArea,
+} from "@shared/config/operatorsRegistry";
+import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
 import { debounce } from "../utilities/debounce";
 import { Icon } from "./Icon";
+import { RegionSelect, type RegionOption } from "./RegionSelect";
 import SearchError from "./SearchError";
 
 const STOP_SUGGESTION_SKELETON_KEYS = ["s1", "s2", "s3", "s4", "s5"] as const;
@@ -84,15 +96,22 @@ function isLikelyLineNumberQuery(trimmed: string): boolean {
 	return /\d/.test(trimmed);
 }
 
-async function fetchNearbyStops(lat: number, lng: number, limit = 10) {
+async function fetchNearbyStops(
+	lat: number,
+	lng: number,
+	operator: string,
+	limit = 10,
+) {
+	const path = `/api/stops/nearby?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}&limit=${limit}`;
 	return fetchJsonOrThrow<{ stops: IStopWithRoutesRow[] }>(
-		`/api/stops/nearby?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}&limit=${limit}`,
+		appendOperatorToApiUrl(path, operator),
 	);
 }
 
-async function fetchStopSearch(q: string) {
+async function fetchStopSearch(q: string, operator: string) {
+	const path = `/api/stops/search?q=${encodeURIComponent(q)}`;
 	return fetchJsonOrThrow<{ stops: IStopWithRoutesRow[] }>(
-		`/api/stops/search?q=${encodeURIComponent(q)}`,
+		appendOperatorToApiUrl(path, operator),
 	);
 }
 
@@ -107,32 +126,46 @@ async function fetchJsonOrThrow<T>(
 	return (await res.json()) as T;
 }
 
-async function fetchAllRoutes() {
+async function fetchAllRoutes(operator: string) {
+	const path = appendOperatorToApiUrl("/api/routes", operator);
 	return await fetchJsonOrThrow<{
 		asObject: Record<string, boolean>;
 		asArray: string[];
-	}>("/api/routes");
+	}>(path);
 }
 
-async function fetchVehicles(busline: string): Promise<IVehicleFilterResult> {
-	return await fetchJsonOrThrow<IVehicleFilterResult>(
+async function fetchVehicles(
+	busline: string,
+	operator: string,
+): Promise<IVehicleFilterResult> {
+	const path = appendOperatorToApiUrl(
 		`/api/vehicles/${encodeURIComponent(busline)}`,
+		operator,
 	);
+	return await fetchJsonOrThrow<IVehicleFilterResult>(path);
 }
 
 async function fetchTripUpdates(
 	busline: string,
+	operator: string,
 ): Promise<ResponseWithData<ITripUpdate, IError>> {
-	return await fetchJsonOrThrow<ResponseWithData<ITripUpdate, IError>>(
+	const path = appendOperatorToApiUrl(
 		`/api/trip-updates/${encodeURIComponent(busline)}`,
+		operator,
 	);
+	return await fetchJsonOrThrow<ResponseWithData<ITripUpdate, IError>>(path);
 }
 
 async function fetchDbData(
 	busLine: string,
+	operator: string,
 	stopName?: string,
 ): Promise<ITripData> {
-	const qs = stopName ? `?stopName=${encodeURIComponent(stopName)}` : "";
+	const base = `/api/db-data/${encodeURIComponent(busLine)}`;
+	const qs = new URLSearchParams();
+	if (stopName) qs.set("stopName", stopName);
+	if (operator.trim()) qs.set("operator", operator.trim());
+	const path = qs.toString() ? `${base}?${qs.toString()}` : base;
 	if (!busLine) {
 		return {
 			currentTrips: [],
@@ -141,41 +174,7 @@ async function fetchDbData(
 			lineShapes: [],
 		};
 	}
-	return await fetchJsonOrThrow<ITripData>(
-		`/api/db-data/${encodeURIComponent(busLine)}${qs}`,
-	);
-}
-
-async function fetchVehiclesForPolling(
-	query: string,
-	signal?: AbortSignal,
-): Promise<IVehicleFilterResult> {
-	const res = await fetch(`/api/vehicles/${encodeURIComponent(query)}`, {
-		signal,
-	});
-	if (!res.ok) {
-		throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-	}
-	return (await res.json()) as IVehicleFilterResult;
-}
-
-async function fetchTripUpdatesForPolling(
-	query: string,
-	_signal?: AbortSignal,
-): Promise<ResponseWithData<ITripUpdate, IError>> {
-	return fetchTripUpdates(query);
-}
-
-function lineSearchUrl(
-	routeCandidate: string,
-	options?: { mapFit?: boolean },
-): string {
-	const params = new URLSearchParams();
-	params.set("linje", routeCandidate);
-	if (options?.mapFit) {
-		params.set("mapfit", "1");
-	}
-	return `${Paths.Search}?${params.toString()}`;
+	return await fetchJsonOrThrow<ITripData>(path);
 }
 
 function currentUrlLinjeUpper(): string {
@@ -220,6 +219,7 @@ export const SearchBar = ({
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const inputContainerRef = useRef<HTMLDivElement | null>(null);
 	const overlayRef = useRef<HTMLDivElement | null>(null);
+	const [overlayPortalReady, setOverlayPortalReady] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [isTextMode, setIsTextMode] = useState<boolean>(false);
 	const [isKeyboardLikelyOpen, setIsKeyboardLikelyOpen] = useState(false);
@@ -227,6 +227,80 @@ export const SearchBar = ({
 	const [isActive, setIsActive] = useState(false);
 	const [isBlurring, setIsBlurring] = useState(false);
 	const router = useRouter();
+	const pathname = usePathname();
+
+	const [operatorsMeta, setOperatorsMeta] = useState<{
+		operators: string[];
+		defaultOperator: string;
+	} | null>(null);
+
+	useEffect(() => {
+		setOverlayPortalReady(true);
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const m = await fetchJsonOrThrow<{
+					operators: string[];
+					defaultOperator: string;
+				}>("/api/operators");
+				if (!cancelled) setOperatorsMeta(m);
+			} catch {
+				if (!cancelled) {
+					setOperatorsMeta({ operators: ["sl"], defaultOperator: "sl" });
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const effectiveOperator = useMemo(() => {
+		const pathSlug = parseOperatorFromRealtimePathname(pathname);
+		const querySlug = searchParams.get("operator")?.trim().toLowerCase() ?? "";
+		if (!operatorsMeta) {
+			return (pathSlug ?? querySlug) || "";
+		}
+		if (pathSlug && operatorsMeta.operators.includes(pathSlug)) {
+			return pathSlug;
+		}
+		if (querySlug && operatorsMeta.operators.includes(querySlug)) {
+			return querySlug;
+		}
+		return operatorsMeta.defaultOperator;
+	}, [searchParams, operatorsMeta, pathname]);
+
+	const replaceOperatorInUrl = useCallback(
+		(next: string) => {
+			latestVehicleLineRef.current = "";
+			setUserInput("");
+			setProposedRoute("");
+			setShowError(false);
+			const p = new URLSearchParams(searchParams.toString());
+			p.delete("operator");
+			p.delete("linje");
+			p.delete("mapfit");
+			const qs = p.toString();
+			const base = searchPathForOperator(next);
+			router.replace(qs ? `${base}?${qs}` : base);
+		},
+		[pathname, router, searchParams],
+	);
+
+	const regionOptions = useMemo<RegionOption[]>(() => {
+		const ops = operatorsMeta?.operators ?? [];
+		return ops
+			.map((operator) => ({
+				operator,
+				regionLabel:
+					getOperatorSeoArea(operator) ?? getOperatorDisplayLabel(operator),
+				crestIcon: getOperatorRegistryEntryBySlug(operator)?.crestIcon,
+			}))
+			.sort((a, b) => a.regionLabel.localeCompare(b.regionLabel, "sv"));
+	}, [operatorsMeta?.operators]);
 
 	const lineSelectionGenerationRef = useRef(0);
 	const tripDataFetchedForLineRef = useRef<string>("");
@@ -248,6 +322,25 @@ export const SearchBar = ({
 		selectedStopRouteLines,
 		setSelectedStopRouteLines,
 	} = useDataContext();
+
+	const resetTripDataToEmpty = useCallback(() => {
+		setTripData((prev) => {
+			if (
+				prev.currentTrips.length === 0 &&
+				prev.upcomingTrips.length === 0 &&
+				prev.lineStops.length === 0 &&
+				prev.lineShapes.length === 0
+			) {
+				return prev;
+			}
+			return {
+				currentTrips: [],
+				upcomingTrips: [],
+				lineStops: [],
+				lineShapes: [],
+			};
+		});
+	}, [setTripData]);
 
 	const [nearbyStopsList, setNearbyStopsList] = useState<IStopWithRoutesRow[]>(
 		[],
@@ -274,10 +367,12 @@ export const SearchBar = ({
 			const urlLine = currentUrlLinjeUpper();
 			if (urlLine === routeCandidate) return;
 			router.replace(
-				lineSearchUrl(routeCandidate, { mapFit: opts?.mapFit ?? false }),
+				lineSearchUrl(routeCandidate, effectiveOperator, {
+					mapFit: opts?.mapFit ?? false,
+				}),
 			);
 		},
-		[allRoutes.asObject, router],
+		[allRoutes.asObject, router, effectiveOperator],
 	);
 
 	useEffect(() => {
@@ -301,14 +396,49 @@ export const SearchBar = ({
 	}, [userInput, routesLoaded, allRoutes.asObject]);
 
 	useEffect(() => {
-		if (!allRoutes.asArray.length) {
-			(async () => {
-				const routes = await fetchAllRoutes();
+		if (!operatorsMeta) return;
+		let cancelled = false;
+		void (async () => {
+			setRoutesLoaded(false);
+			try {
+				const routes = await fetchAllRoutes(effectiveOperator);
+				if (cancelled) return;
 				setAllRoutes(routes);
 				setRoutesLoaded(true);
-			})();
+			} catch {
+				if (!cancelled) {
+					setAllRoutes({ asObject: {}, asArray: [] });
+					setRoutesLoaded(true);
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [operatorsMeta, effectiveOperator]);
+
+	const prevEffectiveOperatorRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (!operatorsMeta || !effectiveOperator) return;
+		if (prevEffectiveOperatorRef.current === null) {
+			prevEffectiveOperatorRef.current = effectiveOperator;
+			return;
 		}
-	});
+		if (prevEffectiveOperatorRef.current === effectiveOperator) return;
+		prevEffectiveOperatorRef.current = effectiveOperator;
+		lineSelectionGenerationRef.current += 1;
+		tripDataFetchedForLineRef.current = "";
+		stopSpecificTripDataKeyRef.current = "";
+		setFilteredVehicles({ data: [], error: undefined });
+		setFilteredTripUpdates([]);
+		resetTripDataToEmpty();
+	}, [
+		effectiveOperator,
+		operatorsMeta,
+		setFilteredTripUpdates,
+		setFilteredVehicles,
+		resetTripDataToEmpty,
+	]);
 
 	const handleOnChangeRef = useRef<((query: string) => void) | null>(null);
 
@@ -323,7 +453,7 @@ export const SearchBar = ({
 					return;
 				}
 
-				const result = await fetchVehicles(query);
+				const result = await fetchVehicles(query, effectiveOperator);
 				if (query !== latestVehicleLineRef.current) {
 					return;
 				}
@@ -369,7 +499,39 @@ export const SearchBar = ({
 		setFilteredVehicles,
 		setIsLoading,
 		routesLoaded,
+		effectiveOperator,
 	]);
+
+	const fetchVehiclesForPolling = useCallback(
+		async (query: string, signal?: AbortSignal) => {
+			const path = appendOperatorToApiUrl(
+				`/api/vehicles/${encodeURIComponent(query)}`,
+				effectiveOperator,
+			);
+			const res = await fetch(path, { signal });
+			if (!res.ok) {
+				throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+			}
+			return (await res.json()) as IVehicleFilterResult;
+		},
+		[effectiveOperator],
+	);
+
+	const fetchTripUpdatesForPolling = useCallback(
+		async (query: string, _signal?: AbortSignal) => {
+			return fetchTripUpdates(query, effectiveOperator);
+		},
+		[effectiveOperator],
+	);
+
+	const onTripUpdatesPollData = useCallback(
+		(response: ResponseWithData<ITripUpdate, IError>) => {
+			if (response?.data) {
+				setFilteredTripUpdates(response.data);
+			}
+		},
+		[setFilteredTripUpdates],
+	);
 
 	const {
 		startPolling: pollVehiclePositions,
@@ -390,11 +552,7 @@ export const SearchBar = ({
 	const { startPolling: pollTripUpdates, stopPolling: stopPollingUpdates } =
 		usePolling<ResponseWithData<ITripUpdate, IError>>(
 			fetchTripUpdatesForPolling,
-			(response) => {
-				if (response?.data) {
-					setFilteredTripUpdates(response.data);
-				}
-			},
+			onTripUpdatesPollData,
 			20000,
 		);
 
@@ -409,7 +567,7 @@ export const SearchBar = ({
 			tripDataFetchedForLineRef.current = lineAtStart;
 			try {
 				const { currentTrips, lineStops, lineShapes } =
-					await fetchDbData(lineAtStart);
+					await fetchDbData(lineAtStart, effectiveOperator);
 
 				if (genWhenFetchStarted !== lineSelectionGenerationRef.current) {
 					tripDataFetchedForLineRef.current = "";
@@ -445,6 +603,7 @@ export const SearchBar = ({
 			try {
 				const { upcomingTrips, lineShapes } = await fetchDbData(
 					lineAtStart,
+					effectiveOperator,
 					scheduleStopName,
 				);
 
@@ -467,6 +626,7 @@ export const SearchBar = ({
 		setTripData,
 		userPosition?.closestStop?.stop_name,
 		selectedStopForSchedule?.stop_name,
+		effectiveOperator,
 	]);
 
 	useEffect(() => {
@@ -502,12 +662,7 @@ export const SearchBar = ({
 		) {
 			setFilteredVehicles({ data: [] });
 			setFilteredTripUpdates([]);
-			setTripData({
-				currentTrips: [],
-				upcomingTrips: [],
-				lineStops: [],
-				lineShapes: [],
-			});
+			resetTripDataToEmpty();
 			return;
 		}
 		if (userInput && !filteredVehicles?.data.length && !routeExists) {
@@ -522,12 +677,7 @@ export const SearchBar = ({
 		}
 		if (!userInput && filteredVehicles?.data.length) {
 			setFilteredVehicles({ data: [] });
-			setTripData({
-				currentTrips: [],
-				upcomingTrips: [],
-				lineStops: [],
-				lineShapes: [],
-			});
+			resetTripDataToEmpty();
 			setFilteredTripUpdates([]);
 			setMapStopPreview(null);
 			setSelectedStopForSchedule(null);
@@ -535,12 +685,7 @@ export const SearchBar = ({
 			return;
 		}
 		if (!userInput) {
-			setTripData({
-				currentTrips: [],
-				upcomingTrips: [],
-				lineStops: [],
-				lineShapes: [],
-			});
+			resetTripDataToEmpty();
 			setFilteredTripUpdates([]);
 			setMapStopPreview(null);
 			setSelectedStopForSchedule(null);
@@ -555,7 +700,10 @@ export const SearchBar = ({
 
 				(async () => {
 					try {
-						const response = await fetchTripUpdates(userInput);
+						const response = await fetchTripUpdates(
+							userInput,
+							effectiveOperator,
+						);
 						if (response?.data) {
 							setFilteredTripUpdates(response.data);
 						}
@@ -576,7 +724,18 @@ export const SearchBar = ({
 				isTripUpdatesPollingActive.current = false;
 			}
 		};
-	}, [userInput, filteredVehicles?.data.length, routeExists]);
+	}, [
+		userInput,
+		filteredVehicles?.data.length,
+		routeExists,
+		effectiveOperator,
+		pollVehiclePositions,
+		pollTripUpdates,
+		stopVehiclePolling,
+		stopPollingUpdates,
+		setFilteredTripUpdates,
+		resetTripDataToEmpty,
+	]);
 
 	useEffect(() => {
 		const scheduleStopName =
@@ -596,6 +755,7 @@ export const SearchBar = ({
 		userInput,
 		handleCachedDbData,
 		routeExists,
+		effectiveOperator,
 	]);
 
 	useLayoutEffect(() => {
@@ -654,7 +814,7 @@ export const SearchBar = ({
 		let cancelled = false;
 		const t = setTimeout(async () => {
 			try {
-				const { stops } = await fetchStopSearch(q);
+				const { stops } = await fetchStopSearch(q, effectiveOperator);
 				if (cancelled) return;
 				setStopSearchList(stops);
 			} catch {
@@ -669,7 +829,7 @@ export const SearchBar = ({
 			clearTimeout(t);
 			setStopSearchLoading(false);
 		};
-	}, [userInput, allRoutes]);
+	}, [userInput, allRoutes, effectiveOperator]);
 
 	useEffect(() => {
 		if (!routesLoaded) return;
@@ -733,6 +893,7 @@ export const SearchBar = ({
 							const { stops } = await fetchNearbyStops(
 								p.coords.latitude,
 								p.coords.longitude,
+								effectiveOperator,
 							);
 							setNearbyStopsList(stops);
 						} catch {
@@ -751,7 +912,11 @@ export const SearchBar = ({
 			}
 			if (pos) {
 				try {
-					const { stops } = await fetchNearbyStops(pos.lat, pos.lng);
+					const { stops } = await fetchNearbyStops(
+						pos.lat,
+						pos.lng,
+						effectiveOperator,
+					);
 					setNearbyStopsList(stops);
 				} catch {
 					setNearbyStopsList([]);
@@ -791,7 +956,7 @@ export const SearchBar = ({
 		});
 
 		if (sortedRoutes.length > 0 && !currentLineServesStop) {
-			router.push(lineSearchUrl(sortedRoutes[0]));
+			router.push(lineSearchUrl(sortedRoutes[0], effectiveOperator));
 		}
 
 		setNearbyStopsList([]);
@@ -806,12 +971,12 @@ export const SearchBar = ({
 
 		const routeCandidate = query.toUpperCase();
 		if (allRoutes.asObject[routeCandidate]) {
-			router.push(lineSearchUrl(routeCandidate, { mapFit: true }));
+			router.push(lineSearchUrl(routeCandidate, effectiveOperator, { mapFit: true }));
 			return;
 		}
 
 		if (isLikelyLineNumberQuery(query)) {
-			router.push(lineSearchUrl(routeCandidate, { mapFit: true }));
+			router.push(lineSearchUrl(routeCandidate, effectiveOperator, { mapFit: true }));
 			setShowError(true);
 			setMapStopPreview(null);
 			handleBlur();
@@ -841,13 +1006,20 @@ export const SearchBar = ({
 	const hasStopSuggestionPanel =
 		isActive && (isStopSuggestionsLoading || stopsToShow.length > 0);
 
+	const showRegionPicker =
+		Boolean(operatorsMeta) && (operatorsMeta?.operators.length ?? 0) > 1;
+	const regionCompactLayout =
+		showRegionPicker && !isActive && !userInput.trim();
+
 	return (
 		<>
-			{" "}
 			<div
-				ref={inputContainerRef}
-				className={`search-bar__container ${isActive ? "--active" : ""} ${isLoading ? "--loading" : ""} ${hasStopSuggestionPanel ? "--with-stops" : ""}`}
+				className={`search-bar__layout${showRegionPicker ? " search-bar__layout--with-region" : ""}${regionCompactLayout ? " search-bar__layout--region-compact" : ""}`}
 			>
+				<div
+					ref={inputContainerRef}
+					className={`search-bar__container${showRegionPicker ? " search-bar__container--with-region" : ""} ${isActive ? "--active" : ""} ${isLoading ? "--loading" : ""} ${hasStopSuggestionPanel ? "--with-stops" : ""}`}
+				>
 				<Form action="/search" onSubmit={handleSubmit}>
 					<button
 						type="button"
@@ -928,7 +1100,7 @@ export const SearchBar = ({
 								setMapStopPreview(null);
 								setSelectedStopForSchedule(null);
 								setSelectedStopRouteLines(null);
-								router.push(Paths.Search);
+								router.push(searchPathForOperator(effectiveOperator));
 								handleBlur();
 							}}
 						>
@@ -1025,13 +1197,27 @@ export const SearchBar = ({
 							<SearchError errorText={errorMessage} />
 						</Suspense>
 					)}{" "}
+				</div>
+				{showRegionPicker ? (
+					<div className="search-bar__region-slot">
+						<RegionSelect
+							options={regionOptions}
+							selectedOperator={effectiveOperator}
+							onChangeOperator={replaceOperatorInUrl}
+						/>
+					</div>
+				) : null}
 			</div>
-			<div
-				ref={overlayRef}
-				className={`overlay ${isActive || isBlurring ? "--active" : ""}`}
-			>
-				{" "}
-			</div>
+			{overlayPortalReady
+				? createPortal(
+						<div
+							ref={overlayRef}
+							className={`overlay ${isActive || isBlurring ? "--active" : ""}`}
+							aria-hidden={!(isActive || isBlurring)}
+						/>,
+						document.body,
+					)
+				: null}
 		</>
 	);
 };

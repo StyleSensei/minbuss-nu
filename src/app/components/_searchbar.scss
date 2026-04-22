@@ -258,6 +258,20 @@ $containerWidth: 278px;
     flex-shrink: 0;
 }
 
+.region-select__crest {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: rgba(v.$secondary-color, 0.08);
+}
+
+.region-select__crest--option {
+    width: 16px;
+    height: 16px;
+}
+
 .region-select__label {
     line-height: 1;
 }
@@ -284,10 +298,58 @@ $containerWidth: 278px;
     border-radius: 16px;
     background: v.$primary-color;
     box-shadow: 0 4px 20px 10px rgba(0, 0, 0, 0.25);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(v.$tertiary-color, 0.45) rgba(v.$primary-color--muted, 0.9);
+
+    &::-webkit-scrollbar {
+        width: 7px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: rgba(v.$primary-color--muted, 0.9);
+        border-radius: 8px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(v.$tertiary-color, 0.45);
+        border-radius: 8px;
+        border: 1px solid rgba(v.$primary-color, 0.7);
+    }
+
+    &.--overflowing {
+        &::after {
+            content: '';
+            display: block;
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 36px;
+            margin-top: -36px;
+            background: linear-gradient(to bottom,
+                    rgba(v.$primary-color, 0) 0%,
+                    rgba(v.$primary-color, .7) 55%,
+                    rgba(v.$primary-color, .98) 100%);
+            pointer-events: none;
+        }
+
+        &:not(.--at-bottom)::after {
+            animation: fadeGradientIn 0.25s ease-in-out both;
+            will-change: opacity;
+        }
+    }
+
+    &.--at-bottom::after {
+        animation: fadeGradientOut 0.25s ease-in-out both;
+        will-change: opacity;
+    }
 }
 
 .region-select__option {
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     border: none;
     background: transparent;
     color: v.$secondary-color;
