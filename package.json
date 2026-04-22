@@ -13,7 +13,13 @@
 		"build:cron": "node scripts/buildCron.js",
 		"test": "vitest",
 		"generate:stops": "tsx scripts/generate-stops-positions.ts",
-		"db:ensure-indexes": "tsx scripts/ensure-db-indexes.ts"
+		"db:prepare-operators": "tsx scripts/prepare-operator-schema.ts",
+		"db:ensure-indexes": "tsx scripts/ensure-db-indexes.ts",
+		"db:import-gtfs": "tsx scripts/run-gtfs-import.ts",
+		"db:import-shapes": "tsx scripts/import-shapes-only.ts",
+		"db:fix-gtfs-pkeys": "tsx scripts/fix-gtfs-primary-keys-for-operator.ts",
+		"db:prune-old-feeds": "tsx scripts/prune-old-feed-versions.ts",
+		"db:populate-gtfs": "npm run db:prepare-operators && npm run db:ensure-indexes && npm run db:fix-gtfs-pkeys && npm run db:import-gtfs"
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.701.0",
