@@ -6,7 +6,7 @@ import {
 } from "@/app/services/dataProcessors/stopPositionsStaticQueries";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const preferredRegion = "arn1";
 
 function parseBounds(sp: URLSearchParams): {

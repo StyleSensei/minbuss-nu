@@ -45,7 +45,8 @@ $containerWidth: 278px;
 
     .search-bar__container form input {
         padding: 0.4rem 0.35rem;
-        font-size: 0.92rem;
+        // min 16px: iOS Safari zoomar sidan om fokuserat fält har mindre text
+        font-size: max(16px, 0.92rem);
     }
 
     @include m.desktop {
@@ -399,6 +400,15 @@ $containerWidth: 278px;
             transform: translateY(calc(32vh - 50% - 1.5rem)) scale(1.2);
         }
 
+        // Undvik visuell "inzoomning" på telefon (scale upplevs som sidzoom)
+        @media screen and (max-width: 1199.98px) {
+            transform: translateY(calc(32dvh - 50% - 1.5rem)) scale(1);
+
+            @supports not (height: 100dvh) {
+                transform: translateY(calc(32vh - 50% - 1.5rem)) scale(1);
+            }
+        }
+
         @include m.desktop {
             transform: translateY(calc(50dvh - 50% - 4rem)) scale(1.5);
 
@@ -461,7 +471,7 @@ $containerWidth: 278px;
             border: none;
             border-radius: inherit;
             padding: 0.55rem 0.5rem;
-            font-size: 1rem;
+            font-size: max(16px, 1rem);
             font-weight: 700;
             display: flex;
             width: auto;
