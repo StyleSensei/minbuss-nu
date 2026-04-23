@@ -10,6 +10,10 @@ interface Props {
   duration?: number;
   /** Synka med initial snap så att vi inte startar från segment 0 och flyttar markören fel. */
   initialLastIndexRef?: React.MutableRefObject<number | null>;
+  /** When true, skip all marker.position writes to reduce DOM mutations during follow mode. */
+  skipWritesRef?: React.MutableRefObject<boolean>;
+  /** Called synchronously right after marker.position is written — used to sync camera. */
+  onPositionWriteRef?: React.MutableRefObject<((lat: number, lng: number) => void) | null>;
 }
 export function useRtTimeline({
   marker,
@@ -17,6 +21,8 @@ export function useRtTimeline({
   shapePoints,
   duration,
   initialLastIndexRef,
+  skipWritesRef,
+  onPositionWriteRef,
 }: Props) {
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const lastIndexRef = useRef<number>(0);
@@ -138,6 +144,7 @@ export function useRtTimeline({
         duration: durationSeconds,
         ease: "linear",
         onUpdate: () => {
+          if (skipWritesRef?.current) return;
           let remaining = cursor.d;
           let segIdx = 0;
           while (segIdx < segLens.length && remaining > segLens[segIdx]) {
@@ -146,6 +153,7 @@ export function useRtTimeline({
           }
           if (segIdx >= segLens.length) {
             marker.position = new google.maps.LatLng(to.lat, to.lng);
+            onPositionWriteRef?.current?.(to.lat, to.lng);
             return;
           }
           const a = points[segIdx];
@@ -155,6 +163,7 @@ export function useRtTimeline({
           const lat = a.lat + (b.lat - a.lat) * t;
           const lng = a.lng + (b.lng - a.lng) * t;
           marker.position = new google.maps.LatLng(lat, lng);
+          onPositionWriteRef?.current?.(lat, lng);
         },
         onComplete,
       });

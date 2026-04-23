@@ -29,9 +29,6 @@ import { projectRtToShape } from "../utilities/projectPointOnSegment";
 import { snapToShapeInitial } from "../utilities/snapToShape";
 import { InfoWindow } from "./InfoWindow";
 
-/** Matchar useRtTimeline duration={8} för markören — samma mjuka easeInOut mot målposition. */
-const FOLLOW_CAMERA_GSAP_DURATION = 8;
-
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
 	currentVehicle: IVehiclePosition;
@@ -67,9 +64,6 @@ export default function CustomMarker({
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
-	const [currentBus, setCurrentBus] = useState<IVehiclePosition | undefined>(
-		currentVehicle,
-	);
 
 	const {
 		filteredVehicles,
@@ -88,13 +82,14 @@ export default function CustomMarker({
 		typeof setTimeout
 	> | null>(null);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
-	const followAnimationRef = useRef<gsap.core.Tween | null>(null);
-	const followCamProxyRef = useRef<{ lat: number; lng: number } | null>(null);
 	const lastShapeIndexRef = useRef<number | null>(null);
 	const [markerReady, setMarkerReady] = useState(false);
 	const lockedShapeRef = useRef<{ shapeId: string; points: IShapes[] } | null>(
 		null,
 	);
+	const skipMarkerWritesRef = useRef(false);
+	const onPositionWriteRef = useRef<((lat: number, lng: number) => void) | null>(null);
+	skipMarkerWritesRef.current = followBus && !isActive;
 
 	const incomingShapePoints = currentVehicle.shapePoints ?? [];
 	const incomingShapeId =
@@ -161,10 +156,6 @@ export default function CustomMarker({
 
 	const onSnapped = useCallback(() => setMarkerReady(true), []);
 
-	useEffect(() => {
-		setCurrentBus(currentVehicle);
-	}, [currentVehicle]);
-
 	const tripForMarker = useMemo(
 		() => tripsByTripId.get(currentVehicle?.trip?.tripId ?? "")?.[0],
 		[currentVehicle?.trip?.tripId, tripsByTripId],
@@ -193,6 +184,8 @@ export default function CustomMarker({
 		shapePoints,
 		duration: 8,
 		initialLastIndexRef: lastShapeIndexRef,
+		skipWritesRef: skipMarkerWritesRef,
+		onPositionWriteRef,
 	});
 
 	useGSAP(() => {
@@ -232,16 +225,16 @@ export default function CustomMarker({
 	}, [position, marker, currentVehicle.shapePoints]);
 
 	const stopsOnCurrentTrip = useMemo(() => {
-		const tripId = currentBus?.trip?.tripId;
+		const tripId = currentVehicle?.trip?.tripId;
 		if (!tripId) return [];
 		return tripsByTripId.get(tripId) ?? [];
-	}, [currentBus?.trip?.tripId, tripsByTripId]);
+	}, [currentVehicle?.trip?.tripId, tripsByTripId]);
 
 	const findClosestOrNextStop = useCallback(() => {
-		if (!currentBus) return null;
+		if (!currentVehicle) return null;
 
-		const busLat = currentBus.position.latitude;
-		const busLon = currentBus.position.longitude;
+		const busLat = currentVehicle.position.latitude;
+		const busLon = currentVehicle.position.longitude;
 
 		if (stopsOnCurrentTrip.length === 0) return null;
 
@@ -251,7 +244,7 @@ export default function CustomMarker({
 			busLon,
 		) as IDbData;
 
-		const isMovingAway = checkIfFurtherFromStop(currentBus, closestStop, true);
+		const isMovingAway = checkIfFurtherFromStop(currentVehicle, closestStop, true);
 
 		const nextStop = stopsOnCurrentTrip.find(
 			(stop) => stop.stop_sequence > closestStop.stop_sequence,
@@ -270,11 +263,11 @@ export default function CustomMarker({
 			closestStop,
 			nextStop,
 		};
-	}, [stopsOnCurrentTrip, currentBus, checkIfFurtherFromStop]);
+	}, [stopsOnCurrentTrip, currentVehicle, checkIfFurtherFromStop]);
 
 	const handleOnClick = () => {
 		if (followBus) return;
-		if (currentBus) onActivateMarker(isActive ? null : currentBus?.vehicle?.id);
+		if (currentVehicle) onActivateMarker(isActive ? null : currentVehicle.vehicle?.id);
 		setClickedOutside(false);
 		setInfoWindowActive(!infoWindowActive);
 		if (googleMapRef.current) {
@@ -283,87 +276,78 @@ export default function CustomMarker({
 		}
 	};
 
-	useGSAP(() => {
-		if (marker && followBus && isActive && googleMapRef.current) {
-			if (followAnimationRef.current) {
-				followAnimationRef.current.kill();
-			}
-
-			const proxy = { _: 0 };
-			followAnimationRef.current = gsap.to(proxy, {
-				_: 1,
-				duration: 99999,
-				ease: "none",
-				onUpdate: () => {
-					if (marker?.position && googleMapRef.current) {
-						const lat =
-							typeof marker.position.lat === "function"
-								? marker.position.lat()
-								: marker.position.lat;
-						const lng =
-							typeof marker.position.lng === "function"
-								? marker.position.lng()
-								: marker.position.lng;
-						const nlat = +lat;
-						const nlng = +lng;
-						const map = googleMapRef.current;
-						let cam = followCamProxyRef.current;
-						if (!cam) {
-							const c = map.getCenter();
-							if (!c) return;
-							cam = { lat: c.lat(), lng: c.lng() };
-							followCamProxyRef.current = cam;
-						}
-						gsap.to(cam, {
-							lat: nlat,
-							lng: nlng,
-							duration: FOLLOW_CAMERA_GSAP_DURATION,
-							ease: "easeInOut",
-							overwrite: "auto",
-							onUpdate: () => {
-								map.setCenter(new google.maps.LatLng(cam.lat, cam.lng));
-							},
-						});
-					}
-				},
-			});
+	useEffect(() => {
+		if (!(marker && followBus && isActive && googleMapRef.current)) {
+			onPositionWriteRef.current = null;
+			return;
 		}
 
+		const map = googleMapRef.current;
+		const mapDiv = map.getDiv();
+		const innerDiv = mapDiv.querySelector(".gm-style > div:first-child") as HTMLElement | null;
+		if (!innerDiv) return;
+
+		if (marker.position) {
+			map.setCenter(marker.position);
+		}
+
+		const center = map.getCenter();
+		let baseLat = center?.lat() ?? position.lat;
+		let baseLng = center?.lng() ?? position.lng;
+
+		const BUFFER_PX = 300;
+		const RECENTER_THRESHOLD_PX = BUFFER_PX - 50;
+
+		const styleEl = document.createElement("style");
+		styleEl.textContent = [
+			`[data-follow-expand]{width:calc(100vw + ${BUFFER_PX * 2}px)!important;height:calc(100dvh + ${BUFFER_PX * 2}px)!important;margin:-${BUFFER_PX}px!important}`,
+			`[data-follow-expand] .map-control-buttons{transform:translateX(-${BUFFER_PX}px)!important}`,
+		].join("");
+		document.head.appendChild(styleEl);
+		mapDiv.setAttribute("data-follow-expand", "");
+
+		const parentEl = mapDiv.parentElement;
+		const savedParentOverflow = parentEl?.style.overflow ?? "";
+		if (parentEl) parentEl.style.overflow = "hidden";
+
+		google.maps.event.trigger(map, "resize");
+
+		onPositionWriteRef.current = (lat: number, lng: number) => {
+			const proj = map.getProjection();
+			const zoom = map.getZoom();
+			if (!proj || zoom == null) return;
+
+			const scale = 1 << zoom;
+			const basePoint = proj.fromLatLngToPoint(new google.maps.LatLng(baseLat, baseLng));
+			const currentPoint = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+			if (!basePoint || !currentPoint) return;
+
+			const dx = (currentPoint.x - basePoint.x) * scale;
+			const dy = (currentPoint.y - basePoint.y) * scale;
+
+			if (Math.abs(dx) > RECENTER_THRESHOLD_PX || Math.abs(dy) > RECENTER_THRESHOLD_PX) {
+				map.setCenter(new google.maps.LatLng(lat, lng));
+				innerDiv.style.transform = "";
+				baseLat = lat;
+				baseLng = lng;
+				return;
+			}
+
+			innerDiv.style.transform = `translate(${-dx}px, ${-dy}px)`;
+		};
+
 		return () => {
-			if (followAnimationRef.current) {
-				followAnimationRef.current.kill();
-				followAnimationRef.current = null;
-			}
-			const cam = followCamProxyRef.current;
-			if (cam) {
-				gsap.killTweensOf(cam);
-			}
+			onPositionWriteRef.current = null;
+			innerDiv.style.transform = "";
+			mapDiv.removeAttribute("data-follow-expand");
+			styleEl.remove();
+			if (parentEl) parentEl.style.overflow = savedParentOverflow;
+			google.maps.event.trigger(map, "resize");
 		};
 	}, [marker, isActive, followBus, googleMapRef]);
 
 	useEffect(() => {
-		if (!followBus) {
-			const cam = followCamProxyRef.current;
-			if (cam) {
-				gsap.killTweensOf(cam);
-			}
-			followCamProxyRef.current = null;
-			if (followAnimationRef.current) {
-				followAnimationRef.current.kill();
-				followAnimationRef.current = null;
-			}
-		}
-	}, [followBus]);
-
-	useEffect(() => {
 		return () => {
-			if (markerAnimationRef.current) {
-				markerAnimationRef.current.kill();
-			}
-			if (followAnimationRef.current) {
-				followAnimationRef.current.kill();
-			}
-
 			if (marker?.position) {
 				gsap.killTweensOf(marker.position);
 			}
@@ -380,14 +364,12 @@ export default function CustomMarker({
 	);
 
 	useEffect(() => {
-		if (isActive && currentBus) {
-			const closestOrNextStop = findClosestOrNextStop();
-
-			if (closestOrNextStop?.closestStop) {
-				setClosestStop(closestOrNextStop.closestStop);
-			}
+		if (!(isActive || infoWindowActive) || !currentVehicle) return;
+		const closestOrNextStop = findClosestOrNextStop();
+		if (closestOrNextStop?.closestStop) {
+			setClosestStop(closestOrNextStop.closestStop);
 		}
-	}, [isActive, currentBus, findClosestOrNextStop]);
+	}, [isActive, infoWindowActive, currentVehicle, findClosestOrNextStop]);
 
 	/** Synka CurrentTrips med samma referenshållplats som InfoWindow när detta fordon är aktivt. */
 	useEffect(() => {
@@ -405,22 +387,16 @@ export default function CustomMarker({
 			setActiveFollowedTripId(null);
 			return;
 		}
-		const tid = currentBus?.trip?.tripId ?? currentVehicle.trip?.tripId ?? null;
+		const tid = currentVehicle.trip?.tripId ?? null;
 		setActiveFollowedTripId(tid ?? null);
 	}, [
 		isActive,
-		currentBus?.trip?.tripId,
 		currentVehicle.trip?.tripId,
 		setActiveFollowedTripId,
 	]);
 
 	useEffect(() => {
-		if (infoWindowActive) {
-			setInfoWindowActiveExternal(true);
-		}
-		if (!infoWindowActive) {
-			setInfoWindowActiveExternal(false);
-		}
+		setInfoWindowActiveExternal(infoWindowActive);
 	}, [infoWindowActive, setInfoWindowActiveExternal]);
 
 	useEffect(() => {
@@ -431,14 +407,6 @@ export default function CustomMarker({
 			return;
 		}
 	}, [clickedOutside, setFollowBus, onActivateMarker]);
-
-	useEffect(() => {
-		if (!currentBus || !infoWindowActive) return;
-		const closestOrNextStop = findClosestOrNextStop();
-		if (closestOrNextStop?.closestStop) {
-			setClosestStop(closestOrNextStop.closestStop);
-		}
-	}, [currentBus, infoWindowActive, findClosestOrNextStop]);
 
 	useEffect(() => {
 		if (filteredVehicles.data.length) {
@@ -521,7 +489,7 @@ export default function CustomMarker({
 			{isActive && (
 				<InfoWindow
 					closestStopState={closestStopState}
-					tripId={currentBus?.trip.tripId ?? undefined}
+					tripId={currentVehicle?.trip.tripId ?? undefined}
 					googleMapRef={googleMapRef}
 					style={
 						showCurrentTrips && isMobile
