@@ -204,7 +204,7 @@ export default function MapClient() {
 	]);
 	const [mapReady, setMapReady] = useState(false);
 	const [mapMountKey, setMapMountKey] = useState(0);
-	const [mapRenderingType, setMapRenderingType] = useState(
+	const [mapRenderingType, setMapRenderingType] = useState<RenderingType>(
 		RenderingType.VECTOR,
 	);
 	const [mapRecoveryMessage, setMapRecoveryMessage] = useState<string | null>(
