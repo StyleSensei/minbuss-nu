@@ -203,6 +203,13 @@ export default function MapClient() {
 		tripData.upcomingTrips,
 	]);
 	const [mapReady, setMapReady] = useState(false);
+	const [mapMountKey, setMapMountKey] = useState(0);
+	const [mapRenderingType, setMapRenderingType] = useState(
+		RenderingType.VECTOR,
+	);
+	const [mapRecoveryMessage, setMapRecoveryMessage] = useState<string | null>(
+		null,
+	);
 	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
 		bounds: google.maps.LatLngBoundsLiteral;
@@ -231,6 +238,7 @@ export default function MapClient() {
 	const prevLinjeParamForUserPanRef = useRef("");
 	const mapInitialZoomBootstrapDoneRef = useRef(false);
 	const prevMapOperatorForPanRef = useRef<string | null>(null);
+	const mapBootRecoveryAttemptsRef = useRef(0);
 
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const operatorUrlParam = searchParams.get("operator")?.trim() ?? "";
@@ -420,6 +428,58 @@ export default function MapClient() {
 			google.maps.event.removeListener(listener);
 		};
 	}, [mapReady, linjeParam]);
+
+	useEffect(() => {
+		mapBootRecoveryAttemptsRef.current = 0;
+		setMapReady(false);
+		mapRef.current = null;
+		setMapViewport(null);
+		setMapRenderingType(RenderingType.VECTOR);
+		setMapRecoveryMessage(null);
+	}, [mapOperatorForView]);
+
+	useEffect(() => {
+		if (mapReady) {
+			mapBootRecoveryAttemptsRef.current = 0;
+			setMapRecoveryMessage(null);
+			return;
+		}
+		if (mapBootRecoveryAttemptsRef.current >= 2) {
+			return;
+		}
+		const timer = setTimeout(() => {
+			if (mapReady || mapBootRecoveryAttemptsRef.current >= 2) {
+				return;
+			}
+			mapBootRecoveryAttemptsRef.current += 1;
+			mapRef.current = null;
+			setMapViewport(null);
+			setMapMountKey((prev) => prev + 1);
+
+			if (
+				mapBootRecoveryAttemptsRef.current >= 1 &&
+				mapRenderingType !== RenderingType.RASTER
+			) {
+				setMapRenderingType(RenderingType.RASTER);
+				setMapRecoveryMessage(
+					"Svag anslutning upptäckt. Växlar till ett lättare kartläge.",
+				);
+			}
+		}, 9000);
+
+		return () => clearTimeout(timer);
+	}, [mapReady, mapRenderingType]);
+
+	useEffect(() => {
+		const handleOnline = () => {
+			if (mapReady) return;
+			setMapMountKey((prev) => prev + 1);
+		};
+		window.addEventListener("online", handleOnline);
+		return () => {
+			window.removeEventListener("online", handleOnline);
+		};
+	}, [mapReady]);
 
 	useEffect(() => {
 		const ctaButton = document.getElementById("cta");
@@ -691,6 +751,24 @@ export default function MapClient() {
 		},
 		[queueMapViewport],
 	);
+
+	const initializeMapFromEvent = useCallback((e: MapEvent) => {
+		const map = e.map as google.maps.Map;
+		mapRef.current = map;
+		setMapReady(true);
+		const z = map.getZoom() ?? 10;
+		const b = map.getBounds();
+		if (!b) return;
+		const boundsJson = b.toJSON();
+		if (mapViewportDebounceRef.current) {
+			clearTimeout(mapViewportDebounceRef.current);
+			mapViewportDebounceRef.current = null;
+		}
+		zoomRef.current = z;
+		startTransition(() => {
+			setMapViewport({ zoom: z, bounds: boundsJson });
+		});
+	}, []);
 
 	useEffect(() => {
 		if (!mapReady) return;
@@ -1011,6 +1089,7 @@ export default function MapClient() {
 		<div>
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
+					key={`${mapOperatorForView}:${mapRenderingType}:${mapMountKey}`}
 					mapId={"fb3dad0c952dfd27"}
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
 					defaultZoom={
@@ -1022,21 +1101,11 @@ export default function MapClient() {
 					defaultCenter={defaultMapCenter}
 					gestureHandling={"greedy"}
 					onTilesLoaded={(e: MapEvent) => {
-						const map = e.map as google.maps.Map;
-						mapRef.current = map;
-						setMapReady(true);
-						const z = map.getZoom() ?? 10;
-						const b = map.getBounds();
-						if (b) {
-							const boundsJson = b.toJSON();
-							if (mapViewportDebounceRef.current) {
-								clearTimeout(mapViewportDebounceRef.current);
-								mapViewportDebounceRef.current = null;
-							}
-							zoomRef.current = z;
-							startTransition(() => {
-								setMapViewport({ zoom: z, bounds: boundsJson });
-							});
+						initializeMapFromEvent(e);
+					}}
+					onIdle={(e: MapEvent) => {
+						if (!mapReady) {
+							initializeMapFromEvent(e);
 						}
 					}}
 					onCameraChanged={handleCameraChanged}
@@ -1051,7 +1120,7 @@ export default function MapClient() {
 						setMapStopPreview(null);
 					}}
 					colorScheme="DARK"
-					renderingType={RenderingType.VECTOR}
+					renderingType={mapRenderingType}
 					reuseMaps={true}
 					restriction={{
 						latLngBounds: operatorMapView.restriction,
@@ -1169,6 +1238,7 @@ export default function MapClient() {
 					message={myPositionErrorMessage}
 				/>
 			)}
+			{mapRecoveryMessage && <UserMessage message={mapRecoveryMessage} />}
 			<div id="follow-bus-border" />
 		</div>
 	);

@@ -3,6 +3,7 @@
 import {
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -112,6 +113,20 @@ export const InfoWindow = ({
 		prevEffectiveStopRef.current = effectiveStop;
 	}, [closestStopState, localClosestStop, tripStops, checkOverflow]);
 
+	useLayoutEffect(() => {
+		const el = containerRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(() => {
+			checkOverflow();
+		});
+		ro.observe(el);
+		const t = window.setTimeout(() => checkOverflow(), 50);
+		return () => {
+			window.clearTimeout(t);
+			ro.disconnect();
+		};
+	}, [checkOverflow, isCollapsed, tripStops.length, effectiveStop?.stop_sequence]);
+
 	useEffect(() => {
 		if (!tripId) return;
 
@@ -184,6 +199,7 @@ export const InfoWindow = ({
 				<div className="table-wrapper">
 					<Table
 						ref={containerRef}
+						onScroll={checkOverflow}
 						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
 					>
 						<TableCaption className="text-left text-zinc-300/80">

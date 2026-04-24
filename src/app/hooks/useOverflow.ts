@@ -9,6 +9,7 @@ export const useOverflow = <T extends HTMLElement = HTMLDivElement>(
 ) => {
 	const bottomThreshold = options?.bottomThreshold ?? 20;
 	const containerRef = useRef<T>(null);
+	const activeScrollElementRef = useRef<T | null>(null);
 	const [isOverflowing, setIsOverflowing] = useState(false);
 	const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
@@ -35,11 +36,27 @@ export const useOverflow = <T extends HTMLElement = HTMLDivElement>(
 	}, [checkOverflow]);
 
 	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
+		const nextElement = containerRef.current;
+		const prevElement = activeScrollElementRef.current;
 
-		container.addEventListener("scroll", checkOverflow);
-		return () => container.removeEventListener("scroll", checkOverflow);
+		if (prevElement === nextElement) return;
+
+		if (prevElement) {
+			prevElement.removeEventListener("scroll", checkOverflow);
+		}
+		if (nextElement) {
+			nextElement.addEventListener("scroll", checkOverflow);
+		}
+		activeScrollElementRef.current = nextElement;
+	});
+
+	useEffect(() => {
+		return () => {
+			const current = activeScrollElementRef.current;
+			if (current) {
+				current.removeEventListener("scroll", checkOverflow);
+			}
+		};
 	}, [checkOverflow]);
 
 	return { containerRef, isOverflowing, isScrolledToBottom, checkOverflow };
