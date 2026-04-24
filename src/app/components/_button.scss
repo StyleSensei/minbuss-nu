@@ -86,7 +86,7 @@ $buttonHeightDesktop: 6vh;
             padding: 1.5rem;
             font-size: 2rem;
 
-            &:hover {
+            &:hover:not(:disabled) {
                 background-color: color.adjust(v.$primary-color, $lightness: 10%);
             }
         }
@@ -107,6 +107,9 @@ $buttonHeightDesktop: 6vh;
 
         &.--disabled {
             opacity: 0.5;
+            &:hover:not(:disabled) {
+                background-color: black;
+            }
         }
     }
 

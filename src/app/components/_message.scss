@@ -32,14 +32,18 @@
     border-radius: 5px;
     bottom: 75px;
     top: unset;
-    display: flex;
-    align-items: baseline;
+
+    .warn-message-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
 
     @include m.desktop {
         bottom: 0;
     }
 
-    .no-position-icon {
-        transform: translate(-4px, 4px);
-    }
+    // .no-position-icon {
+    //     transform: translate(-4px, 4px);
+    // }
 }
