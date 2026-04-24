@@ -432,6 +432,7 @@ export interface INearbyStopRow {
 
 const NEARBY_BBOX_DEG = 0.05;
 const NEARBY_CANDIDATE_CAP = 800;
+const NEARBY_FALLBACK_CANDIDATE_CAP = 3000;
 
 /** Stops nearest to a point; bbox prefilter then Haversine sort. */
 export const selectNearestStopsFromDatabase = async (
@@ -444,50 +445,60 @@ export const selectNearestStopsFromDatabase = async (
 	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
-		const data = await db
-			.select({
-				stop_id: stops.stop_id,
-				stop_name: stops.stop_name,
-				stop_lat: stops.stop_lat,
-				stop_lon: stops.stop_lon,
-			})
-			.from(stops)
-			.innerJoin(
-				stop_times,
-				and(
-					eq(stop_times.stop_id, stops.stop_id),
-					eq(stop_times.operator, stops.operator),
-					eq(stop_times.feed_version, latestFeedVersion),
-				),
-			)
-			.innerJoin(
-				trips,
-				and(
-					eq(trips.trip_id, stop_times.trip_id),
-					eq(trips.operator, stop_times.operator),
-					eq(trips.feed_version, latestFeedVersion),
-				),
-			)
-			.innerJoin(
-				routes,
-				and(
-					eq(routes.route_id, trips.route_id),
-					eq(routes.operator, trips.operator),
-					eq(routes.feed_version, latestFeedVersion),
-				),
-			)
-			.where(
-				and(
-					eq(stops.feed_version, latestFeedVersion),
-					eq(stops.operator, operator),
-					gte(stops.stop_lat, lat - NEARBY_BBOX_DEG),
-					lte(stops.stop_lat, lat + NEARBY_BBOX_DEG),
-					gte(stops.stop_lon, lng - NEARBY_BBOX_DEG),
-					lte(stops.stop_lon, lng + NEARBY_BBOX_DEG),
-				),
-			)
-			.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
-			.limit(NEARBY_CANDIDATE_CAP);
+		const selectNearbyCandidates = async (useBbox: boolean, candidateCap: number) =>
+			db
+				.select({
+					stop_id: stops.stop_id,
+					stop_name: stops.stop_name,
+					stop_lat: stops.stop_lat,
+					stop_lon: stops.stop_lon,
+				})
+				.from(stops)
+				.innerJoin(
+					stop_times,
+					and(
+						eq(stop_times.stop_id, stops.stop_id),
+						eq(stop_times.operator, stops.operator),
+						eq(stop_times.feed_version, latestFeedVersion),
+					),
+				)
+				.innerJoin(
+					trips,
+					and(
+						eq(trips.trip_id, stop_times.trip_id),
+						eq(trips.operator, stop_times.operator),
+						eq(trips.feed_version, latestFeedVersion),
+					),
+				)
+				.innerJoin(
+					routes,
+					and(
+						eq(routes.route_id, trips.route_id),
+						eq(routes.operator, trips.operator),
+						eq(routes.feed_version, latestFeedVersion),
+					),
+				)
+				.where(
+					and(
+						eq(stops.feed_version, latestFeedVersion),
+						eq(stops.operator, operator),
+						...(useBbox
+							? [
+									gte(stops.stop_lat, lat - NEARBY_BBOX_DEG),
+									lte(stops.stop_lat, lat + NEARBY_BBOX_DEG),
+									gte(stops.stop_lon, lng - NEARBY_BBOX_DEG),
+									lte(stops.stop_lon, lng + NEARBY_BBOX_DEG),
+								]
+							: []),
+					),
+				)
+				.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
+				.limit(candidateCap);
+
+		let data = await selectNearbyCandidates(true, NEARBY_CANDIDATE_CAP);
+		if (data.length === 0) {
+			data = await selectNearbyCandidates(false, NEARBY_FALLBACK_CANDIDATE_CAP);
+		}
 
 		const rows: INearbyStopRow[] = data
 			.filter(
