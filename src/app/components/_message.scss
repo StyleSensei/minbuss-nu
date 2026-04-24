@@ -32,6 +32,8 @@
     border-radius: 5px;
     bottom: 75px;
     top: unset;
+    display: flex;
+    align-items: baseline;
 
     @include m.desktop {
         bottom: 0;
