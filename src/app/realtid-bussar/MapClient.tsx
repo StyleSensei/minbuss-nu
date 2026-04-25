@@ -303,13 +303,32 @@ export default function MapClient() {
 	const findOperatorForPosition = useCallback(
 		(lat: number, lng: number): string | null => {
 			const operators = operatorsMeta?.operators ?? [mapOperatorForView];
-			for (const op of operators) {
+			const matchingOperators = operators.filter((op) => {
 				const view = getOperatorMapView(op);
-				if (isPointInBounds(lat, lng, view.restriction)) {
-					return op;
+				return isPointInBounds(lat, lng, view.restriction);
+			});
+			if (matchingOperators.length === 0) {
+				return null;
+			}
+			if (matchingOperators.length === 1) {
+				return matchingOperators[0];
+			}
+
+			// Bounds can overlap between operators. Pick the region whose
+			// default center is closest to the user position.
+			let best = matchingOperators[0];
+			let bestDistance = Number.POSITIVE_INFINITY;
+			for (const op of matchingOperators) {
+				const { defaultCenter } = getOperatorMapView(op);
+				const dLat = defaultCenter.lat - lat;
+				const dLng = defaultCenter.lng - lng;
+				const distanceSq = dLat * dLat + dLng * dLng;
+				if (distanceSq < bestDistance) {
+					bestDistance = distanceSq;
+					best = op;
 				}
 			}
-			return null;
+			return best;
 		},
 		[operatorsMeta?.operators, mapOperatorForView],
 	);
@@ -863,14 +882,6 @@ export default function MapClient() {
 		setMyPositionErrorMessage(null);
 
 		const { lat, lng } = userPosition;
-		if (isPointInBounds(lat, lng, operatorMapView.restriction)) {
-			mapRef.current.panTo({ lat, lng });
-			if ((mapRef.current.getZoom() ?? 10) < 14) {
-				mapRef.current.setZoom(14);
-			}
-			return;
-		}
-
 		const matchedOperator = findOperatorForPosition(lat, lng);
 		if (!matchedOperator) {
 			setMyPositionErrorMessage(
@@ -878,17 +889,24 @@ export default function MapClient() {
 			);
 			return;
 		}
+		if (matchedOperator !== mapOperatorForView) {
+			const p = new URLSearchParams(searchParams.toString());
+			p.delete("operator");
+			p.set("focusUser", "1");
+			const qs = p.toString();
+			const base = searchPathForOperator(matchedOperator);
+			router.push(qs ? `${base}?${qs}` : base);
+			return;
+		}
 
-		const p = new URLSearchParams(searchParams.toString());
-		p.delete("operator");
-		p.set("focusUser", "1");
-		const qs = p.toString();
-		const base = searchPathForOperator(matchedOperator);
-		router.push(qs ? `${base}?${qs}` : base);
+		mapRef.current.panTo({ lat, lng });
+		if ((mapRef.current.getZoom() ?? 10) < 14) {
+			mapRef.current.setZoom(14);
+		}
 	}, [
 		mapReady,
 		userPosition,
-		operatorMapView.restriction,
+		mapOperatorForView,
 		findOperatorForPosition,
 		searchParams,
 		router,
