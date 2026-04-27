@@ -188,7 +188,7 @@ export const OPERATOR_REGISTRY: OperatorRegistryEntry[] = [
 		id: "varm",
 		aliases: [],
 		displayLabel: "Värmlandstrafik",
-		regionSlug: "varm",
+		regionSlug: "varmland",
 		seoArea: "Värmland",
 		crestIcon: regionCrestIconByOperator.varm,
 		mapView: {
@@ -212,7 +212,7 @@ export const OPERATOR_REGISTRY: OperatorRegistryEntry[] = [
 		id: "dt",
 		aliases: [],
 		displayLabel: "Dalatrafik",
-		regionSlug: "dt",
+		regionSlug: "dalarna",
 		seoArea: "Dalarna",
 		crestIcon: regionCrestIconByOperator.dt,
 		mapView: {
@@ -224,7 +224,7 @@ export const OPERATOR_REGISTRY: OperatorRegistryEntry[] = [
 		id: "xt",
 		aliases: [],
 		displayLabel: "X-trafik",
-		regionSlug: "xt",
+		regionSlug: "gavleborg",
 		seoArea: "Gävleborg",
 		crestIcon: regionCrestIconByOperator.xt,
 		mapView: {
@@ -236,7 +236,7 @@ export const OPERATOR_REGISTRY: OperatorRegistryEntry[] = [
 		id: "dintur",
 		aliases: [],
 		displayLabel: "Din Tur - Västernorrland",
-		regionSlug: "dintur",
+		regionSlug: "vasternorrland",
 		seoArea: "Västernorrland",
 		crestIcon: regionCrestIconByOperator.dintur,
 		mapView: {
