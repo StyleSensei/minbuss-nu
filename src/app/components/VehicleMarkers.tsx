@@ -1,8 +1,8 @@
 import type { MutableRefObject } from "react";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef } from "react";
 import type { IDbData } from "@/shared/models/IDbData";
+import type { IShapes } from "@/shared/models/IShapes";
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
-import { useDataContext } from "../context/DataContext";
 import CustomMarker from "./CustomMarker";
 
 interface IVehicleMarkersProps {
@@ -17,16 +17,25 @@ interface IVehicleMarkersProps {
 	activeMarkerId: string | null;
 	setActiveMarkerId: (id: string | null) => void;
 	showCurrentTrips: boolean;
+	currentTrips: IDbData[];
+	lineShapes: { shape_id: string; points: IShapes[] }[];
 }
 
 const VehicleMarkers = memo(function VehicleMarkers({
 	vehicles,
+	currentTrips,
+	lineShapes,
 	...props
 }: IVehicleMarkersProps) {
-	const { tripData } = useDataContext();
+	const renderCountRef = useRef(0);
+	renderCountRef.current += 1;
+	if (process.env.NODE_ENV !== "production" && renderCountRef.current % 20 === 0) {
+		console.debug("[vehicle-markers] render-count", renderCountRef.current);
+	}
+
 	const tripsByTripId = useMemo(() => {
 		const byTripId = new Map<string, IDbData[]>();
-		for (const trip of tripData.currentTrips) {
+		for (const trip of currentTrips) {
 			if (!trip?.trip_id) continue;
 			const existing = byTripId.get(trip.trip_id);
 			if (existing) {
@@ -39,13 +48,11 @@ const VehicleMarkers = memo(function VehicleMarkers({
 			trips.sort((a, b) => a.stop_sequence - b.stop_sequence);
 		}
 		return byTripId;
-	}, [tripData.currentTrips]);
+	}, [currentTrips]);
 
 	const vehiclesWithShapes = useMemo(() => {
 		if (!vehicles?.length) return vehicles;
-		const shapeById = new Map(
-			tripData.lineShapes.map((s) => [s.shape_id, s.points]),
-		);
+		const shapeById = new Map(lineShapes.map((s) => [s.shape_id, s.points]));
 		return vehicles.map((v) => {
 			if ((v.shapePoints?.length ?? 0) >= 2) return v;
 			const tid = v.trip?.tripId ?? "";
@@ -56,7 +63,7 @@ const VehicleMarkers = memo(function VehicleMarkers({
 			if (!pts || pts.length < 2) return v;
 			return { ...v, shapePoints: pts };
 		});
-	}, [vehicles, tripData.lineShapes, tripsByTripId]);
+	}, [vehicles, lineShapes, tripsByTripId]);
 
 	if (!vehicles || vehicles.length === 0) {
 		return null;

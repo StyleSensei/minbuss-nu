@@ -60,6 +60,7 @@ export function useSearchBarRealtimeData({
 	fetchVehicles,
 	fetchTripUpdates,
 }: UseSearchBarRealtimeDataParams) {
+	const VEHICLE_POLL_INTERVAL_MS = 5000;
 	const latestVehicleLineRef = useRef(userInput);
 	const handleOnChangeRef = useRef<((query: string) => void) | null>(null);
 
@@ -143,7 +144,7 @@ export function useSearchBarRealtimeData({
 		usePolling<IVehicleFilterResult>(
 			fetchVehiclesForPolling,
 			setFilteredVehicles,
-			5000,
+			VEHICLE_POLL_INTERVAL_MS,
 			{
 				onError: () =>
 					setFilteredVehicles({
@@ -176,7 +177,7 @@ export function useSearchBarRealtimeData({
 			resetTripDataToEmpty();
 			return;
 		}
-		if (userInput && !filteredVehiclesLength && !routeExists) return;
+		if (userInput && !routeExists) return;
 
 		if (!userInput && filteredVehiclesLength) {
 			setFilteredVehicles({ data: [] });
@@ -196,7 +197,7 @@ export function useSearchBarRealtimeData({
 			return;
 		}
 
-		if (filteredVehiclesLength > 0) {
+		if (routeExists) {
 			pollVehiclePositions(userInput);
 			if (!isTripUpdatesPollingActive.current) {
 				isTripUpdatesPollingActive.current = true;

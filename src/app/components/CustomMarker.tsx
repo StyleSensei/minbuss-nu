@@ -23,11 +23,14 @@ import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useRtTimeline } from "../hooks/useRtTimeline";
+import { useShapeCoasting } from "../hooks/useShapeCoasting";
 import { useSetZoom } from "../hooks/useSetZoom";
 import { getClosest } from "../utilities/getClosest";
 import { projectRtToShape } from "../utilities/projectPointOnSegment";
 import { snapToShapeInitial } from "../utilities/snapToShape";
 import { InfoWindow } from "./InfoWindow";
+
+const VEHICLE_MARKER_ANIMATION_SECONDS = 5.2;
 
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
@@ -89,6 +92,7 @@ export default function CustomMarker({
 	);
 	const skipMarkerWritesRef = useRef(false);
 	const onPositionWriteRef = useRef<((lat: number, lng: number) => void) | null>(null);
+	const rtTimelineBusyRef = useRef(false);
 	skipMarkerWritesRef.current = followBus && !isActive;
 
 	const incomingShapePoints = currentVehicle.shapePoints ?? [];
@@ -182,14 +186,25 @@ export default function CustomMarker({
 		marker,
 		vehiclePosition,
 		shapePoints,
-		duration: 8,
 		initialLastIndexRef: lastShapeIndexRef,
+		skipWritesRef: skipMarkerWritesRef,
+		onPositionWriteRef,
+		timelineBusyRef: rtTimelineBusyRef,
+	});
+
+	useShapeCoasting({
+		marker,
+		shapePoints,
+		vehicleLat: position.lat,
+		vehicleLng: position.lng,
+		speedMps: currentVehicle.position.speed,
+		timelineBusyRef: rtTimelineBusyRef,
 		skipWritesRef: skipMarkerWritesRef,
 		onPositionWriteRef,
 	});
 
 	useGSAP(() => {
-		if (marker && !currentVehicle.shapePoints?.length) {
+		if (marker && (currentVehicle.shapePoints?.length ?? 0) < 2) {
 			if (markerAnimationRef.current) {
 				markerAnimationRef.current.kill();
 			}
@@ -199,7 +214,7 @@ export default function CustomMarker({
 				: position;
 
 			markerAnimationRef.current = gsap.to(currentPosition, {
-				duration: 8,
+				duration: VEHICLE_MARKER_ANIMATION_SECONDS,
 				ease: "easeInOut",
 				lat: position.lat,
 				lng: position.lng,

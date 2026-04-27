@@ -12,16 +12,20 @@ export function usePolling<T>(
 	intervalMs: number,
 	options?: {
 		onError?: (error: unknown) => void;
+		onVisibilityResume?: () => void;
 	},
 ) {
 	const intervalRef = useRef<NodeJS.Timeout | null>(null);
+	const resumeCatchupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const queryRef = useRef<string>("");
 	const intervalMsRef = useRef(intervalMs);
 	const onErrorRef = useRef(options?.onError);
+	const onVisibilityResumeRef = useRef(options?.onVisibilityResume);
 
 	intervalMsRef.current = intervalMs;
 	onErrorRef.current = options?.onError;
+	onVisibilityResumeRef.current = options?.onVisibilityResume;
 
 	const executeFetch = useCallback(async () => {
 		if (!queryRef.current) return;
@@ -78,6 +82,10 @@ export function usePolling<T>(
 			clearInterval(intervalRef.current);
 			intervalRef.current = null;
 		}
+		if (resumeCatchupTimeoutRef.current) {
+			clearTimeout(resumeCatchupTimeoutRef.current);
+			resumeCatchupTimeoutRef.current = null;
+		}
 		if (abortControllerRef.current) {
 			abortControllerRef.current.abort();
 			abortControllerRef.current = null;
@@ -93,10 +101,19 @@ export function usePolling<T>(
 					clearInterval(intervalRef.current);
 					intervalRef.current = null;
 				}
+				if (resumeCatchupTimeoutRef.current) {
+					clearTimeout(resumeCatchupTimeoutRef.current);
+					resumeCatchupTimeoutRef.current = null;
+				}
 				abortControllerRef.current?.abort();
 				return;
 			}
+			onVisibilityResumeRef.current?.();
 			void executeFetch();
+			const catchupDelay = Math.min(1200, Math.max(500, Math.floor(intervalMsRef.current * 0.4)));
+			resumeCatchupTimeoutRef.current = setTimeout(() => {
+				void executeFetch();
+			}, catchupDelay);
 			startIntervalIfVisible();
 		};
 		document.addEventListener("visibilitychange", onVis);

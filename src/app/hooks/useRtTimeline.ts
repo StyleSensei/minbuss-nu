@@ -14,6 +14,8 @@ interface Props {
   skipWritesRef?: React.MutableRefObject<boolean>;
   /** Called synchronously right after marker.position is written — used to sync camera. */
   onPositionWriteRef?: React.MutableRefObject<((lat: number, lng: number) => void) | null>;
+  /** True while GSAP timeline / tweens from this hook are running — coasting should pause. */
+  timelineBusyRef?: React.MutableRefObject<boolean>;
 }
 export function useRtTimeline({
   marker,
@@ -23,9 +25,17 @@ export function useRtTimeline({
   initialLastIndexRef,
   skipWritesRef,
   onPositionWriteRef,
+  timelineBusyRef,
 }: Props) {
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const rawFallbackTweenRef = useRef<gsap.core.Tween | null>(null);
+  const segmentTweenRef = useRef<gsap.core.Tween | null>(null);
   const lastIndexRef = useRef<number>(0);
+  const skipStreakRef = useRef(0);
+  const throttledWriteCounterRef = useRef(0);
+  const lastRtUpdateAtRef = useRef<number | null>(null);
+  const smoothedUpdateIntervalMsRef = useRef(5000);
+  const animDepthRef = useRef(0);
   const prevShapeMetaRef = useRef<{ shapeId: string | null; shapeLen: number } | null>(
     null
   );
@@ -34,10 +44,36 @@ export function useRtTimeline({
   shapePointsRef.current = shapePoints;
   durationRef.current = duration;
 
+  const syncTimelineBusy = () => {
+    if (timelineBusyRef) {
+      timelineBusyRef.current = animDepthRef.current > 0;
+    }
+  };
+  const beginRtAnim = () => {
+    animDepthRef.current += 1;
+    syncTimelineBusy();
+  };
+  const endRtAnim = () => {
+    animDepthRef.current = Math.max(0, animDepthRef.current - 1);
+    syncTimelineBusy();
+  };
+
   useEffect(() => {
     const shapePoints = shapePointsRef.current;
     const duration = durationRef.current;
     if (!marker || shapePoints.length < 2) return;
+    const nowMs = Date.now();
+    if (lastRtUpdateAtRef.current != null) {
+      const deltaMs = Math.max(400, Math.min(15000, nowMs - lastRtUpdateAtRef.current));
+      smoothedUpdateIntervalMsRef.current =
+        smoothedUpdateIntervalMsRef.current * 0.7 + deltaMs * 0.3;
+    }
+    lastRtUpdateAtRef.current = nowMs;
+    const adaptiveBaseSeconds = Math.max(
+      1.4,
+      Math.min(8, smoothedUpdateIntervalMsRef.current / 1000 + 0.4)
+    );
+    const preferredDurationSeconds = duration ?? Math.min(8.8, adaptiveBaseSeconds + 0.9);
 
     const pointOnSegment = (index: number, t: number) => {
       const a = shapePoints[index];
@@ -132,19 +168,27 @@ export function useRtTimeline({
 
       if (total === 0) {
         marker.position = new google.maps.LatLng(to.lat, to.lng);
+        onPositionWriteRef?.current?.(to.lat, to.lng);
         onComplete?.();
         return;
       }
 
       const cursor = { d: 0 };
       timelineRef.current?.kill();
+      timelineRef.current = null;
+      beginRtAnim();
       timelineRef.current = gsap.timeline();
       timelineRef.current.to(cursor, {
         d: total,
         duration: durationSeconds,
         ease: "linear",
         onUpdate: () => {
-          if (skipWritesRef?.current) return;
+          if (skipWritesRef?.current) {
+            throttledWriteCounterRef.current += 1;
+            if (throttledWriteCounterRef.current % 3 !== 0) return;
+          } else {
+            throttledWriteCounterRef.current = 0;
+          }
           let remaining = cursor.d;
           let segIdx = 0;
           while (segIdx < segLens.length && remaining > segLens[segIdx]) {
@@ -165,7 +209,10 @@ export function useRtTimeline({
           marker.position = new google.maps.LatLng(lat, lng);
           onPositionWriteRef?.current?.(lat, lng);
         },
-        onComplete,
+        onComplete: () => {
+          endRtAnim();
+          onComplete?.();
+        },
       });
     };
 
@@ -222,9 +269,13 @@ export function useRtTimeline({
 
     // Tröskel för att acceptera RT-projektionen. För stora avvikelser från shapen ger upplevda "hopp"
     // när vi snappar till en helt annan del av rutten. Håll detta relativt strikt.
-    const MAX_RT_DIST2 = 2e-4;
+    const distanceToAnchorSq =
+      (vehiclePosition.lat - anchor.lat) * (vehiclePosition.lat - anchor.lat) +
+      (vehiclePosition.lng - anchor.lng) * (vehiclePosition.lng - anchor.lng);
+    const isLargeAnchorDelta = distanceToAnchorSq > 8e-6;
+    const MAX_RT_DIST2 = isLargeAnchorDelta ? 3e-4 : 2e-4;
     const snapAllowed = rtProjection.dist2 < MAX_RT_DIST2;
-    const SOFT_SNAP_MAX_DIST2 = 8e-4;
+    const SOFT_SNAP_MAX_DIST2 = isLargeAnchorDelta ? 11e-4 : 8e-4;
     const softSnapAllowed = rtProjection.dist2 < SOFT_SNAP_MAX_DIST2;
 
     const rawTargetIndex = rtProjection.index;
@@ -251,8 +302,8 @@ export function useRtTimeline({
       opts?: { min?: number; max?: number; base?: number; perIndex?: number }
     ) => {
       const min = opts?.min ?? 1.2;
-      const max = opts?.max ?? 8;
-      const base = opts?.base ?? 0.9;
+      const max = opts?.max ?? preferredDurationSeconds + 1.2;
+      const base = opts?.base ?? Math.max(0.9, preferredDurationSeconds * 0.55);
       const perIndex = opts?.perIndex ?? 0.25;
       return Math.max(min, Math.min(max, base + delta * perIndex));
     };
@@ -277,6 +328,7 @@ export function useRtTimeline({
 
     // Hantera snap-beteende baserat på beräknat läge
     if (snapMode === "skip") {
+      skipStreakRef.current += 1;
       if (softSnapAllowed) {
         // Om RT ligger lite för långt från shapen vill vi ändå "dra tillbaka" markören,
         // men gör det animerat längs rutten för att undvika teleport.
@@ -285,14 +337,56 @@ export function useRtTimeline({
           fromIndex: progressIndex,
           to: { lat: target.lat, lng: target.lng },
           toIndex: targetIndex,
-          durationSeconds: durationForDelta(indexDelta, { min: 1.6, max: 5, base: 1.2, perIndex: 0.2 }),
+          durationSeconds: durationForDelta(indexDelta, {
+            min: Math.max(2.2, preferredDurationSeconds * 0.8),
+            max: Math.max(5.8, preferredDurationSeconds + 0.8),
+            base: Math.max(1.4, preferredDurationSeconds * 0.72),
+            perIndex: 0.2,
+          }),
           onComplete: () => {
             lastIndexRef.current = targetIndex;
           },
         });
+      } else if (skipStreakRef.current >= 3) {
+        rawFallbackTweenRef.current?.kill();
+        beginRtAnim();
+        const current = {
+          lat: anchor.lat,
+          lng: anchor.lng,
+        };
+        rawFallbackTweenRef.current = gsap.to(current, {
+          lat: vehiclePosition.lat,
+          lng: vehiclePosition.lng,
+          duration: Math.max(1.8, preferredDurationSeconds * 0.42),
+          ease: "linear",
+          overwrite: "auto",
+          onUpdate: () => {
+            if (skipWritesRef?.current) {
+              throttledWriteCounterRef.current += 1;
+              if (throttledWriteCounterRef.current % 3 !== 0) return;
+            } else {
+              throttledWriteCounterRef.current = 0;
+            }
+            marker.position = new google.maps.LatLng(current.lat, current.lng);
+            onPositionWriteRef?.current?.(current.lat, current.lng);
+          },
+          onComplete: () => {
+            endRtAnim();
+          },
+        });
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[rt-timeline]", {
+          mode: "skip",
+          skipStreak: skipStreakRef.current,
+          rtDist2: rtProjection.dist2,
+          softSnapAllowed,
+          indexDelta,
+        });
       }
       return;
     }
+    skipStreakRef.current = 0;
 
     // Vid stora hopp längs rutten: sätt markören direkt till RT-projektionen
     // för att undvika att "flyga" fågelvägen över kartan.
@@ -303,7 +397,12 @@ export function useRtTimeline({
         fromIndex: progressIndex,
         to: { lat: target.lat, lng: target.lng },
         toIndex: targetIndex,
-        durationSeconds: durationForDelta(indexDelta, { min: 2.0, max: 6, base: 1.4, perIndex: 0.22 }),
+        durationSeconds: durationForDelta(indexDelta, {
+          min: Math.max(2.3, preferredDurationSeconds * 0.82),
+          max: Math.max(6.2, preferredDurationSeconds + 1),
+          base: Math.max(1.5, preferredDurationSeconds * 0.74),
+          perIndex: 0.22,
+        }),
         onComplete: () => {
           lastIndexRef.current = targetIndex;
         },
@@ -313,10 +412,40 @@ export function useRtTimeline({
 
     // animate men ingen förflyttning längs rutten → starta inte ny animation
     if (indexDelta === 0) {
-      // Samma segment: uppdatera till ankarets projektion.
-      // Viktigt: om vi clamp:ar index framåt kan `targetT` bli 1 (segmentets slut)
-      // trots att RT/projektionen ligger mitt på segmentet → upplevt "hopp".
-      // Ingen positionsändring – behåll nuvarande marker.position.
+      const targetDeltaSq =
+        (target.lat - anchor.lat) * (target.lat - anchor.lat) +
+        (target.lng - anchor.lng) * (target.lng - anchor.lng);
+      if (targetDeltaSq > 1e-12) {
+        segmentTweenRef.current?.kill();
+        beginRtAnim();
+        const segmentTweenState = { lat: anchor.lat, lng: anchor.lng };
+        segmentTweenRef.current = gsap.to(segmentTweenState, {
+          lat: target.lat,
+          lng: target.lng,
+          duration: Math.max(
+            Math.max(2.4, preferredDurationSeconds * 0.9),
+            Math.min(preferredDurationSeconds + 0.8, 7.4)
+          ),
+          ease: "linear",
+          overwrite: "auto",
+          onUpdate: () => {
+            if (skipWritesRef?.current) {
+              throttledWriteCounterRef.current += 1;
+              if (throttledWriteCounterRef.current % 3 !== 0) return;
+            } else {
+              throttledWriteCounterRef.current = 0;
+            }
+            marker.position = new google.maps.LatLng(
+              segmentTweenState.lat,
+              segmentTweenState.lng
+            );
+            onPositionWriteRef?.current?.(segmentTweenState.lat, segmentTweenState.lng);
+          },
+          onComplete: () => {
+            endRtAnim();
+          },
+        });
+      }
       lastIndexRef.current = targetIndex;
       return;
     }
@@ -327,8 +456,13 @@ export function useRtTimeline({
     // annars triggas effekten igen innan tweenen blir klar och det upplevs som hopp.
     const durationSeconds =
       forwardClamped || indexDelta >= MAX_FORWARD_INDEX_STEP
-        ? Math.min(2.5, duration ?? 8)
-        : duration ?? durationForDelta(indexDelta, { min: 1.4, max: 10, base: 1.0, perIndex: 0.28 });
+        ? Math.max(2.4, Math.min(preferredDurationSeconds + 0.6, 7.2))
+        : durationForDelta(indexDelta, {
+            min: Math.max(2.2, preferredDurationSeconds * 0.82),
+            max: preferredDurationSeconds + 1.9,
+            base: Math.max(1.4, preferredDurationSeconds * 0.72),
+            perIndex: 0.28,
+          });
 
     animateAlongShape({
       from: progressPoint,
@@ -340,10 +474,24 @@ export function useRtTimeline({
         lastIndexRef.current = targetIndex;
       },
     });
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[rt-timeline]", {
+        mode: snapMode,
+        rtDist2: rtProjection.dist2,
+        indexDelta,
+        forwardClamped,
+      });
+    }
 
     return () => {
       timelineRef.current?.kill();
       timelineRef.current = null;
+      rawFallbackTweenRef.current?.kill();
+      rawFallbackTweenRef.current = null;
+      segmentTweenRef.current?.kill();
+      segmentTweenRef.current = null;
+      animDepthRef.current = 0;
+      syncTimelineBusy();
     };
   }, [
     marker,

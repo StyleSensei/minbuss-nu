@@ -1164,6 +1164,8 @@ export default function MapClient() {
 						clickedOutside={clickedOutside}
 						setClickedOutside={setClickedOutside}
 						vehicles={filteredVehicles.data}
+						currentTrips={tripData.currentTrips}
+						lineShapes={tripData.lineShapes}
 						setInfoWindowActiveExternal={setInfoWindowActive}
 						infoWindowActiveExternal={infoWindowActive}
 						followBus={followBus}
