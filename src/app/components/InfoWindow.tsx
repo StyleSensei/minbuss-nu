@@ -277,7 +277,7 @@ export const InfoWindow = ({
 					</Table>
 
 					<div
-						className={`button-wrapper ${isScrolledToBottom ? "--hidden" : "--collapsible"}`}
+						className="button-wrapper --collapsible"
 					>
 						<Button
 							title={isCollapsed ? "Expandera vy" : "Minska vy"}

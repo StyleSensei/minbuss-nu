@@ -541,6 +541,7 @@ export const SearchBar = ({
           {hasStopSuggestionPanel ? (
             <StopSuggestionsPanel
               isLoading={isStopSuggestionsLoading}
+              isSearchMode={isTextStopSearch}
               stops={stopsToShow}
               onPick={handleStopPick}
             />

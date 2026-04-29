@@ -112,9 +112,9 @@ export const MapControlButtons = ({
 			)}
 			{filteredVehicles?.data.length > 0 && activeMarker && (
 				<div className="map-control-button-container">
-					<p className="label follow-label">Följ buss</p>
+					<p className="label follow-label">Följ</p>
 					<Button
-						title="Följ buss"
+						title="Följ"
 						pathFillRule1={follow.path}
 						fill={followBus ? colors.primary : colors.secondary}
 						className={followBus ? "--follow --active" : "--follow"}

@@ -12,22 +12,29 @@ interface StopSuggestionRow {
 
 interface StopSuggestionsPanelProps {
 	isLoading: boolean;
+	isSearchMode: boolean;
 	stops: StopSuggestionRow[];
 	onPick: (row: StopSuggestionRow) => void;
 }
 
 export function StopSuggestionsPanel({
 	isLoading,
+	isSearchMode,
 	stops,
 	onPick,
 }: StopSuggestionsPanelProps) {
+	const heading = isSearchMode ? "Resultat" : "Närmaste hållplatser";
+	const loadingHeading = isSearchMode
+		? "Laddar resultat..."
+		: "Laddar närmaste hållplatser...";
+
 	return (
 		<section
 			className={`search-bar__stop-suggestions ${isLoading ? "--loading" : ""}`}
 			aria-label="Hållplatser"
 			aria-busy={isLoading}
 		>
-			{isLoading ? <h2>Laddar närmaste hållplatser...</h2> : <h2>Närmaste hållplatser</h2>}
+			{isLoading ? <h2>{loadingHeading}</h2> : <h2>{heading}</h2>}
 			{isLoading ? (
 				<div className="search-bar__stop-suggestions-skeleton" aria-hidden>
 					{STOP_SUGGESTION_SKELETON_KEYS.map((rowKey) => (

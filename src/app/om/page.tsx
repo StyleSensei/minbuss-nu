@@ -6,7 +6,8 @@ import { ClientWrapper } from "../components/ClientWrapper";
 
 export const metadata = {
 	title: "Om tjänsten",
-	description: "Information om tjänsten för att följa bussar i realtid.",
+	description:
+		"Information om minbuss.nu: realtidskartor, regionval och hur du söker linje.",
 };
 
 export default async function InfoPage() {
@@ -17,26 +18,38 @@ export default async function InfoPage() {
 	const descriptions = [
 		{
 			h2: "Varför denna tjänst?",
-			text: `Den här tjänsten är skapad för att göra bussresandet med SL, Storstockholms Lokaltrafik, lite smidigare och mer förutsägbart./ 
+			text: `Den här tjänsten är skapad för att göra bussresandet lite smidigare och mer förutsägbart i den region du väljer (t.ex. SL i Stockholm eller annan tillgänglig operatör)./
 		Den är särskilt användbar när du står vid en hållplats och väntar på din buss, kanske under rusningstid eller i områden där bussarna inte går lika frekvent./
-		Även om fokus ligger på bussar kan du också följa andra delar av kollektivtrafiken i realtid, som tunnelbana, spårvagn och båt. 🚇 🚃 ⛴️/
+		Även om fokus ligger på bussar kan du också följa andra delar av kollektivtrafiken i realtid där data finns, som tunnelbana, spårvagn och båt. 🚇 🚃 ⛴️/
 		Tjänsten är tänkt att ge dig en mer avslappnad och effektiv vardag som resenär – oavsett om du pendlar dagligen eller bara reser då och då./`,
 			image: {},
 		},
 
 		{
-			h2: "Sök och visa bussar",
+			h2: "Välj region",
 			text: `
-	Det är enkelt att använda tjänsten. Du söker bara på vilken busslinje du vill resa med och ser sedan var bussarna från den linjen befinner sig just nu. Bussarna representeras av gröna markörer på kartan.`,
+	Det är enkelt att använda tjänsten. Välj först region i listan bredvid sökfältet i realtidsvyn, alternativt klicka på "Min position" i kartan: då väljs automatiskt den region som du befinner dig i och karta, hållplatser och avgångar stämmer med motsvarande trafikleverantör./
+	`,
+			image: {
+				src: "/region-select.webp",
+				alt: "Visa regionval i listan bredvid sökfältet i realtidsvyn.",
+			},
+		},
+		{
+			h2: "Sök och visa bussar, och övriga delar av kollektivtrafiken",
+			text: `
+	Du kan söka på linje eller hållplats. Vid linjesök så ritas vald linje ut på kartan. Bussar och andra aktiva fordon från vald linje representeras av gröna markörer på kartan./
+	Vid hållplatsssök så navigeras du till vald hållplats på kartan och hållplatstabellen öppnas./
+	`,
 			image: {
 				src: "/markers.webp",
 				alt: "Karta över Stockholm med gröna markörer som visar bussarnas realtidsposition.",
 			},
 		},
 		{
-			h2: "Bussdetaljer",
+			h2: "Kommande stopp",
 			text: ` 
-	Klicka på valfri buss för att se detaljer som slutstation, kommande stopp, samt schemalagd ankomst till stoppen. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemalagda tiden blir då överstruken./ `,
+	Klicka på valfri buss eller annat aktivt fordon för att se detaljer som slutstation, kommande stopp, samt schemalagd ankomst till stoppen. Om det finns en uppdaterad ankomsttid så visas även denna. Den schemalagda tiden blir då överstruken./ `,
 			image: {
 				src: "/collapsed-info-table.webp",
 				alt: "visar detaljer om vald buss, inklusive slutstation och kommande stopp.",
@@ -45,26 +58,26 @@ export default async function InfoPage() {
 		{
 			h2: "Expanderad vy",
 			text: ` 
-	Genom att klicka på knappen längst ner i fönstret kan du, om du använder en mobil enhet, toggla mellan en expanderad och en kollapsad vy av bussinformationen./ `,
+	Genom att klicka på knappen längst ner i fönstret kan du, om du använder en mobil enhet, toggla mellan en expanderad och en kollapsad vy./ `,
 			image: {
 				src: "/expanded-info-table.webp",
 				alt: "Expanderad vy om vald buss, inklusive slutstation och kommande stopp.",
 			},
 		},
 		{
-			h2: "Följ bussen på kartan",
+			h2: "Följ på kartan",
 			text: `
-Om du vill låsa positionen till din markerade buss och följa bussen på kartan, klicka på "Följ buss"./
+Om du vill låsa positionen till markerat fordon och följa det på kartan, klicka på "Följ"./
 `,
-			image: { src: "/follow-bus.webp", alt: "visar funktionen följ buss" },
+			image: { src: "/follow.webp", alt: "visar funktionen följ" },
 		},
 		{
 			h2: "Hållplatstabell",
 			text: `
-	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar från din närmaste hållplats för den valda linjen, så länge de ännu inte har passerat hållplatsen. Här visas också den beräknade ankomsttiden för varje buss./`,
+	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar från din valda hållplats, så länge de ännu inte har passerat hållplatsen. Här visas också den beräknade ankomsttiden för varje fordon./`,
 			image: {
 				src: "/stop-table.webp",
-				alt: "Tabell med pågående resor för vald busslinje och avgångstider från din närmaste hållplats.",
+				alt: "Tabell med pågående resor för vald hållplats och avgångstider från din valda hållplats.",
 			},
 		},
 	];

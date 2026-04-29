@@ -158,9 +158,6 @@ $max-height: 63dvh;
         width: 100%;
         justify-content: center;
         align-items: center;
-        position: absolute;
-        bottom: 0;
-        left: 0;
         transition: opacity 0.25s ease-in-out;
 
         &.--hidden {
