@@ -8,7 +8,7 @@ import { routes } from "@shared/db/schema/routes";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
-import { and, between, eq, sql } from "drizzle-orm";
+import { and, between, eq, exists, sql } from "drizzle-orm";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 import {
@@ -59,6 +59,36 @@ async function selectStopPositionsFromDatabaseWithWhere(
 	const whereClause =
 		whereExtra === undefined ? baseWhere : and(baseWhere, whereExtra);
 
+	/** Semi-join: planner can filter `stops` first (bbox + index), then probe stop_times/trips/routes. */
+	const hasServingTrip = exists(
+		db
+			.select({ _: sql`1` })
+			.from(stop_times)
+			.innerJoin(
+				trips,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+					eq(trips.feed_version, latestFeedVersion),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(
+					eq(routes.route_id, trips.route_id),
+					eq(routes.operator, trips.operator),
+					eq(routes.feed_version, latestFeedVersion),
+				),
+			)
+			.where(
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+					eq(stop_times.feed_version, latestFeedVersion),
+				),
+			),
+	);
+
 	const data = await db
 		.select({
 			stop_id: stops.stop_id,
@@ -66,32 +96,7 @@ async function selectStopPositionsFromDatabaseWithWhere(
 			stop_lon: stops.stop_lon,
 		})
 		.from(stops)
-		.innerJoin(
-			stop_times,
-			and(
-				eq(stop_times.stop_id, stops.stop_id),
-				eq(stop_times.operator, stops.operator),
-				eq(stop_times.feed_version, latestFeedVersion),
-			),
-		)
-		.innerJoin(
-			trips,
-			and(
-				eq(trips.trip_id, stop_times.trip_id),
-				eq(trips.operator, stop_times.operator),
-				eq(trips.feed_version, latestFeedVersion),
-			),
-		)
-		.innerJoin(
-			routes,
-			and(
-				eq(routes.route_id, trips.route_id),
-				eq(routes.operator, trips.operator),
-				eq(routes.feed_version, latestFeedVersion),
-			),
-		)
-		.where(whereClause)
-		.groupBy(stops.stop_id, stops.stop_lat, stops.stop_lon);
+		.where(and(whereClause, hasServingTrip));
 
 	return dedupeStopPositionRows(data);
 }
