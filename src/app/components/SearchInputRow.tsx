@@ -3,7 +3,6 @@
 import { alphabet } from "../../../public/icons";
 import colors from "../colors";
 import { Icon } from "./Icon";
-import Form from "next/form";
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
 
 interface SearchInputRowProps {
@@ -58,7 +57,7 @@ export function SearchInputRow({
 	};
 
 	return (
-		<Form action="/search" onSubmit={onSubmit}>
+		<form onSubmit={onSubmit}>
 			<button
 				type="button"
 				onClick={() => {
@@ -114,6 +113,6 @@ export function SearchInputRow({
 				</button>
 			)}
 			<button type="submit">Sök</button>
-		</Form>
+		</form>
 	);
 }
