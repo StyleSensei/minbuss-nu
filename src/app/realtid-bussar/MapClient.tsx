@@ -60,6 +60,10 @@ const MAP_STOPS_BOUNDS_EXPAND_RATIO = 0.4;
 /** Utzoomad start när ingen linje är vald — efter första idle zoomar vi in (löser sporadiska svarta rutor / att lager inte hinner med förrän man zoomar manuellt). */
 const MAP_BOOTSTRAP_ZOOM = 11;
 const MAP_TARGET_INITIAL_ZOOM = 14;
+/** Minsta tid efter första `tilesloaded` innan spinner får släckas (workers hinner starta). */
+const MAP_VECTOR_PAINT_POST_TILES_MIN_MS = 1400;
+/** Därtill: inget nytt `idle` på minst denna ruta (sista vektorbatchen). */
+const MAP_VECTOR_PAINT_IDLE_DEBOUNCE_MS = 560;
 
 /**
  * Överlever unmount när man lämnar kartrouten (samma flik) så vi inte zoomar ut/in igen vid SPA-tillbaknavigation.
@@ -204,12 +208,6 @@ export default function MapClient() {
 	]);
 	const [mapReady, setMapReady] = useState(false);
 	const [mapMountKey, setMapMountKey] = useState(0);
-	const [mapRenderingType, setMapRenderingType] = useState<RenderingType>(
-		RenderingType.VECTOR,
-	);
-	const [mapRecoveryMessage, setMapRecoveryMessage] = useState<string | null>(
-		null,
-	);
 	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
 		bounds: google.maps.LatLngBoundsLiteral;
@@ -239,6 +237,31 @@ export default function MapClient() {
 	const mapInitialZoomBootstrapDoneRef = useRef(false);
 	const prevMapOperatorForPanRef = useRef<string | null>(null);
 	const mapBootRecoveryAttemptsRef = useRef(0);
+	const vectorPaintIdleListenerRef =
+		useRef<google.maps.MapsEventListener | null>(null);
+	const vectorPaintDebounceTimerRef = useRef<ReturnType<
+		typeof setTimeout
+	> | null>(null);
+	/** Först efter `tilesloaded` får debouncad `idle` släcka spinnern — ren `idle` kommer före vectortown-workers. */
+	const vectorTilesLoadedGateRef = useRef(false);
+	/** Epoch ms vid första `tilesloaded` (för minsta tid innan spinner får släckas). */
+	const vectorFirstTilesLoadedAtRef = useRef<number | null>(null);
+
+	const clearVectorPaintIdleWatchers = useCallback(() => {
+		vectorTilesLoadedGateRef.current = false;
+		vectorFirstTilesLoadedAtRef.current = null;
+		if (vectorPaintDebounceTimerRef.current) {
+			clearTimeout(vectorPaintDebounceTimerRef.current);
+			vectorPaintDebounceTimerRef.current = null;
+		}
+		if (
+			vectorPaintIdleListenerRef.current &&
+			typeof google !== "undefined"
+		) {
+			google.maps.event.removeListener(vectorPaintIdleListenerRef.current);
+			vectorPaintIdleListenerRef.current = null;
+		}
+	}, []);
 
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const operatorUrlParam = searchParams.get("operator")?.trim() ?? "";
@@ -449,18 +472,16 @@ export default function MapClient() {
 	}, [mapReady, linjeParam]);
 
 	useEffect(() => {
+		clearVectorPaintIdleWatchers();
 		mapBootRecoveryAttemptsRef.current = 0;
 		setMapReady(false);
 		mapRef.current = null;
 		setMapViewport(null);
-		setMapRenderingType(RenderingType.VECTOR);
-		setMapRecoveryMessage(null);
-	}, [mapOperatorForView]);
+	}, [mapOperatorForView, clearVectorPaintIdleWatchers]);
 
 	useEffect(() => {
 		if (mapReady) {
 			mapBootRecoveryAttemptsRef.current = 0;
-			setMapRecoveryMessage(null);
 			return;
 		}
 		if (mapBootRecoveryAttemptsRef.current >= 2) {
@@ -471,23 +492,14 @@ export default function MapClient() {
 				return;
 			}
 			mapBootRecoveryAttemptsRef.current += 1;
+			clearVectorPaintIdleWatchers();
 			mapRef.current = null;
 			setMapViewport(null);
 			setMapMountKey((prev) => prev + 1);
-
-			if (
-				mapBootRecoveryAttemptsRef.current >= 1 &&
-				mapRenderingType !== RenderingType.RASTER
-			) {
-				setMapRenderingType(RenderingType.RASTER);
-				setMapRecoveryMessage(
-					"Svag anslutning upptäckt. Växlar till ett lättare kartläge.",
-				);
-			}
 		}, 9000);
 
 		return () => clearTimeout(timer);
-	}, [mapReady, mapRenderingType]);
+	}, [mapReady, mapMountKey, clearVectorPaintIdleWatchers]);
 
 	useEffect(() => {
 		const handleOnline = () => {
@@ -771,23 +783,78 @@ export default function MapClient() {
 		[queueMapViewport],
 	);
 
-	const initializeMapFromEvent = useCallback((e: MapEvent) => {
-		const map = e.map as google.maps.Map;
-		mapRef.current = map;
-		setMapReady(true);
-		const z = map.getZoom() ?? 10;
-		const b = map.getBounds();
-		if (!b) return;
-		const boundsJson = b.toJSON();
-		if (mapViewportDebounceRef.current) {
-			clearTimeout(mapViewportDebounceRef.current);
-			mapViewportDebounceRef.current = null;
-		}
-		zoomRef.current = z;
-		startTransition(() => {
-			setMapViewport({ zoom: z, bounds: boundsJson });
-		});
-	}, []);
+	const beginVectorMapAttach = useCallback(
+		(e: MapEvent, fromTilesLoaded: boolean) => {
+			const map = e.map as google.maps.Map;
+			mapRef.current = map;
+			const z = map.getZoom() ?? 10;
+			const b = map.getBounds();
+			if (!b) return;
+			const boundsJson = b.toJSON();
+			if (mapViewportDebounceRef.current) {
+				clearTimeout(mapViewportDebounceRef.current);
+				mapViewportDebounceRef.current = null;
+			}
+			zoomRef.current = z;
+			startTransition(() => {
+				setMapViewport({ zoom: z, bounds: boundsJson });
+			});
+
+			if (fromTilesLoaded) {
+				if (vectorFirstTilesLoadedAtRef.current === null) {
+					vectorFirstTilesLoadedAtRef.current = Date.now();
+				}
+				vectorTilesLoadedGateRef.current = true;
+			}
+
+			const scheduleVectorPaintReady = () => {
+				if (!vectorTilesLoadedGateRef.current) return;
+				if (vectorPaintDebounceTimerRef.current) {
+					clearTimeout(vectorPaintDebounceTimerRef.current);
+				}
+				const t0 = vectorFirstTilesLoadedAtRef.current;
+				const sinceTiles =
+					t0 === null ? 0 : Date.now() - t0;
+				const remainingMinAfterTiles = Math.max(
+					0,
+					MAP_VECTOR_PAINT_POST_TILES_MIN_MS - sinceTiles,
+				);
+				const delay = Math.max(
+					MAP_VECTOR_PAINT_IDLE_DEBOUNCE_MS,
+					remainingMinAfterTiles,
+				);
+				vectorPaintDebounceTimerRef.current = setTimeout(() => {
+					vectorPaintDebounceTimerRef.current = null;
+					clearVectorPaintIdleWatchers();
+					if (!mapRef.current) return;
+					setMapReady(true);
+				}, delay);
+			};
+
+			const onMapIdle = () => {
+				scheduleVectorPaintReady();
+			};
+
+			if (!vectorPaintIdleListenerRef.current) {
+				vectorPaintIdleListenerRef.current = google.maps.event.addListener(
+					map,
+					"idle",
+					onMapIdle,
+				);
+			}
+			// Efter tiles: starta debounce (kartan kan redan vara idle utan nytt idle-event).
+			if (fromTilesLoaded) {
+				scheduleVectorPaintReady();
+			}
+		},
+		[clearVectorPaintIdleWatchers],
+	);
+
+	useEffect(() => {
+		return () => {
+			clearVectorPaintIdleWatchers();
+		};
+	}, [clearVectorPaintIdleWatchers]);
 
 	useEffect(() => {
 		if (!mapReady) return;
@@ -1104,10 +1171,10 @@ export default function MapClient() {
 	}, [showCurrentTrips, setIsCurrentTripsOpen]);
 
 	return (
-		<div>
+		<div className="map-client-root">
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				<GoogleMap
-					key={`${mapOperatorForView}:${mapRenderingType}:${mapMountKey}`}
+					key={`${mapOperatorForView}:${mapMountKey}`}
 					mapId={"fb3dad0c952dfd27"}
 					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
 					defaultZoom={
@@ -1119,11 +1186,11 @@ export default function MapClient() {
 					defaultCenter={defaultMapCenter}
 					gestureHandling={"greedy"}
 					onTilesLoaded={(e: MapEvent) => {
-						initializeMapFromEvent(e);
+						beginVectorMapAttach(e, true);
 					}}
 					onIdle={(e: MapEvent) => {
 						if (!mapReady) {
-							initializeMapFromEvent(e);
+							beginVectorMapAttach(e, false);
 						}
 					}}
 					onCameraChanged={handleCameraChanged}
@@ -1138,7 +1205,7 @@ export default function MapClient() {
 						setMapStopPreview(null);
 					}}
 					colorScheme="DARK"
-					renderingType={mapRenderingType}
+					renderingType={RenderingType.VECTOR}
 					reuseMaps={true}
 					restriction={{
 						latLngBounds: operatorMapView.restriction,
@@ -1251,6 +1318,16 @@ export default function MapClient() {
 					)}
 				</GoogleMap>
 			</APIProvider>
+			{!mapReady && (
+				<output
+					className="map-loading-overlay"
+					aria-live="polite"
+					aria-busy="true"
+				>
+					<span className="map-loading-spinner" aria-hidden />
+					<span className="map-loading-overlay__text">Laddar karta …</span>
+				</output>
+			)}
 			{!userPosition && <UserMessage />}
 			{myPositionErrorMessage && userPosition && (
 				<UserMessage
@@ -1258,7 +1335,6 @@ export default function MapClient() {
 					message={myPositionErrorMessage}
 				/>
 			)}
-			{mapRecoveryMessage && <UserMessage message={mapRecoveryMessage} />}
 			<div id="follow-bus-border" />
 		</div>
 	);

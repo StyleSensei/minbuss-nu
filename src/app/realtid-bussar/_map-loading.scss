@@ -1,0 +1,45 @@
+@use '../variables' as v;
+
+@keyframes map-loading-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.map-client-root {
+	position: relative;
+	width: 100vw;
+	height: 100dvh;
+}
+
+.map-loading-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	background: rgba(v.$primary-color, 0.88);
+	pointer-events: auto;
+}
+
+.map-loading-spinner {
+	width: 42px;
+	height: 42px;
+	border: 3px solid rgba(255, 255, 255, 0.12);
+	border-top-color: v.$accent-color;
+	border-radius: 50%;
+	animation: map-loading-spin 0.72s linear infinite;
+	will-change: transform;
+}
+
+.map-loading-overlay__text {
+	display: block;
+	margin: 0;
+	font-size: 0.9375rem;
+	color: v.$secondary-color;
+	text-align: center;
+	letter-spacing: 0.02em;
+}

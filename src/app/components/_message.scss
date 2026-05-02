@@ -27,6 +27,7 @@
 
 .warn-message {
     @extend .error-message;
+    z-index: 20;
     background-color: v.$accent-color;
     color: v.$primary-color;
     border-radius: 5px;
