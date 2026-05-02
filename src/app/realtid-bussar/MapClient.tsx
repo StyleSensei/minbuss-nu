@@ -56,6 +56,11 @@ import {
 const MAP_VIEWPORT_DEBOUNCE_MS = 320;
 /** Extra marginal runt kartans synliga ruta innan hållplatser hämtas (mindre payload än hela stops-positions.json). */
 const MAP_STOPS_BOUNDS_EXPAND_RATIO = 0.4;
+/**
+ * Efter viewport-debounce kan bounds ändras i snabb följd; utan detta avbryts fetch (AbortError)
+ * innan servern hunnit svara. Vänta tills rutan legat still innan /api/stops/positions.
+ */
+const MAP_STOPS_POSITIONS_FETCH_DEBOUNCE_MS = 450;
 
 /** Utzoomad start när ingen linje är vald — efter första idle zoomar vi in (löser sporadiska svarta rutor / att lager inte hinner med förrän man zoomar manuellt). */
 const MAP_BOOTSTRAP_ZOOM = 11;
@@ -688,76 +693,87 @@ export default function MapClient() {
 		if (!mapReady || !stopFetchBoundsKey) return;
 		const bounds = viewportForStopsRef.current?.bounds;
 		if (!bounds) return;
+
 		let cancelled = false;
-		const ctrl = new AbortController();
-		void (async () => {
-			try {
-				const expanded = expandStopQueryBounds(
-					bounds,
-					MAP_STOPS_BOUNDS_EXPAND_RATIO,
-					operatorMapView.restriction,
-				);
-				const snapped = snapStopQueryBounds(expanded);
-				const q = new URLSearchParams({
-					north: String(snapped.north),
-					south: String(snapped.south),
-					east: String(snapped.east),
-					west: String(snapped.west),
-				});
-				const url = appendOperatorToApiUrl(
-					`/api/stops/positions?${q}`,
-					mapOperatorForView,
-				);
-				const res = await fetch(url, {
-					signal: ctrl.signal,
-					cache: "force-cache",
-				});
-				if (!res.ok || cancelled) return;
-				const data = (await res.json()) as StopsPositionsFile;
-				if (!cancelled && Array.isArray(data.stops) && data.stops.length > 0) {
-					setAllStopPositions((prev) => {
-						if (!prev?.length) return data.stops;
-						const m = new Map<string, IStopPositionJson>();
-						for (const s of prev) m.set(s.id, s);
-						for (const s of data.stops) m.set(s.id, s);
-						return Array.from(m.values());
-					});
-				}
-			} catch {
-				if (cancelled || ctrl.signal.aborted) return;
+		let fetchCtrl: AbortController | null = null;
+
+		const debounceTimer = setTimeout(() => {
+			fetchCtrl = new AbortController();
+			const ctrl = fetchCtrl;
+			void (async () => {
 				try {
-					const res = await fetch("/stops-positions.json", {
+					const expanded = expandStopQueryBounds(
+						bounds,
+						MAP_STOPS_BOUNDS_EXPAND_RATIO,
+						operatorMapView.restriction,
+					);
+					const snapped = snapStopQueryBounds(expanded);
+					const q = new URLSearchParams({
+						north: String(snapped.north),
+						south: String(snapped.south),
+						east: String(snapped.east),
+						west: String(snapped.west),
+					});
+					const url = appendOperatorToApiUrl(
+						`/api/stops/positions?${q}`,
+						mapOperatorForView,
+					);
+					const res = await fetch(url, {
+						signal: ctrl.signal,
 						cache: "force-cache",
 					});
 					if (!res.ok || cancelled) return;
-					let data = (await res.json()) as StopsPositionsFile;
-					if (
-						!cancelled &&
-						Array.isArray(data.stops) &&
-						data.stops.length === 0
-					) {
-						const resApi = await fetch(
-							appendOperatorToApiUrl("/api/stops/positions", mapOperatorForView),
-						);
-						if (resApi.ok) {
-							data = (await resApi.json()) as StopsPositionsFile;
-						}
-					}
-					if (
-						!cancelled &&
-						Array.isArray(data.stops) &&
-						data.stops.length > 0
-					) {
-						setAllStopPositions(data.stops);
+					const data = (await res.json()) as StopsPositionsFile;
+					if (!cancelled && Array.isArray(data.stops) && data.stops.length > 0) {
+						setAllStopPositions((prev) => {
+							if (!prev?.length) return data.stops;
+							const m = new Map<string, IStopPositionJson>();
+							for (const s of prev) m.set(s.id, s);
+							for (const s of data.stops) m.set(s.id, s);
+							return Array.from(m.values());
+						});
 					}
 				} catch {
-					// ignore
+					if (cancelled || ctrl.signal.aborted) return;
+					try {
+						const res = await fetch("/stops-positions.json", {
+							cache: "force-cache",
+						});
+						if (!res.ok || cancelled) return;
+						let data = (await res.json()) as StopsPositionsFile;
+						if (
+							!cancelled &&
+							Array.isArray(data.stops) &&
+							data.stops.length === 0
+						) {
+							const resApi = await fetch(
+								appendOperatorToApiUrl(
+									"/api/stops/positions",
+									mapOperatorForView,
+								),
+							);
+							if (resApi.ok) {
+								data = (await resApi.json()) as StopsPositionsFile;
+							}
+						}
+						if (
+							!cancelled &&
+							Array.isArray(data.stops) &&
+							data.stops.length > 0
+						) {
+							setAllStopPositions(data.stops);
+						}
+					} catch {
+						// ignore
+					}
 				}
-			}
-		})();
+			})();
+		}, MAP_STOPS_POSITIONS_FETCH_DEBOUNCE_MS);
+
 		return () => {
+			clearTimeout(debounceTimer);
 			cancelled = true;
-			ctrl.abort();
+			fetchCtrl?.abort();
 		};
 	}, [
 		mapReady,
