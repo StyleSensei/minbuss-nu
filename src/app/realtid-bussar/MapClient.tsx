@@ -76,6 +76,9 @@ const MAP_VECTOR_PAINT_IDLE_DEBOUNCE_MS = 560;
  */
 let mapBootstrapZoomDoneInTab = false;
 
+/** Max en full sidomladdning per “fastnad”-episod; nollställs när kartan blivit klar. */
+const MAP_BOOT_HARD_RELOAD_COUNT_KEY = "mapBootHardReloadCount";
+
 /** På mobil kan kartans click köas före markör/knapp — då rensas preview innan linjeval. Ignorera klick som kommer från vårt hållplats-UI. */
 function isClickFromStopUi(e: MapMouseEvent): boolean {
 	const raw = e.domEvent?.target;
@@ -490,6 +493,16 @@ export default function MapClient() {
 			return;
 		}
 		if (mapBootRecoveryAttemptsRef.current >= 2) {
+			const hardReloads = Number(
+				sessionStorage.getItem(MAP_BOOT_HARD_RELOAD_COUNT_KEY) ?? "0",
+			);
+			if (hardReloads < 1) {
+				sessionStorage.setItem(
+					MAP_BOOT_HARD_RELOAD_COUNT_KEY,
+					String(hardReloads + 1),
+				);
+				window.location.reload();
+			}
 			return;
 		}
 		const timer = setTimeout(() => {
@@ -505,6 +518,12 @@ export default function MapClient() {
 
 		return () => clearTimeout(timer);
 	}, [mapReady, mapMountKey, clearVectorPaintIdleWatchers]);
+
+	useEffect(() => {
+		if (mapReady && typeof window !== "undefined") {
+			sessionStorage.removeItem(MAP_BOOT_HARD_RELOAD_COUNT_KEY);
+		}
+	}, [mapReady]);
 
 	useEffect(() => {
 		const handleOnline = () => {
