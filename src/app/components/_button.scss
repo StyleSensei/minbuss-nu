@@ -121,7 +121,6 @@ $buttonHeightDesktop: 6vh;
     &.--collapsible {
         @extend .--table;
         padding: .8rem;
-        opacity: .6;
         transition: opacity 0.3s ease-in-out;
     }
 }

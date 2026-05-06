@@ -24,7 +24,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Button } from "./Button";
-import { chevronsUpDown } from "public/icons";
+import { chevronsCollapse, chevronsExpand } from "public/icons";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
@@ -200,7 +200,7 @@ export const InfoWindow = ({
 					<Table
 						ref={containerRef}
 						onScroll={checkOverflow}
-						className={`min-w-full ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
+						className={`min-w-full ${isOverflowing && !isCollapsed ? "--overflowing" : ""} ${isScrolledToBottom && !isCollapsed ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
 					>
 						<TableCaption className="text-left text-zinc-300/80">
 							Kommande hållplatser
@@ -282,11 +282,12 @@ export const InfoWindow = ({
 						<Button
 							title={isCollapsed ? "Expandera vy" : "Minska vy"}
 							className="--collapsible"
-							path={chevronsUpDown.path}
-							path2={chevronsUpDown.path2}
+							path={ !isCollapsed ? chevronsCollapse.path : chevronsExpand.path}
+							// path2={ !isCollapsed ? '': chevronsExpand.path2}
 							color={colors.secondary}
-							viewBox={chevronsUpDown.viewBox}
+							viewBox={ !isCollapsed ? chevronsCollapse.viewBox : chevronsExpand.viewBox}
 							iconSize={18}
+							fill= { !isCollapsed ? chevronsCollapse.fill : chevronsExpand.fill}
 							onClick={() => {
 								setIsCollapsed(!isCollapsed);
 							}}

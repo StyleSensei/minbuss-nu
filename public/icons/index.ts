@@ -66,11 +66,18 @@ A2 2 0 1 1 14 8
 M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712`,
 };
 
-export const chevronsUpDown = {
-	path: "m7 15 5 5 5-5",
-	path2: "m7 9 5-5 5 5",
-	viewBox: "0 0 24 24",
-};
+
+export const chevronsExpand = {
+	path: "M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z",
+	viewBox: "0 -960 960 960",
+	fill: "whitesmoke"
+}
+
+export const chevronsCollapse = {
+	path: "m356-160-56-56 180-180 180 180-56 56-124-124-124 124Zm124-404L300-744l56-56 124 124 124-124 56 56-180 180Z",
+	viewBox: "0 -960 960 960",
+	fill: "whitesmoke"
+}
 
 export const myPosition = {
 	pathD: `M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6`,
