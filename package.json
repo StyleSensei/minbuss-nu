@@ -57,6 +57,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.11",
+		"@types/google.maps": "^3.64.0",
 		"@types/luxon": "^3.6.2",
 		"@types/node": "^20",
 		"@types/react": "^18",
