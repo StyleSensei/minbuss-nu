@@ -1,19 +1,16 @@
 "use client";
 
+import type { IDbData } from "@shared/models/IDbData";
+import { chevronsCollapse, chevronsExpand } from "public/icons";
 import {
+	type HTMLAttributes,
 	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
-	type HTMLAttributes,
 } from "react";
-import { useDataContext } from "../context/DataContext";
-import { useOverflow } from "../hooks/useOverflow";
-import type { IDbData } from "@shared/models/IDbData";
-import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
-import colors from "../colors";
 import {
 	Table,
 	TableBody,
@@ -23,9 +20,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { Button } from "./Button";
-import { chevronsCollapse, chevronsExpand } from "public/icons";
+import colors from "../colors";
+import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useOverflow } from "../hooks/useOverflow";
+import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import { Button } from "./Button";
 
 interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
 	closestStopState: IDbData | null;
@@ -111,8 +111,15 @@ export const InfoWindow = ({
 		}
 
 		prevEffectiveStopRef.current = effectiveStop;
-	}, [closestStopState, localClosestStop, tripStops, checkOverflow]);
-
+	}, [
+		tripStops,
+		checkOverflow,
+		effectiveStop?.stop_sequence,
+		getVisibleStops,
+		completeAnimation,
+		effectiveStop,
+	]);
+	effectiveStop;
 	useLayoutEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
@@ -125,7 +132,7 @@ export const InfoWindow = ({
 			window.clearTimeout(t);
 			ro.disconnect();
 		};
-	}, [checkOverflow, isCollapsed, tripStops.length, effectiveStop?.stop_sequence]);
+	}, [checkOverflow, containerRef.current]);
 
 	useEffect(() => {
 		if (!tripId) return;
@@ -168,7 +175,20 @@ export const InfoWindow = ({
 		} else {
 			setPendingTripStops(newTripStops);
 		}
-	}, [closestStopState, tripId, tripData.currentTrips]);
+	}, [
+		closestStopState,
+		tripId,
+		tripData.currentTrips,
+		isTableAnimating,
+		getVisibleStops,
+		completeAnimation,
+	]);
+
+	useEffect(() => {
+		if (isCollapsed && isMobile) {
+			containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+		}
+	}, [isCollapsed, isMobile, containerRef.current]);
 
 	const visibleStops = useMemo(() => {
 		return tripStops.filter(
@@ -276,18 +296,18 @@ export const InfoWindow = ({
 						</TableBody>
 					</Table>
 
-					<div
-						className="button-wrapper --collapsible"
-					>
+					<div className="button-wrapper --collapsible">
 						<Button
 							title={isCollapsed ? "Expandera vy" : "Minska vy"}
 							className="--collapsible"
-							path={ !isCollapsed ? chevronsCollapse.path : chevronsExpand.path}
+							path={!isCollapsed ? chevronsCollapse.path : chevronsExpand.path}
 							// path2={ !isCollapsed ? '': chevronsExpand.path2}
 							color={colors.secondary}
-							viewBox={ !isCollapsed ? chevronsCollapse.viewBox : chevronsExpand.viewBox}
+							viewBox={
+								!isCollapsed ? chevronsCollapse.viewBox : chevronsExpand.viewBox
+							}
 							iconSize={18}
-							fill= { !isCollapsed ? chevronsCollapse.fill : chevronsExpand.fill}
+							fill={!isCollapsed ? chevronsCollapse.fill : chevronsExpand.fill}
 							onClick={() => {
 								setIsCollapsed(!isCollapsed);
 							}}
