@@ -18,6 +18,7 @@ import { useSearchBarOperators } from '../hooks/useSearchBarOperators';
 import { useSearchBarRealtimeData } from '../hooks/useSearchBarRealtimeData';
 import { useSearchBarTripDataCache } from '../hooks/useSearchBarTripDataCache';
 import { useSearchBarUi } from '../hooks/useSearchBarUi';
+import { getOperatorMapView } from '@/shared/config/gtfsOperators';
 import { lineSearchUrl, searchPathForOperator } from '../paths';
 import type { IError } from '../services/cacheHelper';
 import { appendOperatorToApiUrl } from '../utilities/appendOperatorToApiUrl';
@@ -36,12 +37,16 @@ async function fetchNearbyStops(
   lat: number,
   lng: number,
   operator: string,
+  signal?: AbortSignal,
   limit = 10,
 ) {
   const path = `/api/stops/nearby?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}&limit=${limit}`;
-  return fetchJsonOrThrow<{ stops: StopWithRoutesRow[] }>(
-    appendOperatorToApiUrl(path, operator),
-  );
+  const url = appendOperatorToApiUrl(path, operator);
+  const res = await fetch(url, signal ? { signal } : undefined);
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as { stops: StopWithRoutesRow[] };
 }
 
 async function fetchStopSearch(q: string, operator: string) {
@@ -223,6 +228,17 @@ export const SearchBar = ({
     fetchAllRoutes,
   });
 
+  const { nearbyFallbackCenter, nearbyRegionBounds } = useMemo(() => {
+    const mv = getOperatorMapView(effectiveOperator);
+    return {
+      nearbyFallbackCenter: {
+        lat: mv.defaultCenter.lat,
+        lng: mv.defaultCenter.lng,
+      },
+      nearbyRegionBounds: mv.restriction,
+    };
+  }, [effectiveOperator]);
+
   const navigateToValidLineIfUrlDiffers = useCallback(
     (routeCandidate: string, opts?: { mapFit?: boolean }) => {
       if (!allRoutes.asObject[routeCandidate]) return;
@@ -301,6 +317,8 @@ export const SearchBar = ({
     userPosition: userPosition
       ? { lat: userPosition.lat, lng: userPosition.lng }
       : null,
+    nearbyFallbackCenter,
+    nearbyRegionBounds,
     inputRef,
     fetchNearbyStops,
     fetchStopSearch,

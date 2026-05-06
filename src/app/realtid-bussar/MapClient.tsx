@@ -247,6 +247,8 @@ export default function MapClient() {
 	const mapBootRecoveryAttemptsRef = useRef(0);
 	const vectorPaintIdleListenerRef =
 		useRef<google.maps.MapsEventListener | null>(null);
+	const tilesLoadedFallbackListenerRef =
+		useRef<google.maps.MapsEventListener | null>(null);
 	const vectorPaintDebounceTimerRef = useRef<ReturnType<
 		typeof setTimeout
 	> | null>(null);
@@ -269,6 +271,13 @@ export default function MapClient() {
 			google.maps.event.removeListener(vectorPaintIdleListenerRef.current);
 			vectorPaintIdleListenerRef.current = null;
 		}
+		if (
+			tilesLoadedFallbackListenerRef.current &&
+			typeof google !== "undefined"
+		) {
+			google.maps.event.removeListener(tilesLoadedFallbackListenerRef.current);
+			tilesLoadedFallbackListenerRef.current = null;
+		}
 	}, []);
 
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
@@ -290,9 +299,9 @@ export default function MapClient() {
 		let cancelled = false;
 		(async () => {
 			try {
-				const m = (await fetch("/api/operators").then((r) =>
-					r.json(),
-				)) as {
+				const t0 = Date.now();
+				const resp = await fetch("/api/operators");
+				const m = (await resp.json()) as {
 					operators: string[];
 					defaultOperator: string;
 				};
@@ -818,23 +827,16 @@ export default function MapClient() {
 		[queueMapViewport],
 	);
 
+	const beginVectorMapAttachRef = useRef<
+		(e: MapEvent, fromTilesLoaded: boolean) => void
+	>(() => {});
+
 	const beginVectorMapAttach = useCallback(
 		(e: MapEvent, fromTilesLoaded: boolean) => {
 			const map = e.map as google.maps.Map;
 			mapRef.current = map;
 			const z = map.getZoom() ?? 10;
 			const b = map.getBounds();
-			if (!b) return;
-			const boundsJson = b.toJSON();
-			if (mapViewportDebounceRef.current) {
-				clearTimeout(mapViewportDebounceRef.current);
-				mapViewportDebounceRef.current = null;
-			}
-			zoomRef.current = z;
-			startTransition(() => {
-				setMapViewport({ zoom: z, bounds: boundsJson });
-			});
-
 			if (fromTilesLoaded) {
 				if (vectorFirstTilesLoadedAtRef.current === null) {
 					vectorFirstTilesLoadedAtRef.current = Date.now();
@@ -876,14 +878,35 @@ export default function MapClient() {
 					"idle",
 					onMapIdle,
 				);
+				if (!tilesLoadedFallbackListenerRef.current) {
+					tilesLoadedFallbackListenerRef.current =
+						google.maps.event.addListenerOnce(map, "tilesloaded", () => {
+							tilesLoadedFallbackListenerRef.current = null;
+							beginVectorMapAttachRef.current({ map } as MapEvent, true);
+						});
+				}
 			}
-			// Efter tiles: starta debounce (kartan kan redan vara idle utan nytt idle-event).
+
+			if (b) {
+				const boundsJson = b.toJSON();
+				if (mapViewportDebounceRef.current) {
+					clearTimeout(mapViewportDebounceRef.current);
+					mapViewportDebounceRef.current = null;
+				}
+				zoomRef.current = z;
+				startTransition(() => {
+					setMapViewport({ zoom: z, bounds: boundsJson });
+				});
+			}
+
 			if (fromTilesLoaded) {
 				scheduleVectorPaintReady();
 			}
 		},
 		[clearVectorPaintIdleWatchers],
 	);
+
+	beginVectorMapAttachRef.current = beginVectorMapAttach;
 
 	useEffect(() => {
 		return () => {

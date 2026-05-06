@@ -4,7 +4,7 @@ import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
 import type { IDbData } from "@shared/models/IDbData";
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, exists, gte, inArray, lte, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
@@ -434,6 +434,17 @@ const NEARBY_BBOX_DEG = 0.05;
 const NEARBY_CANDIDATE_CAP = 800;
 const NEARBY_FALLBACK_CANDIDATE_CAP = 3000;
 
+/**
+ * Skåne: expandera bbox i steg — undvik `LIMIT` utan geografisk filter (kan kräva EXISTS för tusentals rader → timeout).
+ * Loggar visade nearestMs >> routesMs (~4.4s vs ~0.1s).
+ */
+const NEARBY_SKANE_RINGS: readonly { halfDeg: number; cap: number }[] = [
+	{ halfDeg: 0.018, cap: 140 },
+	{ halfDeg: 0.035, cap: 260 },
+	{ halfDeg: 0.055, cap: 400 },
+	{ halfDeg: 0.09, cap: 520 },
+];
+
 /** Stops nearest to a point; bbox prefilter then Haversine sort. */
 export const selectNearestStopsFromDatabase = async (
 	lat: number,
@@ -445,23 +456,11 @@ export const selectNearestStopsFromDatabase = async (
 	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
-		const selectNearbyCandidates = async (useBbox: boolean, candidateCap: number) =>
+		/** Semi-join (samma idé som stopPositionsStaticQueries): undvik JOIN+GROUP BY över enorma stop_times-rader. */
+		const hasServingTrip = exists(
 			db
-				.select({
-					stop_id: stops.stop_id,
-					stop_name: stops.stop_name,
-					stop_lat: stops.stop_lat,
-					stop_lon: stops.stop_lon,
-				})
-				.from(stops)
-				.innerJoin(
-					stop_times,
-					and(
-						eq(stop_times.stop_id, stops.stop_id),
-						eq(stop_times.operator, stops.operator),
-						eq(stop_times.feed_version, latestFeedVersion),
-					),
-				)
+				.select({ _: sql`1` })
+				.from(stop_times)
 				.innerJoin(
 					trips,
 					and(
@@ -480,24 +479,66 @@ export const selectNearestStopsFromDatabase = async (
 				)
 				.where(
 					and(
+						eq(stop_times.stop_id, stops.stop_id),
+						eq(stop_times.operator, stops.operator),
+						eq(stop_times.feed_version, latestFeedVersion),
+					),
+				),
+		);
+
+		const selectNearbyCandidates = async (
+			bboxHalfDeg: number | null,
+			candidateCap: number,
+		) =>
+			db
+				.select({
+					stop_id: stops.stop_id,
+					stop_name: stops.stop_name,
+					stop_lat: stops.stop_lat,
+					stop_lon: stops.stop_lon,
+				})
+				.from(stops)
+				.where(
+					and(
 						eq(stops.feed_version, latestFeedVersion),
 						eq(stops.operator, operator),
-						...(useBbox
+						hasServingTrip,
+						...(bboxHalfDeg != null
 							? [
-									gte(stops.stop_lat, lat - NEARBY_BBOX_DEG),
-									lte(stops.stop_lat, lat + NEARBY_BBOX_DEG),
-									gte(stops.stop_lon, lng - NEARBY_BBOX_DEG),
-									lte(stops.stop_lon, lng + NEARBY_BBOX_DEG),
+									gte(stops.stop_lat, lat - bboxHalfDeg),
+									lte(stops.stop_lat, lat + bboxHalfDeg),
+									gte(stops.stop_lon, lng - bboxHalfDeg),
+									lte(stops.stop_lon, lng + bboxHalfDeg),
 								]
 							: []),
 					),
 				)
-				.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
 				.limit(candidateCap);
 
-		let data = await selectNearbyCandidates(true, NEARBY_CANDIDATE_CAP);
-		if (data.length === 0) {
-			data = await selectNearbyCandidates(false, NEARBY_FALLBACK_CANDIDATE_CAP);
+		let data: {
+			stop_id: string | null;
+			stop_name: string | null;
+			stop_lat: unknown;
+			stop_lon: unknown;
+		}[];
+
+		if (operator === "skane") {
+			data = [];
+			for (const ring of NEARBY_SKANE_RINGS) {
+				data = await selectNearbyCandidates(ring.halfDeg, ring.cap);
+				if (data.length > 0) break;
+			}
+		} else {
+			data = await selectNearbyCandidates(
+				NEARBY_BBOX_DEG,
+				NEARBY_CANDIDATE_CAP,
+			);
+			if (data.length === 0) {
+				data = await selectNearbyCandidates(
+					null,
+					NEARBY_FALLBACK_CANDIDATE_CAP,
+				);
+			}
 		}
 
 		const rows: INearbyStopRow[] = data

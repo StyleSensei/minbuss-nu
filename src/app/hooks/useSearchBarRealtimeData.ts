@@ -83,13 +83,11 @@ export function useSearchBarRealtimeData({
 				if (query !== latestVehicleLineRef.current) return;
 
 				setFilteredVehicles({ data: result.data, error: result.error });
+				setErrorMessage(result.error?.message ?? null);
 				navigateToValidLineIfUrlDiffers(query.trim().toUpperCase(), {
 					mapFit: true,
 				});
 
-				if (result.error) {
-					setErrorMessage(result.error.message);
-				}
 			} catch {
 				// keep previous behavior: only stop loading + show error state
 			} finally {
@@ -140,10 +138,18 @@ export function useSearchBarRealtimeData({
 		[setFilteredTripUpdates],
 	);
 
+	const onVehiclePollData = useCallback(
+		(response: IVehicleFilterResult) => {
+			setFilteredVehicles({ data: response.data, error: response.error });
+			setErrorMessage(response.error?.message ?? null);
+		},
+		[setFilteredVehicles, setErrorMessage],
+	);
+
 	const { startPolling: pollVehiclePositions, stopPolling: stopVehiclePolling } =
 		usePolling<IVehicleFilterResult>(
 			fetchVehiclesForPolling,
-			setFilteredVehicles,
+			onVehiclePollData,
 			VEHICLE_POLL_INTERVAL_MS,
 			{
 				onError: () =>

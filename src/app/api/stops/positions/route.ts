@@ -46,6 +46,7 @@ function parseBounds(sp: URLSearchParams): {
  * Optional query: north, south, east, west — returns only stops inside the box (smaller payload).
  */
 export async function GET(request: NextRequest) {
+	const t0 = Date.now();
 	try {
 		const bbox = parseBounds(request.nextUrl.searchParams);
 		const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
@@ -60,12 +61,15 @@ export async function GET(request: NextRequest) {
 					selectLatestFeedVersionFromDatabase(operator),
 				]);
 
+		const durationMs = Date.now() - t0;
 		return NextResponse.json(
 			{ v: v ?? "0", stops },
 			{
 				headers: {
 					"Cache-Control":
 						"public, s-maxage=86400, stale-while-revalidate=604800",
+					"x-handler-duration-ms": String(durationMs),
+					"x-server-uptime-ms": String(Math.floor(process.uptime() * 1000)),
 				},
 			},
 		);

@@ -1,6 +1,15 @@
 "use client";
 
+import type { OperatorMapBounds } from "@shared/config/operatorsRegistry";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+
+function isLatLngInsideBounds(
+	lat: number,
+	lng: number,
+	b: OperatorMapBounds,
+): boolean {
+	return lat <= b.north && lat >= b.south && lng <= b.east && lng >= b.west;
+}
 
 interface Coordinates {
 	lat: number;
@@ -20,11 +29,14 @@ interface UseSearchBarUiParams {
 	effectiveOperator: string;
 	allRoutesAsObject: Record<string, boolean>;
 	userPosition: Coordinates | null;
+	nearbyFallbackCenter: Coordinates;
+	nearbyRegionBounds: OperatorMapBounds;
 	inputRef: RefObject<HTMLInputElement | null>;
 	fetchNearbyStops: (
 		lat: number,
 		lng: number,
 		operator: string,
+		signal?: AbortSignal,
 	) => Promise<{ stops: StopRow[] }>;
 	fetchStopSearch: (
 		query: string,
@@ -51,6 +63,8 @@ export function useSearchBarUi({
 	effectiveOperator,
 	allRoutesAsObject,
 	userPosition,
+	nearbyFallbackCenter,
+	nearbyRegionBounds,
 	inputRef,
 	fetchNearbyStops,
 	fetchStopSearch,
@@ -64,6 +78,14 @@ export function useSearchBarUi({
 	const [nearbyStopsLoading, setNearbyStopsLoading] = useState(false);
 	const [stopSearchLoading, setStopSearchLoading] = useState(false);
 	const initialHeight = useRef<number | null>(null);
+	const nearbyAbortRef = useRef<AbortController | null>(null);
+
+	useEffect(() => {
+		return () => {
+			nearbyAbortRef.current?.abort();
+			nearbyAbortRef.current = null;
+		};
+	}, []);
 
 	const handleVisualViewPortResize = useCallback(() => {
 		if (!initialHeight.current || !window.visualViewport) return;
@@ -79,6 +101,8 @@ export function useSearchBarUi({
 	}, [handleVisualViewPortResize]);
 
 	const handleBlur = useCallback(() => {
+		nearbyAbortRef.current?.abort();
+		nearbyAbortRef.current = null;
 		setIsBlurring(true);
 		setTimeout(() => {
 			setIsActive(false);
@@ -93,30 +117,49 @@ export function useSearchBarUi({
 		if (isMobile) setIsKeyboardLikelyOpen(true);
 
 		void (async () => {
+			nearbyAbortRef.current?.abort();
+			const ac = new AbortController();
+			nearbyAbortRef.current = ac;
 			setNearbyStopsLoading(true);
-			const pos =
+			let pos: Coordinates | null =
 				userPosition != null
 					? { lat: userPosition.lat, lng: userPosition.lng }
-					: await getGeolocationPosition();
+					: null;
 			if (!pos) {
-				setNearbyStopsList([]);
-				setNearbyStopsLoading(false);
-				return;
+				pos = await getGeolocationPosition();
+			}
+			if (!pos) {
+				pos = nearbyFallbackCenter;
+			}
+			if (!isLatLngInsideBounds(pos.lat, pos.lng, nearbyRegionBounds)) {
+				pos = nearbyFallbackCenter;
 			}
 			try {
 				const { stops } = await fetchNearbyStops(
 					pos.lat,
 					pos.lng,
 					effectiveOperator,
+					ac.signal,
 				);
+				if (ac.signal.aborted) return;
 				setNearbyStopsList(stops);
 			} catch {
+				if (ac.signal.aborted) return;
 				setNearbyStopsList([]);
 			} finally {
-				setNearbyStopsLoading(false);
+				if (!ac.signal.aborted && nearbyAbortRef.current === ac) {
+					nearbyAbortRef.current = null;
+					setNearbyStopsLoading(false);
+				}
 			}
 		})();
-	}, [effectiveOperator, fetchNearbyStops, userPosition]);
+	}, [
+		effectiveOperator,
+		fetchNearbyStops,
+		userPosition,
+		nearbyFallbackCenter,
+		nearbyRegionBounds,
+	]);
 
 	const handleToggleTextMode = useCallback(() => {
 		setIsTextMode((prev) => !prev);
