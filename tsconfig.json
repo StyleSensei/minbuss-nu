@@ -23,8 +23,7 @@
 		"paths": {
 			"@/*": ["./src/*"],
 			"@shared/*": ["./src/shared/*"]
-		},
-		"ignoreDeprecations": "6.0"
+		}
 	},
 	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
 	"exclude": ["node_modules", "dist-cron"]
