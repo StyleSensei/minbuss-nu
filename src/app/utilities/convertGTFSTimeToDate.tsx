@@ -6,14 +6,16 @@ export function convertGTFSTimeToDate(gtfsTime: string): Date {
 	const currentHour = now.getHours();
 	const date = new Date();
 
+	const nightServiceMorning = currentHour < 6;
+
 	if (hours >= 24) {
-		if (currentHour < 4) {
+		if (nightServiceMorning) {
 			hours = hours % 24;
 		} else {
 			date.setDate(date.getDate() + 1);
 			hours = hours % 24;
 		}
-	} else if (currentHour < 4 && hours >= 22 && hours < 24) {
+	} else if (nightServiceMorning && hours >= 22 && hours < 24) {
 		date.setDate(date.getDate() - 1);
 	} else if (currentHour >= 15 && hours < 6) {
 		date.setDate(date.getDate() + 1);
