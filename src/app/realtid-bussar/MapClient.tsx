@@ -987,6 +987,12 @@ export default function MapClient() {
 		setShowCurrentTrips(true);
 	}, [selectedStopForSchedule]);
 
+	useEffect(() => {
+		if (isMobile && infoWindowActive) {
+			setShowCurrentTrips(false);
+		}
+	}, [isMobile, infoWindowActive]);
+
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
 	}
@@ -1058,16 +1064,16 @@ export default function MapClient() {
 					setClickedOutside(false);
 					setInfoWindowActive(true);
 
-					if (mapRef.current && vehicle.position) {
-						mapRef.current.panTo({
-							lat: vehicle.position.latitude,
-							lng: vehicle.position.longitude,
-						});
-					}
-					if (isMobile) {
-						setShowCurrentTrips(true);
-					}
-				}, 50);
+				if (mapRef.current && vehicle.position) {
+					mapRef.current.panTo({
+						lat: vehicle.position.latitude,
+						lng: vehicle.position.longitude,
+					});
+				}
+				if (isMobile) {
+					setShowCurrentTrips(false);
+				}
+			}, 50);
 				mapRef?.current?.setZoom(17);
 			}
 		},
