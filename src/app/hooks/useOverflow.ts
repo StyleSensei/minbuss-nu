@@ -25,8 +25,8 @@ export const useOverflow = <T extends HTMLElement = HTMLDivElement>(
 		// Slack for subpixel layout and rubber-band scrolling near the bottom
 		const isAtBottom = !overflowing || distanceFromBottom < bottomThreshold;
 
-		setIsOverflowing(overflowing);
-		setIsScrolledToBottom(isAtBottom);
+		setIsOverflowing((prev) => (prev === overflowing ? prev : overflowing));
+		setIsScrolledToBottom((prev) => (prev === isAtBottom ? prev : isAtBottom));
 	}, [bottomThreshold]);
 
 	useEffect(() => {

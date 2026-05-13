@@ -52,6 +52,10 @@ export const InfoWindow = ({
 	);
 	const prevTripStopsRef = useRef<IDbData[]>([]);
 	const prevEffectiveStopRef = useRef<IDbData | null>(null);
+	const tripStopsRef = useRef(tripStops);
+	tripStopsRef.current = tripStops;
+	const pendingTripStopsRef = useRef(pendingTripStops);
+	pendingTripStopsRef.current = pendingTripStops;
 	const effectiveStop = closestStopState || localClosestStop;
 	const isMobile = useIsMobile();
 	const [isCollapsed, setIsCollapsed] = useState(true);
@@ -65,31 +69,39 @@ export const InfoWindow = ({
 		[effectiveStop?.stop_sequence],
 	);
 
-	const completeAnimation = useCallback(
-		(newStops: IDbData[]) => {
-			setIsTableAnimating(false);
-			setTripStops(newStops);
-			prevTripStopsRef.current = [...newStops];
+	const completeAnimation = useCallback((newStops: IDbData[]) => {
+		setIsTableAnimating(false);
+		setTripStops(newStops);
+		prevTripStopsRef.current = [...newStops];
 
-			if (pendingTripStops) {
-				setTripStops(pendingTripStops);
-				prevTripStopsRef.current = [...pendingTripStops];
-				setPendingTripStops(null);
-			}
-		},
-		[pendingTripStops],
+		const pending = pendingTripStopsRef.current;
+		if (pending) {
+			setTripStops(pending);
+			prevTripStopsRef.current = [...pending];
+			setPendingTripStops(null);
+		}
+	}, []);
+
+	const tripStopsSig = useMemo(
+		() =>
+			tripStops.length === 0
+				? ""
+				: `${tripStops.length}:${tripStops.map((s) => `${s.stop_id}:${s.stop_sequence}`).join("|")}`,
+		[tripStops],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: do not depend on `effectiveStop` object identity or raw `tripStops` reference (parent refresh). Use `tripStopsSig` + stop_id/sequence. `completeAnimation` is stable (reads pending via ref).
 	useEffect(() => {
 		checkOverflow();
 
-		if (effectiveStop && prevEffectiveStopRef.current && tripStops.length > 0) {
+		const stops = tripStopsRef.current;
+		if (effectiveStop && prevEffectiveStopRef.current && stops.length > 0) {
 			const prevSequence = prevEffectiveStopRef.current.stop_sequence;
 			const currentSequence = effectiveStop.stop_sequence;
 
 			if (currentSequence > prevSequence) {
-				const prevVisibleStops = getVisibleStops(tripStops, prevSequence);
-				const currentVisibleStops = getVisibleStops(tripStops, currentSequence);
+				const prevVisibleStops = getVisibleStops(stops, prevSequence);
+				const currentVisibleStops = getVisibleStops(stops, currentSequence);
 
 				const currentVisibleIds = new Set(
 					currentVisibleStops.map((s) => s.stop_id),
@@ -101,7 +113,7 @@ export const InfoWindow = ({
 				if (nowHiddenStops.length > 0) {
 					setIsTableAnimating(true);
 
-					const newFilteredStops = tripStops.filter(
+					const newFilteredStops = stops.filter(
 						(stop) => stop.stop_sequence >= currentSequence,
 					);
 
@@ -112,14 +124,13 @@ export const InfoWindow = ({
 
 		prevEffectiveStopRef.current = effectiveStop;
 	}, [
-		tripStops,
+		tripStopsSig,
 		checkOverflow,
+		effectiveStop?.stop_id,
 		effectiveStop?.stop_sequence,
 		getVisibleStops,
-		completeAnimation,
-		effectiveStop,
 	]);
-	effectiveStop;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: never use `containerRef.current` as a dep. `tripStopsSig` re-attaches ResizeObserver when stop rows meaningfully change (not only reference churn).
 	useLayoutEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
@@ -132,7 +143,7 @@ export const InfoWindow = ({
 			window.clearTimeout(t);
 			ro.disconnect();
 		};
-	}, [checkOverflow, containerRef.current]);
+	}, [checkOverflow, tripStopsSig]);
 
 	useEffect(() => {
 		if (!tripId) return;
