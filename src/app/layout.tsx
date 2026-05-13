@@ -72,8 +72,8 @@ export default async function RootLayout({
 
 	const imageSrc =
 		deviceType === "mobile"
-			? "/wait-for-bus_mobile.jpg"
-			: "/wait-for-bus_desktop.jpg";
+			? "/wait-for-bus_mobile.webp"
+			: "/wait-for-bus_desktop.webp";
 
 	return (
 		<html lang="sv">
