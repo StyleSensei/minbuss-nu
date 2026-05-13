@@ -1,4 +1,4 @@
-import { regionCrestIconByOperator } from "../../../public/icons";
+import { regionCrestIconByOperator } from "./regionCrestIconPaths";
 
 export type OperatorMapBounds = {
 	north: number;
