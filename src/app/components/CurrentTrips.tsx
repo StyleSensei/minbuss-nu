@@ -150,8 +150,10 @@ export const CurrentTrips = ({
 		removalTarget: null,
 	});
 	const isPinnedStopMode = selectedStopRouteLines !== null;
+	/** Närmaste hållplats från GPS (för etikett/knapp — fångas i const så TS kan smalna i handlers). */
+	const userNearestStop = userPosition?.closestStop ?? null;
 	/** Hållplats för tabellens avgångar (vald eller användarens närmaste — inte bussens läge). */
-	const listBoardStop = closestStop ?? userPosition?.closestStop;
+	const listBoardStop = closestStop ?? userNearestStop;
 	/** Fordonets bräddhållplats för injektion/sekvens när tur följs (utan pin-läge). */
 	const injectBoardStop =
 		!isPinnedStopMode && activeVehicleBoardStop
@@ -654,7 +656,7 @@ export const CurrentTrips = ({
 							{routeMeta.route_long_name}
 						</p>
 					) : null}
-					{userPosition?.closestStop && !isPinnedStopMode && (
+					{userNearestStop && !isPinnedStopMode && (
 						<p className="station-name">
 							<span className="text-muted-foreground dark">
 								Din närmaste hållplats:{" "}
@@ -662,10 +664,10 @@ export const CurrentTrips = ({
 							<button
 								type="button"
 								onClick={() => {
-									handleOnStopClick(userPosition.closestStop);
+									handleOnStopClick(userNearestStop);
 								}}
 							>
-								<strong>{userPosition.closestStop.stop_name}</strong>
+								<strong>{userNearestStop.stop_name}</strong>
 							</button>
 						</p>
 					)}
