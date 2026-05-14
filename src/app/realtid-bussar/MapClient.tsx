@@ -72,7 +72,6 @@ export default function MapClient() {
 		selectedStopForSchedule,
 		setSelectedStopForSchedule,
 		setSelectedStopRouteLines,
-		activeVehicleBoardStop,
 	} = useDataContext();
 	const router = useRouter();
 	const pathname = usePathname();
@@ -547,7 +546,6 @@ export default function MapClient() {
 							followedTripId={followedTripId ?? fallbackFollowed.tripId}
 							closestStop={
 								selectedStopForSchedule ??
-								activeVehicleBoardStop ??
 								userPosition?.closestStop ??
 								undefined
 							}

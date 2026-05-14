@@ -149,8 +149,15 @@ export const CurrentTrips = ({
 		towardSig: null,
 		removalTarget: null,
 	});
-	const closestStopToUse = closestStop ?? userPosition?.closestStop;
 	const isPinnedStopMode = selectedStopRouteLines !== null;
+	/** Hållplats för tabellens avgångar (vald eller användarens närmaste — inte bussens läge). */
+	const listBoardStop = closestStop ?? userPosition?.closestStop;
+	/** Fordonets bräddhållplats för injektion/sekvens när tur följs (utan pin-läge). */
+	const injectBoardStop =
+		!isPinnedStopMode && activeVehicleBoardStop
+			? activeVehicleBoardStop
+			: listBoardStop;
+
 	const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 
 	const pickLineInModal = useCallback(
@@ -328,14 +335,14 @@ export const CurrentTrips = ({
 			}
 
 			let newList: IDbData[];
-			if (closestStopToUse) {
-				const boardStop = closestStopToUse;
+			if (listBoardStop) {
+				const boardStop = listBoardStop;
 				const stopNameNorm = boardStop.stop_name.trim();
 				const boardStopSequenceForFollowed =
-					effectiveFollowedTripId && closestStopToUse
+					effectiveFollowedTripId && injectBoardStop
 						? resolveBoardStopSequenceForTripAtBoard(
 								effectiveFollowedTripId,
-								closestStopToUse,
+								injectBoardStop,
 								tripData.currentTrips,
 								tripData.upcomingTrips,
 							)
@@ -450,10 +457,10 @@ export const CurrentTrips = ({
 						return rowPassesDepartureTimeRule(trip);
 				});
 
-				if (effectiveFollowedTripId && closestStopToUse) {
+				if (effectiveFollowedTripId && injectBoardStop) {
 					const injected = injectFollowedTripRowAtBoard(
 						effectiveFollowedTripId,
-						closestStopToUse,
+						injectBoardStop,
 						boardStopSequenceForFollowed,
 						tripData.currentTrips,
 						tripData.upcomingTrips,
@@ -496,9 +503,11 @@ export const CurrentTrips = ({
 			}
 		};
 	}, [
-		closestStopToUse?.stop_id,
-		closestStopToUse?.stop_sequence,
-		closestStopToUse?.stop_name,
+		listBoardStop?.stop_id,
+		listBoardStop?.stop_sequence,
+		listBoardStop?.stop_name,
+		injectBoardStop?.stop_id,
+		injectBoardStop?.stop_sequence,
 		tripData.upcomingTrips,
 		tripData.currentTrips,
 		getUpdatedDepartureTime,
@@ -520,7 +529,7 @@ export const CurrentTrips = ({
 	}
 
 	const nextBusUpdatedTime = nextBus
-		? getUpdatedDepartureTime(nextBus.trip_id, closestStopToUse)
+		? getUpdatedDepartureTime(nextBus.trip_id, listBoardStop)
 		: undefined;
 
 	const nextBusScheduledTime = nextBus?.departure_time
@@ -577,7 +586,7 @@ export const CurrentTrips = ({
 		hasTripsToDisplay,
 		displayTrips.length,
 		tripData.upcomingTrips.length,
-		closestStopToUse?.stop_id,
+		listBoardStop?.stop_id,
 		selectedStopRouteLines?.join("|") ?? "",
 	]);
 
@@ -595,8 +604,8 @@ export const CurrentTrips = ({
 			>
 				<div className="trips-header">
 					<h2 className="text-left text-2xl font-extrabold tracking-tight text-balance">
-						{isPinnedStopMode && closestStopToUse
-							? closestStopToUse.stop_name
+						{isPinnedStopMode && listBoardStop
+							? listBoardStop.stop_name
 							: "Avgångar närmast dig"}
 					</h2>
 					{selectedStopRouteLines && selectedStopRouteLines.length > 0 ? (
@@ -645,7 +654,7 @@ export const CurrentTrips = ({
 							{routeMeta.route_long_name}
 						</p>
 					) : null}
-					{closestStopToUse && !isPinnedStopMode && (
+					{userPosition?.closestStop && !isPinnedStopMode && (
 						<p className="station-name">
 							<span className="text-muted-foreground dark">
 								Din närmaste hållplats:{" "}
@@ -653,10 +662,10 @@ export const CurrentTrips = ({
 							<button
 								type="button"
 								onClick={() => {
-									handleOnStopClick(closestStopToUse);
+									handleOnStopClick(userPosition.closestStop);
 								}}
 							>
-								<strong>{closestStopToUse.stop_name}</strong>
+								<strong>{userPosition.closestStop.stop_name}</strong>
 							</button>
 						</p>
 					)}
@@ -729,7 +738,7 @@ export const CurrentTrips = ({
 									{rest.map((trip, i) => {
 										const updatedTime = getUpdatedDepartureTime(
 											trip?.trip_id,
-											closestStopToUse,
+											listBoardStop,
 										);
 										const scheduledTime = normalizeTimeForDisplay(
 											trip?.departure_time?.slice(0, 5),
