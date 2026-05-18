@@ -34,6 +34,9 @@ import { useHideUserMarkerDuringZoom } from "./mapClient/hooks/useHideUserMarker
 import { useLandingChromeHide } from "./mapClient/hooks/useLandingChromeHide";
 import { useLineShapeFitBounds } from "./mapClient/hooks/useLineShapeFitBounds";
 import { useMapBootRecoveryAndOnline } from "./mapClient/hooks/useMapBootRecoveryAndOnline";
+import { useInitialRegionFromGeo } from "./mapClient/hooks/useInitialRegionFromGeo";
+import { useMapInitialCenter } from "./mapClient/hooks/useMapInitialCenter";
+import { hrefForOperatorAtUserPosition } from "./mapClient/mapClientRegionNavigation";
 import {
 	useInitialLinjeFromDocumentRef,
 	useMapInitialCamera,
@@ -255,14 +258,19 @@ export default function MapClient() {
 
 	useSyncCurrentTripsOpenToContext(showCurrentTrips, setIsCurrentTripsOpen);
 
-	const defaultMapCenter = useMemo(
-		() =>
-			userPosition
-				? { lat: userPosition.lat, lng: userPosition.lng }
-				: operatorMapView.defaultCenter,
-		[userPosition, operatorMapView.defaultCenter],
+	const regionResolved = useInitialRegionFromGeo(
+		userPosition,
+		operatorsMeta,
+		mapOperatorForView,
+		findOperatorForPosition,
+		focusUserParam,
 	);
-
+	const { mapMountReady, mapInitialCenter } = useMapInitialCenter(
+		userPosition,
+		operatorMapView.defaultCenter,
+		linjeParam,
+	);
+	const canMountMap = regionResolved && mapMountReady && mapInitialCenter != null;
 	const handlePreviewLineClick = useCallback(
 		(routeShortName: string, stop: IDbData) => {
 			const names = mapStopPreview?.routeShortNames;
@@ -374,12 +382,9 @@ export default function MapClient() {
 			return;
 		}
 		if (matchedOperator !== mapOperatorForView) {
-			const p = new URLSearchParams(searchParams.toString());
-			p.delete("operator");
-			p.set("focusUser", "1");
-			const qs = p.toString();
-			const base = searchPathForOperator(matchedOperator);
-			router.push(qs ? `${base}?${qs}` : base);
+			router.push(
+				hrefForOperatorAtUserPosition(matchedOperator, searchParams),
+			);
 			return;
 		}
 
@@ -444,6 +449,7 @@ export default function MapClient() {
 	return (
 		<div className="map-client-root">
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
+				{canMountMap && mapInitialCenter && (
 				<GoogleMap
 					key={`${mapOperatorForView}:${mapMountKey}`}
 					mapId={"fb3dad0c952dfd27"}
@@ -454,7 +460,7 @@ export default function MapClient() {
 							: MAP_BOOTSTRAP_ZOOM
 					}
 					minZoom={10}
-					defaultCenter={defaultMapCenter}
+					defaultCenter={mapInitialCenter}
 					gestureHandling={"greedy"}
 					onTilesLoaded={(e: MapEvent) => {
 						beginVectorMapAttach(e, true);
@@ -587,8 +593,9 @@ export default function MapClient() {
 						</AdvancedMarker>
 					)}
 				</GoogleMap>
+				)}
 			</APIProvider>
-			{!mapReady && (
+			{(!canMountMap || !mapReady) && (
 				<output
 					className="map-loading-overlay"
 					aria-live="polite"

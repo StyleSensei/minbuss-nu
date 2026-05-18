@@ -4,7 +4,6 @@ import {
 	type Dispatch,
 	type SetStateAction,
 	useContext,
-	useEffect,
 	useMemo,
 	useState,
 } from "react";
@@ -36,9 +35,7 @@ interface IDataContext {
 	filteredTripUpdates: ITripUpdate[];
 	setFilteredTripUpdates: (trips: ITripUpdate[]) => void;
 	userPosition: IUser | null;
-	setUserPosition: (
-		position: IUser | null | ((prev: IUser | null) => IUser | null),
-	) => void;
+	setUserPosition: Dispatch<SetStateAction<IUser | null>>;
 	isLoading: boolean;
 	setIsLoading: Dispatch<SetStateAction<boolean>>;
 	isCurrentTripsOpen: boolean;
@@ -102,7 +99,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 	const [filteredTripUpdates, setFilteredTripUpdates] = useState<ITripUpdate[]>(
 		[],
 	);
-	const [userPosition, setUserPosition] = useState<IUser | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCurrentTripsOpen, setIsCurrentTripsOpen] = useState(false);
 	const [mapStopPreview, setMapStopPreview] = useState<IMapStopPreview | null>(
@@ -118,13 +114,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 	const [activeFollowedTripId, setActiveFollowedTripId] = useState<string | null>(
 		null,
 	);
-	const geoPosition = useGeolocation(tripData.lineStops, tripData.currentTrips);
-
-	useEffect(() => {
-		if (geoPosition) {
-			setUserPosition(geoPosition);
-		}
-	}, [geoPosition]);
+	const [userPosition, setUserPosition] = useGeolocation(
+		tripData.lineStops,
+		tripData.currentTrips,
+	);
 
 	const contextValue = useMemo(
 		() => ({

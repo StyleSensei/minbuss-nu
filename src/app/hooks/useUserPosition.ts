@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	type Dispatch,
+	type SetStateAction,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import type { IDbData } from "@shared/models/IDbData";
 import { getClosest } from "../utilities/getClosest";
 
@@ -15,7 +22,7 @@ const COORD_EPS = 0.000025;
 export function useGeolocation(
 	lineStops: IDbData[],
 	currentTrips: IDbData[],
-) {
+): [IUser | null, Dispatch<SetStateAction<IUser | null>>] {
 	const [position, setPosition] = useState<IUser | null>(null);
 	const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 	const lineStopsRef = useRef(lineStops);
@@ -113,5 +120,5 @@ export function useGeolocation(
 		return () => navigator.geolocation.clearWatch(watchId);
 	}, [computeUserPosition]);
 
-	return position;
+	return [position, setPosition];
 }

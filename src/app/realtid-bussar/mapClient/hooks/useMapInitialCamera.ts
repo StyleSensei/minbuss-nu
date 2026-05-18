@@ -53,10 +53,18 @@ export function useMapInitialCamera(
 		if (!mapReady || !mapRef.current) return;
 		if (prevMapOperatorForPanRef.current === null) {
 			prevMapOperatorForPanRef.current = mapOperatorForView;
+			if (linjeParam) return;
 			const initialMap = mapRef.current;
-			initialMap.panTo(operatorDefaultCenter);
-			initialMap.setZoom(MAP_TARGET_INITIAL_ZOOM);
-			userGeolocatePanDoneRef.current = true;
+			if (userPosition) {
+				initialMap.panTo({
+					lat: userPosition.lat,
+					lng: userPosition.lng,
+				});
+				userGeolocatePanDoneRef.current = true;
+			} else {
+				initialMap.panTo(operatorDefaultCenter);
+				initialMap.setZoom(MAP_TARGET_INITIAL_ZOOM);
+			}
 			return;
 		}
 		if (prevMapOperatorForPanRef.current === mapOperatorForView) return;
@@ -65,7 +73,14 @@ export function useMapInitialCamera(
 		map.panTo(operatorDefaultCenter);
 		map.setZoom(MAP_TARGET_INITIAL_ZOOM);
 		userGeolocatePanDoneRef.current = true;
-	}, [mapReady, mapOperatorForView, operatorDefaultCenter, mapRef]);
+	}, [
+		mapReady,
+		mapOperatorForView,
+		operatorDefaultCenter,
+		mapRef,
+		userPosition,
+		linjeParam,
+	]);
 
 	useEffect(() => {
 		if (!mapReady || !mapRef.current || !userPosition) return;
