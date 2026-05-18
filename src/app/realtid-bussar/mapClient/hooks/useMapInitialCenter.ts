@@ -11,23 +11,28 @@ export function useMapInitialCenter(
 	userPosition: IUser | null,
 	operatorDefaultCenter: google.maps.LatLngLiteral,
 	linjeParam: string,
+	centerOnUser: boolean,
 ) {
 	const initialCenterRef = useRef<google.maps.LatLngLiteral | null>(null);
 	const [geoWaitExpired, setGeoWaitExpired] = useState(false);
+	const positionForCenter = centerOnUser ? userPosition : null;
 
 	useEffect(() => {
-		if (userPosition || linjeParam) return;
+		if (positionForCenter || linjeParam || !centerOnUser) return;
 		const timer = setTimeout(() => setGeoWaitExpired(true), GEO_WAIT_MS);
 		return () => clearTimeout(timer);
-	}, [userPosition, linjeParam]);
+	}, [positionForCenter, linjeParam, centerOnUser]);
 
 	const mapMountReady =
-		Boolean(linjeParam) || Boolean(userPosition) || geoWaitExpired;
+		Boolean(linjeParam) ||
+		Boolean(positionForCenter) ||
+		geoWaitExpired ||
+		!centerOnUser;
 
 	let mapInitialCenter = initialCenterRef.current;
 	if (mapMountReady && mapInitialCenter === null) {
-		mapInitialCenter = userPosition
-			? { lat: userPosition.lat, lng: userPosition.lng }
+		mapInitialCenter = positionForCenter
+			? { lat: positionForCenter.lat, lng: positionForCenter.lng }
 			: operatorDefaultCenter;
 		initialCenterRef.current = mapInitialCenter;
 	}

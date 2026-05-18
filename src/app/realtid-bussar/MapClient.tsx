@@ -36,7 +36,10 @@ import { useLineShapeFitBounds } from "./mapClient/hooks/useLineShapeFitBounds";
 import { useMapBootRecoveryAndOnline } from "./mapClient/hooks/useMapBootRecoveryAndOnline";
 import { useInitialRegionFromGeo } from "./mapClient/hooks/useInitialRegionFromGeo";
 import { useMapInitialCenter } from "./mapClient/hooks/useMapInitialCenter";
-import { hrefForOperatorAtUserPosition } from "./mapClient/mapClientRegionNavigation";
+import {
+	hrefForOperatorAtUserPosition,
+	shouldCenterMapOnUserPosition,
+} from "./mapClient/mapClientRegionNavigation";
 import {
 	useInitialLinjeFromDocumentRef,
 	useMapInitialCamera,
@@ -198,6 +201,22 @@ export default function MapClient() {
 		setMapViewport,
 	);
 
+	const centerMapOnUser = useMemo(
+		() =>
+			shouldCenterMapOnUserPosition(
+				focusUserParam,
+				userPosition,
+				mapOperatorForView,
+				findOperatorForPosition,
+			),
+		[
+			focusUserParam,
+			userPosition,
+			mapOperatorForView,
+			findOperatorForPosition,
+		],
+	);
+
 	const initialLinjeFromDocumentRef = useInitialLinjeFromDocumentRef();
 	const { lastLineShapeFitKeyRef } = useMapInitialCamera(
 		mapReady,
@@ -207,6 +226,7 @@ export default function MapClient() {
 		linjeParam,
 		userPosition,
 		focusUserParam,
+		centerMapOnUser,
 	);
 
 	useLandingChromeHide();
@@ -269,6 +289,7 @@ export default function MapClient() {
 		userPosition,
 		operatorMapView.defaultCenter,
 		linjeParam,
+		centerMapOnUser,
 	);
 	const canMountMap = regionResolved && mapMountReady && mapInitialCenter != null;
 	const handlePreviewLineClick = useCallback(

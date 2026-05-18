@@ -28,5 +28,9 @@ export const mapBootstrapZoomTabState = { doneInTab: false };
 /** Max en full sidomladdning per “fastnad”-episod; nollställs när kartan blivit klar. */
 export const MAP_BOOT_HARD_RELOAD_COUNT_KEY = "mapBootHardReloadCount";
 
+/** Auto-redirect till GPS-region körs bara en gång per flik (manuellt regionsbyte ska inte overridas). */
+export const MAP_GEO_REGION_AUTO_REDIRECT_DONE_KEY =
+	"mapGeoRegionAutoRedirectDone";
+
 export const LINE_SHAPE_FIT_PADDING = 56;
 export const LINE_SHAPE_FIT_MAX_ZOOM = 16;

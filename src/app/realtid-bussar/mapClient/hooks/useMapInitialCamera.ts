@@ -30,6 +30,7 @@ export function useMapInitialCamera(
 	linjeParam: string,
 	userPosition: { lat: number; lng: number } | null,
 	focusUserParam: boolean,
+	centerOnUser: boolean,
 ) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -55,7 +56,7 @@ export function useMapInitialCamera(
 			prevMapOperatorForPanRef.current = mapOperatorForView;
 			if (linjeParam) return;
 			const initialMap = mapRef.current;
-			if (userPosition) {
+			if (centerOnUser && userPosition) {
 				initialMap.panTo({
 					lat: userPosition.lat,
 					lng: userPosition.lng,
@@ -80,9 +81,11 @@ export function useMapInitialCamera(
 		mapRef,
 		userPosition,
 		linjeParam,
+		centerOnUser,
 	]);
 
 	useEffect(() => {
+		if (!centerOnUser) return;
 		if (!mapReady || !mapRef.current || !userPosition) return;
 		if (linjeParam) return;
 		if (userGeolocatePanDoneRef.current) return;
@@ -91,7 +94,7 @@ export function useMapInitialCamera(
 			lat: userPosition.lat,
 			lng: userPosition.lng,
 		});
-	}, [mapReady, userPosition, linjeParam, mapRef]);
+	}, [mapReady, userPosition, linjeParam, mapRef, centerOnUser]);
 
 	useEffect(() => {
 		if (!focusUserParam || !mapReady || !mapRef.current || !userPosition)
