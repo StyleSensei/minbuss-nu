@@ -5,13 +5,13 @@ import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
 import type { IDbData } from "@shared/models/IDbData";
 import { and, eq, exists, gte, inArray, lte, sql } from "drizzle-orm";
-import { DateTime } from "luxon";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
 import {
 	calculateTimeFilter,
 	createMinutesFilter,
 } from "@/app/utilities/calculateTimeFilter";
+import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
@@ -26,7 +26,7 @@ import { getDb } from "./db";
 const db = getDb();
 
 function getDateArray(isEarlyMorning = false) {
-	const dt = DateTime.local();
+	const dt = getGtfsDateTime();
 	const today = dt.toFormat("yyyy-MM-dd");
 	if (isEarlyMorning) {
 		const yesterday = dt.minus({ days: 1 }).toFormat("yyyy-MM-dd");
@@ -660,7 +660,7 @@ export const selectUpcomingTripsFromDatabase = async (
 	const latestFeedVersion = latestFeedVersionByOperator(operator);
 	MetricsTracker.trackDbQuery();
 
-	const dt = DateTime.local();
+	const dt = getGtfsDateTime();
 	const currentHour = dt.hour;
 	const hoursAhead = 6;
 	const isEarlyMorning = currentHour < 4;
