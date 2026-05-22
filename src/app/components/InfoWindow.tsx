@@ -2,6 +2,7 @@
 
 import type { IDbData } from "@shared/models/IDbData";
 import { chevronsCollapse, chevronsExpand } from "public/icons";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
 	type HTMLAttributes,
 	useCallback,
@@ -24,24 +25,37 @@ import colors from "../colors";
 import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useOverflow } from "../hooks/useOverflow";
+import { parseOperatorFromRealtimePathname } from "../paths";
+import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
+import { gtfsRouteVehicleLabelSv } from "../utilities/gtfsRouteTypeLabel";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
 import { Button } from "./Button";
+import { PanelCloseButton } from "./PanelCloseButton";
 
 interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
 	closestStopState: IDbData | null;
 	tripId?: string;
 	googleMapRef?: React.MutableRefObject<google.maps.Map | null>;
+	onClose?: () => void;
 }
 
 export const InfoWindow = ({
 	closestStopState,
 	tripId,
 	googleMapRef,
+	onClose,
 	...rest
 }: IInfoWindowProps) => {
 	const { containerRef, isOverflowing, isScrolledToBottom, checkOverflow } =
 		useOverflow<HTMLTableElement>();
-	const { filteredTripUpdates, tripData } = useDataContext();
+	const { filteredTripUpdates, tripData, filteredVehicles } = useDataContext();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	const operatorForFetch = useMemo(() => {
+		const pathOp = parseOperatorFromRealtimePathname(pathname);
+		const q = searchParams.get("operator")?.trim().toLowerCase() ?? "";
+		return closestStopState?.operator ?? ((pathOp ?? q) || "sl");
+	}, [pathname, searchParams, closestStopState?.operator]);
 	const [localClosestStop, setLocalClosestStop] = useState<IDbData | null>(
 		null,
 	);
@@ -59,6 +73,8 @@ export const InfoWindow = ({
 	const effectiveStop = closestStopState || localClosestStop;
 	const isMobile = useIsMobile();
 	const [isCollapsed, setIsCollapsed] = useState(true);
+	/** Collapse är mobil-only; desktop ska alltid visa overflow-indikator. */
+	const showOverflowChrome = !isMobile || !isCollapsed;
 
 	const getVisibleStops = useCallback(
 		(stops: IDbData[], sequenceNumber?: number) => {
@@ -145,54 +161,104 @@ export const InfoWindow = ({
 		};
 	}, [checkOverflow, tripStopsSig]);
 
+	const syncTripStops = useCallback(
+		(newTripStops: IDbData[]) => {
+			if (newTripStops.length === 0) return;
+
+			if (prevTripStopsRef.current.length === 0) {
+				setTripStops(newTripStops);
+				prevTripStopsRef.current = [...newTripStops];
+
+				if (!closestStopState && newTripStops.length > 0) {
+					setLocalClosestStop(newTripStops[0]);
+				}
+				return;
+			}
+
+			const visibleNewStops = getVisibleStops(newTripStops);
+			const visiblePrevStops = getVisibleStops(prevTripStopsRef.current);
+
+			if (visiblePrevStops.length > 0) {
+				const newStopIds = new Set(visibleNewStops.map((stop) => stop.stop_id));
+				const removedStops = visiblePrevStops.filter(
+					(stop) => !newStopIds.has(stop.stop_id),
+				);
+
+				if (removedStops.length > 0) {
+					setIsTableAnimating(true);
+					setTimeout(() => completeAnimation(newTripStops), 1000);
+					return;
+				}
+			}
+
+			if (!isTableAnimating) {
+				setTripStops(newTripStops);
+				prevTripStopsRef.current = [...newTripStops];
+			} else {
+				setPendingTripStops(newTripStops);
+			}
+		},
+		[
+			closestStopState,
+			isTableAnimating,
+			getVisibleStops,
+			completeAnimation,
+		],
+	);
+
 	useEffect(() => {
 		if (!tripId) return;
 
-		const newTripStops = tripData.currentTrips
+		const prevTripId = prevTripStopsRef.current[0]?.trip_id;
+		if (prevTripId && prevTripId !== tripId) {
+			setTripStops([]);
+			prevTripStopsRef.current = [];
+			setPendingTripStops(null);
+		}
+
+		const fromCurrentTrips = tripData.currentTrips
 			.filter((stop) => stop.trip_id === tripId)
 			.sort((a, b) => a.stop_sequence - b.stop_sequence);
 
-		if (newTripStops.length === 0) return;
-
-		if (prevTripStopsRef.current.length === 0) {
-			setTripStops(newTripStops);
-			prevTripStopsRef.current = [...newTripStops];
-
-			if (!closestStopState && newTripStops.length > 0) {
-				setLocalClosestStop(newTripStops[0]);
-			}
+		if (fromCurrentTrips.length > 0) {
+			syncTripStops(fromCurrentTrips);
 			return;
 		}
 
-		const visibleNewStops = getVisibleStops(newTripStops);
-		const visiblePrevStops = getVisibleStops(prevTripStopsRef.current);
+		let cancelled = false;
+		const url = appendOperatorToApiUrl(
+			`/api/trips/${encodeURIComponent(tripId)}/stops`,
+			operatorForFetch,
+		);
 
-		if (visiblePrevStops.length > 0) {
-			const newStopIds = new Set(visibleNewStops.map((stop) => stop.stop_id));
-			const removedStops = visiblePrevStops.filter(
-				(stop) => !newStopIds.has(stop.stop_id),
-			);
+		fetch(url)
+			.then((res) => {
+				if (!res.ok) {
+					throw new Error(`trip stops ${res.status}`);
+				}
+				return res.json() as Promise<{ stops?: IDbData[] }>;
+			})
+			.then((body) => {
+				if (cancelled) return;
+				const fetched = (body.stops ?? [])
+					.filter((stop) => stop.trip_id === tripId)
+					.sort((a, b) => a.stop_sequence - b.stop_sequence);
+				syncTripStops(fetched);
+			})
+			.catch((error) => {
+				if (!cancelled) {
+					console.error("Failed to fetch trip stops:", error);
+				}
+			});
 
-			if (removedStops.length > 0) {
-				setIsTableAnimating(true);
-				setTimeout(() => completeAnimation(newTripStops), 1000);
-				return;
-			}
-		}
-
-		if (!isTableAnimating) {
-			setTripStops(newTripStops);
-			prevTripStopsRef.current = [...newTripStops];
-		} else {
-			setPendingTripStops(newTripStops);
-		}
+		return () => {
+			cancelled = true;
+		};
 	}, [
-		closestStopState,
 		tripId,
 		tripData.currentTrips,
-		isTableAnimating,
-		getVisibleStops,
-		completeAnimation,
+		operatorForFetch,
+		syncTripStops,
 	]);
 
 	useEffect(() => {
@@ -209,6 +275,15 @@ export const InfoWindow = ({
 		);
 	}, [tripStops, effectiveStop?.stop_sequence]);
 
+	const isInTraffic = useMemo(() => {
+		if (!tripId) return false;
+		return filteredVehicles.data.some((v) => v.trip.tripId === tripId);
+	}, [tripId, filteredVehicles.data]);
+
+	const vehicleLabel = gtfsRouteVehicleLabelSv(
+		effectiveStop?.route_type ?? tripStops[0]?.route_type,
+	);
+
 	const handleOnClick = (stop: IDbData) => {
 		if (googleMapRef?.current) {
 			const position = new google.maps.LatLng(+stop.stop_lat, +stop.stop_lon);
@@ -220,18 +295,35 @@ export const InfoWindow = ({
 	return (
 		<div className="info-window" aria-live="polite" {...rest}>
 			<div className="info-window__inner">
+				{onClose ? <PanelCloseButton onClose={onClose} /> : null}
 				<h2>
 					<span className="bus-line">
 						Linje {effectiveStop?.route_short_name},{" "}
 					</span>
 					<span id="final-station">{effectiveStop?.stop_headsign}</span>
 				</h2>
+				{tripId ? (
+					<p
+						className="info-window__traffic-status text-sm text-zinc-300/80 flex items-center gap-2"
+						role="status"
+					>
+						<span
+							className={`shrink-0 w-2 h-2 rounded-full ${isInTraffic ? "bg-accent" : "bg-destructive"}`}
+							aria-hidden
+						/>
+						<span>
+							{isInTraffic
+								? `${vehicleLabel} är i trafik`
+								: `${vehicleLabel} är inte i trafik än`}
+						</span>
+					</p>
+				) : null}
 
 				<div className="table-wrapper">
 					<Table
 						ref={containerRef}
 						onScroll={checkOverflow}
-						className={`min-w-full ${isOverflowing && !isCollapsed ? "--overflowing" : ""} ${isScrolledToBottom && !isCollapsed ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
+						className={`min-w-full ${isOverflowing && showOverflowChrome ? "--overflowing" : ""} ${isScrolledToBottom && showOverflowChrome ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
 					>
 						<TableCaption className="text-left text-zinc-300/80">
 							Kommande hållplatser

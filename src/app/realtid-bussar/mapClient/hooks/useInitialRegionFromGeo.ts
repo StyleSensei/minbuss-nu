@@ -36,9 +36,8 @@ export function useInitialRegionFromGeo(
 	const searchParams = useSearchParams();
 	const decisionDoneRef = useRef(false);
 	const geoWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const [regionResolved, setRegionResolved] = useState(
-		() => focusUserParam || isInitialGeoRegionHandled(),
-	);
+	// SSR and first client paint must match — sessionStorage is read in useEffect only.
+	const [regionResolved, setRegionResolved] = useState(focusUserParam);
 
 	useEffect(() => {
 		const alreadyHandled = isInitialGeoRegionHandled();

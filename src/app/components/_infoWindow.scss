@@ -9,6 +9,8 @@ $max-height: 63dvh;
 .info-window {
     @extend .current-trips;
 
+    position: absolute;
+
     .table-wrapper {
         overflow: hidden;
         position: relative;
@@ -176,7 +178,8 @@ $max-height: 63dvh;
     }
 
     &__inner {
-        padding: v.$padding-textBox v.$padding-textBox 0 v.$padding-textBox ;
+        padding: v.$padding-textBox v.$padding-textBox 0 v.$padding-textBox;
+        position: relative;
     }
 
     .first-cell-pad {
@@ -205,6 +208,11 @@ $max-height: 63dvh;
     h2 {
         font-size: 1.1rem;
         line-height: 1.5;
+        margin-bottom: 0.35rem;
+    }
+
+    &__traffic-status {
+        margin: 0 0 0.75rem 0;
     }
 
     #final-station {

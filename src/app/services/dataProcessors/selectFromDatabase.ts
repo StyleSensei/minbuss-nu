@@ -647,6 +647,81 @@ export const searchStopsByNameFromDatabase = async (
 	}
 };
 
+/** All stop_times for one trip (static GTFS), for schedule InfoWindow. */
+export const selectTripStopsFromDatabase = async (
+	tripId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IDbData[]> => {
+	const trimmedTripId = tripId.trim();
+	if (!trimmedTripId) {
+		return [];
+	}
+
+	const operator = resolveOperator(operatorInput);
+	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	MetricsTracker.trackDbQuery();
+
+	try {
+		const data = await db
+			.select({
+				operator: trips.operator,
+				trip_id: trips.trip_id,
+				shape_id: trips.shape_id,
+				route_short_name: routes.route_short_name,
+				stop_headsign: stop_times.stop_headsign,
+				departure_time: stop_times.departure_time,
+				stop_name: stops.stop_name,
+				stop_sequence: stop_times.stop_sequence,
+				stop_id: stops.stop_id,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+				route_long_name: routes.route_long_name,
+				route_type: routes.route_type,
+				route_desc: routes.route_desc,
+				feed_version: trips.feed_version,
+			})
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+			)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+				),
+			)
+			.innerJoin(
+				stops,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.operator, operator),
+					eq(stops.operator, operator),
+					eq(trips.feed_version, latestFeedVersion),
+					eq(routes.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stops.feed_version, latestFeedVersion),
+					eq(trips.trip_id, trimmedTripId),
+				),
+			)
+			.orderBy(stop_times.stop_sequence)
+			.limit(500);
+
+		return z.array(selectAllSchema).parse(data) as IDbData[];
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
 export const selectUpcomingTripsFromDatabase = async (
 	busLine: string,
 	stop_name: string,

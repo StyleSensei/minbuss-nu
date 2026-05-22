@@ -26,9 +26,11 @@ import {
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
 import { CurrentTripsLoader } from "./CurrentTripsLoader";
 import { Icon } from "./Icon";
+import { PanelCloseButton } from "./PanelCloseButton";
 
 interface ICurrentTripsProps {
-	onTripSelect?: (tripId: string) => void;
+	onTripSelect?: (tripId: string, boardRow?: IDbData) => void;
+	onClose?: () => void;
 	mapRef?: React.MutableRefObject<google.maps.Map | null>;
 	closestStop?: IDbData;
 	followedTripId?: string | null;
@@ -110,6 +112,7 @@ type TableAnimSync = {
 
 export const CurrentTrips = ({
 	onTripSelect,
+	onClose,
 	mapRef,
 	closestStop,
 	followedTripId = null,
@@ -598,6 +601,7 @@ export const CurrentTrips = ({
 
 	return (
 		<div className="current-trips">
+			{onClose ? <PanelCloseButton onClose={onClose} /> : null}
 			<div
 				className={`table-container ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
 				aria-live="polite"
@@ -677,16 +681,18 @@ export const CurrentTrips = ({
 						<button
 							type="button"
 							title={
-								isActive ? "Visa position" : `${vehicleLabel} är inte i trafik`
+								isActive
+									? "Visa position"
+									: "Visa hållplatser längs linjen"
 							}
 							aria-label={`Visa nästa avgång mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
-							className={`next-departure ${isActive ? " --active" : ""}${isTableAnimating ? " row-slide-0" : ""}`}
+							className={`next-departure ${isActive ? " --active" : ""}`}
 							onClick={() => {
-								nextBus ? onTripSelect?.(nextBus.trip_id) : null;
+								nextBus ? onTripSelect?.(nextBus.trip_id, nextBus) : null;
 							}}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" && onTripSelect && nextBus) {
-									onTripSelect(nextBus.trip_id);
+									onTripSelect(nextBus.trip_id, nextBus);
 								}
 							}}
 						>
@@ -718,7 +724,8 @@ export const CurrentTrips = ({
 								<span className={hasUpdate ? "updated-time" : "scheduled-time"}>
 									{nextBusScheduledTime}
 								</span>{" "}
-								{isActive && (
+								{(isActive ||
+									nextBus?.trip_id === effectiveFollowedTripId) && (
 									<span className="inline-block -translate-y-[1px] translate-x-[6px]">
 										<MapPinned className="w-6 h-6" />
 									</span>
@@ -748,9 +755,6 @@ export const CurrentTrips = ({
 										const hasUpdate =
 											updatedTime && updatedTime !== scheduledTime;
 										const isActive = activeVehiclePositions.has(trip.trip_id);
-										const rowVehicleLabel = gtfsRouteVehicleLabelSv(
-											trip.route_type,
-										);
 
 										const rowSlideClass =
 											isTableAnimating && i < 9 ? ` row-slide-${i + 1}` : "";
@@ -772,20 +776,20 @@ export const CurrentTrips = ({
 														title={
 															isActive
 																? "Visa position"
-																: `${rowVehicleLabel} är inte i trafik`
+																: "Visa hållplatser längs linjen"
 														}
-														onClick={() => onTripSelect?.(trip.trip_id)}
+														onClick={() => onTripSelect?.(trip.trip_id, trip)}
 														onKeyDown={(e) => {
 															if (e.key === "Enter" && onTripSelect) {
-																onTripSelect(trip.trip_id);
+																onTripSelect(trip.trip_id, trip);
 															}
 														}}
-														style={!isActive ? { cursor: "auto" } : {}}
 														aria-label={`Visa avgång mot ${trip?.stop_headsign} som avgår ${updatedTime || scheduledTime}`}
 													>
 														{trip?.stop_headsign}{" "}
-														{isActive && (
-															<span className="inline-block -translate-y-[1px] translate-x-[6px] absolute">
+														{(isActive ||
+															trip.trip_id === effectiveFollowedTripId) && (
+															<span className="inline-block -translate-y-[1px] translate-x-[6px]">
 																<MapPinned className="w-6 h-6" />
 															</span>
 														)}

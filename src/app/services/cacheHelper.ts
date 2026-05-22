@@ -6,6 +6,7 @@ import {
 	selectDistinctShapeIdsForLineFromDatabase,
 	selectDistinctStopsForLineFromDatabase,
 	selectShapesFromDatabase,
+	selectTripStopsFromDatabase,
 	selectUpcomingTripsFromDatabase,
 } from "./dataProcessors/selectFromDatabase";
 import { getVehiclePositions } from "./dataSources/gtfsRealtime";
@@ -284,6 +285,13 @@ export const getCachedDbData = cache(
 		}
 
 		return { currentTrips, upcomingTrips, lineStops, lineShapes } as ITripData;
+	},
+);
+
+export const getCachedTripStops = cache(
+	async (tripId: string, operatorInput = getDefaultOperator()) => {
+		const operator = resolveOperator(operatorInput);
+		return selectTripStopsFromDatabase(tripId, operator);
 	},
 );
 

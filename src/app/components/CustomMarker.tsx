@@ -291,6 +291,13 @@ export default function CustomMarker({
 		}
 	};
 
+	const handleCloseInfoWindow = useCallback(() => {
+		setInfoWindowActive(false);
+		setFollowBus(false);
+		onActivateMarker(null);
+		setClickedOutside(true);
+	}, [setFollowBus, onActivateMarker]);
+
 	useEffect(() => {
 		if (!(marker && followBus && isActive && googleMapRef.current)) {
 			onPositionWriteRef.current = null;
@@ -506,6 +513,7 @@ export default function CustomMarker({
 					closestStopState={closestStopState}
 					tripId={currentVehicle?.trip.tripId ?? undefined}
 					googleMapRef={googleMapRef}
+					onClose={handleCloseInfoWindow}
 					style={
 						showCurrentTrips && isMobile
 							? { display: "none" }

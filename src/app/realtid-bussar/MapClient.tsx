@@ -13,8 +13,9 @@ import {
 	RenderingType,
 } from "@vis.gl/react-google-maps";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CurrentTrips } from "../components/CurrentTrips";
+import { InfoWindow } from "../components/InfoWindow";
 import { MapControlButtons } from "../components/MapControlButtons";
 import RouteShapePolyline from "../components/RouteShapePolyline";
 import UserMessage from "../components/UserMessage";
@@ -78,6 +79,8 @@ export default function MapClient() {
 		selectedStopForSchedule,
 		setSelectedStopForSchedule,
 		setSelectedStopRouteLines,
+		activeFollowedTripId,
+		setActiveFollowedTripId,
 	} = useDataContext();
 	const router = useRouter();
 	const pathname = usePathname();
@@ -89,6 +92,8 @@ export default function MapClient() {
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+	const [scheduleInfoBoardStop, setScheduleInfoBoardStop] =
+		useState<IDbData | null>(null);
 	const [myPositionErrorMessage, setMyPositionErrorMessage] = useState<
 		string | null
 	>(null);
@@ -423,11 +428,12 @@ export default function MapClient() {
 	]);
 
 	const handleTripSelect = useCallback(
-		(tripId: string) => {
+		(tripId: string, boardRow?: IDbData) => {
 			const vehicle = filteredVehicles.data.find(
 				(v) => v.trip.tripId === tripId,
 			);
 			if (vehicle) {
+				setScheduleInfoBoardStop(null);
 				setFollowBus(false);
 				setInfoWindowActive(false);
 				setActiveMarkerId(null);
@@ -448,10 +454,68 @@ export default function MapClient() {
 						setShowCurrentTrips(false);
 					}
 				}, 50);
+				return;
+			}
+
+			const boardStop =
+				boardRow ??
+				selectedStopForSchedule ??
+				userPosition?.closestStop ??
+				null;
+			setActiveMarkerId(null);
+			setFollowBus(false);
+			setClickedOutside(false);
+			setActiveFollowedTripId(tripId);
+			setScheduleInfoBoardStop(boardStop);
+			setInfoWindowActive(true);
+
+			if (mapRef.current && boardStop) {
+				mapRef.current.panTo({
+					lat: +boardStop.stop_lat,
+					lng: +boardStop.stop_lon,
+				});
+				mapRef.current.setZoom(18);
+			}
+			if (isMobile) {
+				setShowCurrentTrips(false);
 			}
 		},
-		[filteredVehicles, isMobile],
+		[
+			filteredVehicles,
+			isMobile,
+			selectedStopForSchedule,
+			userPosition?.closestStop,
+			setActiveFollowedTripId,
+		],
 	);
+
+	useEffect(() => {
+		if (!clickedOutside) return;
+		setScheduleInfoBoardStop(null);
+		if (!activeMarkerId) {
+			setActiveFollowedTripId(null);
+		}
+	}, [clickedOutside, activeMarkerId, setActiveFollowedTripId]);
+
+	const handleCloseCurrentTrips = useCallback(() => {
+		setShowCurrentTrips(false);
+	}, []);
+
+	const handleCloseInfoWindow = useCallback(() => {
+		setInfoWindowActive(false);
+		setScheduleInfoBoardStop(null);
+		setActiveFollowedTripId(null);
+		setActiveMarkerId(null);
+		setFollowBus(false);
+		setClickedOutside(true);
+	}, [setActiveFollowedTripId]);
+
+	/** Rensa sökfält / linje i URL → stäng paneler som hör till vald linje. */
+	useEffect(() => {
+		if (linjeParam) return;
+		handleCloseInfoWindow();
+		setShowCurrentTrips(false);
+	}, [linjeParam, handleCloseInfoWindow]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
@@ -539,6 +603,21 @@ export default function MapClient() {
 						setActiveMarkerId={setActiveMarkerId}
 						showCurrentTrips={showCurrentTrips}
 					/>
+					{infoWindowActive &&
+						!activeMarkerId &&
+						activeFollowedTripId && (
+							<InfoWindow
+								tripId={activeFollowedTripId}
+								closestStopState={scheduleInfoBoardStop}
+								googleMapRef={mapRef}
+								onClose={handleCloseInfoWindow}
+								style={
+									showCurrentTrips && isMobile
+										? { display: "none" }
+										: { display: "block" }
+								}
+							/>
+						)}
 					{mapReady &&
 						routeShapes.map(
 							(s) =>
@@ -569,6 +648,7 @@ export default function MapClient() {
 					{showCurrentTrips && hasRouteData && userPosition && (
 						<CurrentTrips
 							onTripSelect={handleTripSelect}
+							onClose={handleCloseCurrentTrips}
 							mapRef={mapRef}
 							followedTripId={followedTripId ?? fallbackFollowed.tripId}
 							closestStop={

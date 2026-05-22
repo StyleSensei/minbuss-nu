@@ -1,0 +1,26 @@
+@use '../variables' as v;
+
+.panel-close-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: v.$secondary-color;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        background-color: rgba(255, 255, 255, 0.08);
+        outline: none;
+    }
+}
