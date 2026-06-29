@@ -31,7 +31,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GTFS_REGIONAL_STATIC: ${{ secrets.GTFS_REGIONAL_STATIC }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          
+          GTFS_OPERATORS: ${{ secrets.GTFS_OPERATORS }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          REVALIDATE_SITE_URL: ${{ secrets.REVALIDATE_SITE_URL }}
       - name: Ping Discord if job failed
         if: failure()
         run: |
