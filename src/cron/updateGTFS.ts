@@ -1,6 +1,5 @@
 import { put } from "@vercel/blob";
-import { extractZip } from "../cron/dataProcessors/extractZip";
-import { saveToDatabase } from "../cron/dataProcessors/saveToDatabase";
+import { processOperatorGtfs } from "../cron/dataProcessors/processOperatorGtfs";
 import { revalidateFeedCache } from "./revalidateFeedCache";
 import { getConfiguredOperators } from "../shared/config/gtfsOperators";
 
@@ -28,26 +27,7 @@ export async function updateGTFSData() {
 				}
 			}
 			console.log(`Starting GTFS update for operator: ${operator}`);
-			const { routes, trips, stops, stopTimes, calendarDates, shapes } =
-				await extractZip(operator);
-
-			console.log("Saving routes to database...");
-			await saveToDatabase(routes, "routes", operator);
-
-			console.log("Saving trips to database...");
-			await saveToDatabase(trips, "trips", operator);
-
-			console.log("Saving shapes to database...");
-			await saveToDatabase(shapes, "shapes", operator);
-
-			console.log("Saving stops to database...");
-			await saveToDatabase(stops, "stops", operator);
-
-			console.log("Saving stop times to database...");
-			await saveToDatabase(stopTimes, "stop_times", operator);
-
-			console.log("Saving calendar dates to database...");
-			await saveToDatabase(calendarDates, "calendar_dates", operator);
+			await processOperatorGtfs(operator);
 		}
 
 		const feedVersion = new Date().toISOString().split("T")[0];
