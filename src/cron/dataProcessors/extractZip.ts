@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream";
-import { getStaticData } from "../dataSources/gtfsStatic";
+import { withGtfsZip } from "../dataSources/gtfsStatic";
 import unzipper from "unzipper";
 import type { IRoute } from "../../shared/models/IRoute";
 import type { ITrip } from "../../shared/models/ITrip";
@@ -45,41 +45,43 @@ export const extractZip = async (
 	const calendarDates: ICalendarDates[] = [];
 	const shapes: IShapes[] = [];
 
-	const zip: Readable = (await getStaticData(operator)).pipe(
-		unzipper.Parse({ forceStream: true }),
-	);
+	await withGtfsZip(operator, async (fileStream) => {
+		const zip: Readable = fileStream.pipe(
+			unzipper.Parse({ forceStream: true }),
+		);
 
-	for await (const entry of zip) {
-		const fileName = entry.path;
-		if (!allowed.has(fileName)) {
-			entry.autodrain();
-			continue;
+		for await (const entry of zip) {
+			const fileName = entry.path;
+			if (!allowed.has(fileName)) {
+				entry.autodrain();
+				continue;
+			}
+
+			const rows = await parseEntryAsArray(entry);
+			console.log("CSV parsing completed for: ", fileName);
+
+			switch (fileName) {
+				case "routes.txt":
+					routes.push(...transformRoutes(rows, operator));
+					break;
+				case "stops.txt":
+					stops.push(...transformStops(rows, operator));
+					break;
+				case "stop_times.txt":
+					stopTimes.push(...transformStopTimes(rows, operator));
+					break;
+				case "calendar_dates.txt":
+					calendarDates.push(...transformCalendarDates(rows, operator));
+					break;
+				case "shapes.txt":
+					shapes.push(...transformShapes(rows, operator));
+					break;
+				default:
+					trips.push(...transformTrips(rows, operator));
+					break;
+			}
 		}
-
-		const rows = await parseEntryAsArray(entry);
-		console.log("CSV parsing completed for: ", fileName);
-
-		switch (fileName) {
-			case "routes.txt":
-				routes.push(...transformRoutes(rows, operator));
-				break;
-			case "stops.txt":
-				stops.push(...transformStops(rows, operator));
-				break;
-			case "stop_times.txt":
-				stopTimes.push(...transformStopTimes(rows, operator));
-				break;
-			case "calendar_dates.txt":
-				calendarDates.push(...transformCalendarDates(rows, operator));
-				break;
-			case "shapes.txt":
-				shapes.push(...transformShapes(rows, operator));
-				break;
-			default:
-				trips.push(...transformTrips(rows, operator));
-				break;
-		}
-	}
+	});
 
 	return {
 		routes,
