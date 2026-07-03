@@ -39,7 +39,12 @@ export async function updateGTFSData() {
 		});
 
 		console.log("Revalidating feed API cache...");
-		await revalidateFeedCache();
+		const cacheRevalidated = await revalidateFeedCache();
+		if (!cacheRevalidated) {
+			console.warn(
+				"GTFS import completed but feed API cache was not revalidated.",
+			);
+		}
 
 		console.log("GTFS data update completed successfully!");
 	} catch (error) {

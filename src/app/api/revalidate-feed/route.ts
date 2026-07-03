@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
  * Edge svarar därefter med nytt innehåll (s-maxage gäller mellan körningar).
  */
 export async function POST(request: Request) {
-	const expected = process.env.REVALIDATE_SECRET;
+	const expected = process.env.REVALIDATE_SECRET?.trim();
 	if (!expected) {
 		return NextResponse.json(
 			{ error: "REVALIDATE_SECRET is not configured" },
