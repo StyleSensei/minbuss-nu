@@ -94,6 +94,11 @@ export function useMapViewportAndStopsFetch(
 		? `${viewportForStops.bounds.north.toFixed(5)},${viewportForStops.bounds.south.toFixed(5)},${viewportForStops.bounds.east.toFixed(5)},${viewportForStops.bounds.west.toFixed(5)}`
 		: null;
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: clear cached markers when switching operator
+	useEffect(() => {
+		setAllStopPositions(null);
+	}, [mapOperatorForView]);
+
 	useEffect(() => {
 		if (!mapReady || !stopFetchBoundsKey) return;
 		const bounds = viewportForStopsRef.current?.bounds;

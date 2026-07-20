@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
 	const t0 = Date.now();
 	try {
 		const bbox = parseBounds(request.nextUrl.searchParams);
-		const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
+		const operator = resolveOperator(
+			request.nextUrl.searchParams.get("operator"),
+		);
 
 		const [stops, v] = bbox
 			? await Promise.all([
@@ -62,12 +64,15 @@ export async function GET(request: NextRequest) {
 				]);
 
 		const durationMs = Date.now() - t0;
+		const cacheControl =
+			stops.length > 0
+				? "public, s-maxage=86400, stale-while-revalidate=604800"
+				: "public, s-maxage=60, stale-while-revalidate=300";
 		return NextResponse.json(
 			{ v: v ?? "0", stops },
 			{
 				headers: {
-					"Cache-Control":
-						"public, s-maxage=86400, stale-while-revalidate=604800",
+					"Cache-Control": cacheControl,
 					"x-handler-duration-ms": String(durationMs),
 					"x-server-uptime-ms": String(Math.floor(process.uptime() * 1000)),
 				},
