@@ -16,11 +16,9 @@ import {
 	resolveOperator,
 } from "@/shared/config/gtfsOperators";
 import { getDb } from "./db";
+import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
-
-const latestFeedVersionByOperator = (operator: string) =>
-	sql`(SELECT MAX(${trips.feed_version}) FROM trips WHERE ${trips.operator} = ${operator})`;
 
 function dedupeStopPositionRows(
 	data: {
@@ -50,10 +48,10 @@ async function selectStopPositionsFromDatabaseWithWhere(
 	operatorInput = getDefaultOperator(),
 ): Promise<{ id: string; lat: number; lon: number }[]> {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	const baseWhere = and(
-		eq(stops.feed_version, latestFeedVersion),
+		eq(stops.feed_version, feed.stops),
 		eq(stops.operator, operator),
 	);
 	const whereClause =
@@ -69,7 +67,7 @@ async function selectStopPositionsFromDatabaseWithWhere(
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
 					eq(trips.operator, stop_times.operator),
-					eq(trips.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
 				),
 			)
 			.innerJoin(
@@ -77,14 +75,14 @@ async function selectStopPositionsFromDatabaseWithWhere(
 				and(
 					eq(routes.route_id, trips.route_id),
 					eq(routes.operator, trips.operator),
-					eq(routes.feed_version, latestFeedVersion),
+					eq(routes.feed_version, feed.routes),
 				),
 			)
 			.where(
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
 					eq(stop_times.operator, stops.operator),
-					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, feed.stopTimes),
 				),
 			),
 	);
@@ -103,9 +101,7 @@ async function selectStopPositionsFromDatabaseWithWhere(
 
 export const selectAllStopPositionsFromDatabase = async (
 	operatorInput = getDefaultOperator(),
-): Promise<
-	{ id: string; lat: number; lon: number }[]
-> => {
+): Promise<{ id: string; lat: number; lon: number }[]> => {
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
 			undefined,
@@ -118,12 +114,15 @@ export const selectAllStopPositionsFromDatabase = async (
 };
 
 /** Same as selectAll but only stops inside the bounding box (uses idx_stops_feed_lat_lon). */
-export const selectStopPositionsInBoundsFromDatabase = async (bounds: {
-	north: number;
-	south: number;
-	east: number;
-	west: number;
-}, operatorInput = getDefaultOperator()): Promise<{ id: string; lat: number; lon: number }[]> => {
+export const selectStopPositionsInBoundsFromDatabase = async (
+	bounds: {
+		north: number;
+		south: number;
+		east: number;
+		west: number;
+	},
+	operatorInput = getDefaultOperator(),
+): Promise<{ id: string; lat: number; lon: number }[]> => {
 	const { north, south, east, west } = bounds;
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
@@ -141,9 +140,7 @@ export const selectStopPositionsInBoundsFromDatabase = async (bounds: {
 
 export const selectLatestFeedVersionFromDatabase = async (
 	operatorInput = getDefaultOperator(),
-): Promise<
-	string | null
-> => {
+): Promise<string | null> => {
 	const operator = resolveOperator(operatorInput);
 	try {
 		const [filtered] = await db
