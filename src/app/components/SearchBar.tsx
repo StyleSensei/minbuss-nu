@@ -19,7 +19,11 @@ import { useSearchBarRealtimeData } from '../hooks/useSearchBarRealtimeData';
 import { useSearchBarTripDataCache } from '../hooks/useSearchBarTripDataCache';
 import { useSearchBarUi } from '../hooks/useSearchBarUi';
 import { getOperatorMapView } from '@/shared/config/gtfsOperators';
-import { lineSearchUrl, searchPathForOperator } from '../paths';
+import {
+  lineSearchUrl,
+  searchPathForOperator,
+  searchUrlWithoutLine,
+} from '../paths';
 import type { IError } from '../services/cacheHelper';
 import { appendOperatorToApiUrl } from '../utilities/appendOperatorToApiUrl';
 import {
@@ -178,11 +182,13 @@ export const SearchBar = ({
     isLoading,
     userPosition,
     isCurrentTripsOpen,
-    setMapStopPreview,
     setSelectedStopForSchedule,
     selectedStopForSchedule,
     selectedStopRouteLines,
     setSelectedStopRouteLines,
+    setSelectedStopLineFilter,
+    setSelectedStopPlatformFilter,
+    setSelectedStopModeFilter,
   } = useDataContext();
 
   const resetTripDataToEmpty = useCallback(() => {
@@ -336,13 +342,45 @@ export const SearchBar = ({
     setFilteredTripUpdates,
     setErrorMessage,
     navigateToValidLineIfUrlDiffers,
-    setMapStopPreview,
     setSelectedStopForSchedule,
     setSelectedStopRouteLines,
     resetTripDataToEmpty,
     fetchVehicles,
     fetchTripUpdates,
+    isPinnedStopMode:
+      selectedStopForSchedule !== null && selectedStopRouteLines !== null,
   });
+
+  const clearedLineForStopIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const stopId = selectedStopForSchedule?.stop_id ?? null;
+    if (!stopId) {
+      clearedLineForStopIdRef.current = null;
+      return;
+    }
+    if (clearedLineForStopIdRef.current === stopId) return;
+    clearedLineForStopIdRef.current = stopId;
+
+    latestVehicleLineRef.current = '';
+    setUserInput('');
+    setShowError(false);
+    resetGeneration();
+    setFilteredVehicles({ data: [], error: undefined });
+    setFilteredTripUpdates([]);
+    resetTripDataToEmpty();
+    router.replace(
+      searchUrlWithoutLine(effectiveOperator, searchParams.toString()),
+    );
+  }, [
+    effectiveOperator,
+    resetGeneration,
+    resetTripDataToEmpty,
+    router,
+    searchParams,
+    selectedStopForSchedule?.stop_id,
+    setFilteredTripUpdates,
+    setFilteredVehicles,
+  ]);
 
   useEffect(() => {
     latestVehicleLineRef.current = userInput;
@@ -375,7 +413,6 @@ export const SearchBar = ({
         if (!keepPinnedStop) {
           setSelectedStopForSchedule(null);
           setSelectedStopRouteLines(null);
-          setMapStopPreview(null);
         }
       }
       prevValidLineRef.current = line;
@@ -390,7 +427,6 @@ export const SearchBar = ({
     selectedStopRouteLines,
     setSelectedStopForSchedule,
     setSelectedStopRouteLines,
-    setMapStopPreview,
   ]);
 
   useEffect(() => {
@@ -410,22 +446,13 @@ export const SearchBar = ({
     const sortedRoutes = [...row.routes].sort((a, b) =>
       a.localeCompare(b, 'sv'),
     );
-    const currentLine = currentUrlLinjeUpper();
-    const currentLineServesStop =
-      Boolean(currentLine) &&
-      sortedRoutes.some((route) => route.toUpperCase() === currentLine);
 
     setSelectedStopForSchedule(stop);
     setSelectedStopRouteLines(sortedRoutes.length ? sortedRoutes : null);
+    setSelectedStopLineFilter(null);
+    setSelectedStopPlatformFilter(null);
+    setSelectedStopModeFilter(null);
     setShowError(false);
-    setMapStopPreview({
-      stop,
-      routeShortNames: sortedRoutes,
-    });
-
-    if (sortedRoutes.length > 0 && !currentLineServesStop) {
-      router.push(lineSearchUrl(sortedRoutes[0], effectiveOperator));
-    }
 
     clearSuggestions();
     handleBlur();
@@ -435,6 +462,8 @@ export const SearchBar = ({
     const trimmed = value.trim();
     const upper = trimmed.toUpperCase();
     if (trimmed.length <= 6 && allRoutes.asObject[upper]) {
+      setSelectedStopForSchedule(null);
+      setSelectedStopRouteLines(null);
       latestVehicleLineRef.current = upper;
       setUserInput(upper);
       runLineQuery(upper);
@@ -449,20 +478,21 @@ export const SearchBar = ({
     latestVehicleLineRef.current = '';
     setUserInput('');
     clearSuggestions();
-    setMapStopPreview(null);
     setSelectedStopForSchedule(null);
     setSelectedStopRouteLines(null);
     router.push(searchPathForOperator(effectiveOperator));
     handleBlur();
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const query = userInput.trim();
     if (!query) return;
 
     const routeCandidate = query.toUpperCase();
     if (allRoutes.asObject[routeCandidate]) {
+      setSelectedStopForSchedule(null);
+      setSelectedStopRouteLines(null);
       router.push(
         lineSearchUrl(routeCandidate, effectiveOperator, { mapFit: true }),
       );
@@ -474,14 +504,27 @@ export const SearchBar = ({
         lineSearchUrl(routeCandidate, effectiveOperator, { mapFit: true }),
       );
       setShowError(true);
-      setMapStopPreview(null);
       handleBlur();
       return;
     }
 
-    const firstStopSuggestion = stopsToShow[0];
-    if (firstStopSuggestion) {
-      handleStopPick(firstStopSuggestion);
+    try {
+      const rows =
+        stopSearchList.length > 0
+          ? stopSearchList
+          : (await fetchStopSearch(query, effectiveOperator)).stops;
+      const matches = mergeDuplicateStopsByName(rows);
+      const normalizedQuery = query.toLocaleLowerCase('sv');
+      const stop =
+        matches.find(
+          (row) =>
+            row.stop_name.trim().toLocaleLowerCase('sv') === normalizedQuery,
+        ) ?? matches[0];
+      if (stop) {
+        handleStopPick(stop);
+      }
+    } catch {
+      setShowError(true);
     }
   };
 
@@ -489,10 +532,7 @@ export const SearchBar = ({
   const isTextStopSearch =
     trimmedInput.length >= 2 && !allRoutes.asObject[trimmedInput.toUpperCase()];
   const stopsToShow = useMemo(() => {
-    const raw =
-      isTextStopSearch && stopSearchList.length > 0
-        ? stopSearchList
-        : nearbyStopsList;
+    const raw = isTextStopSearch ? stopSearchList : nearbyStopsList;
     return mergeDuplicateStopsByName(raw);
   }, [isTextStopSearch, stopSearchList, nearbyStopsList]);
   const isStopSuggestionsLoading = isTextStopSearch

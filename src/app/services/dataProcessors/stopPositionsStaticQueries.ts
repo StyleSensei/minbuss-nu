@@ -8,9 +8,8 @@ import { routes } from "@shared/db/schema/routes";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
-import { and, between, eq, exists, sql } from "drizzle-orm";
+import { and, between, eq, exists, or, sql } from "drizzle-orm";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
-import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 import {
 	getDefaultOperator,
 	resolveOperator,
@@ -20,24 +19,52 @@ import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
 
+export type StopPositionRow = {
+	id: string;
+	lat: number;
+	lon: number;
+	name: string;
+	isParent: boolean;
+	locationType: number;
+	platformCode?: string;
+	parent?: string;
+};
+
 function dedupeStopPositionRows(
 	data: {
 		stop_id: string | null;
+		stop_name: string | null;
 		stop_lat: number | null;
 		stop_lon: number | null;
+		location_type: number | null;
+		parent_station: string | null;
+		platform_code: string | null;
 	}[],
-): { id: string; lat: number; lon: number }[] {
+): StopPositionRow[] {
 	const seen = new Set<string>();
-	const out: { id: string; lat: number; lon: number }[] = [];
+	const out: StopPositionRow[] = [];
 	for (const row of data) {
 		const sid = row.stop_id;
-		if (!sid || seen.has(sid) || isStopIdExcludedFromClient(sid)) continue;
+		if (!sid || seen.has(sid)) continue;
 		seen.add(sid);
 		if (row.stop_lat == null || row.stop_lon == null) continue;
+		const locationType = Number(row.location_type);
+		const isParent = locationType === 1;
+		const parent = row.parent_station?.trim() || undefined;
+		const rawPlatformCode = row.platform_code?.trim();
+		const platformCode =
+			rawPlatformCode && !/^OLD\d*$/i.test(rawPlatformCode)
+				? rawPlatformCode
+				: undefined;
 		out.push({
 			id: sid,
 			lat: Number(row.stop_lat),
 			lon: Number(row.stop_lon),
+			name: row.stop_name?.trim() || sid,
+			isParent,
+			locationType,
+			...(platformCode ? { platformCode } : {}),
+			...(parent && !isParent ? { parent } : {}),
 		});
 	}
 	return out;
@@ -46,7 +73,7 @@ function dedupeStopPositionRows(
 async function selectStopPositionsFromDatabaseWithWhere(
 	whereExtra: ReturnType<typeof and> | undefined,
 	operatorInput = getDefaultOperator(),
-): Promise<{ id: string; lat: number; lon: number }[]> {
+): Promise<StopPositionRow[]> {
 	const operator = resolveOperator(operatorInput);
 	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
@@ -87,21 +114,35 @@ async function selectStopPositionsFromDatabaseWithWhere(
 			),
 	);
 
+	/** Parents, entrances/exits (location_type=2), and served platforms. */
 	const data = await db
 		.select({
 			stop_id: stops.stop_id,
+			stop_name: stops.stop_name,
 			stop_lat: stops.stop_lat,
 			stop_lon: stops.stop_lon,
+			location_type: stops.location_type,
+			parent_station: stops.parent_station,
+			platform_code: stops.platform_code,
 		})
 		.from(stops)
-		.where(and(whereClause, hasServingTrip));
+		.where(
+			and(
+				whereClause,
+				or(
+					eq(stops.location_type, 1),
+					eq(stops.location_type, 2),
+					hasServingTrip,
+				),
+			),
+		);
 
 	return dedupeStopPositionRows(data);
 }
 
 export const selectAllStopPositionsFromDatabase = async (
 	operatorInput = getDefaultOperator(),
-): Promise<{ id: string; lat: number; lon: number }[]> => {
+): Promise<StopPositionRow[]> => {
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
 			undefined,
@@ -122,7 +163,7 @@ export const selectStopPositionsInBoundsFromDatabase = async (
 		west: number;
 	},
 	operatorInput = getDefaultOperator(),
-): Promise<{ id: string; lat: number; lon: number }[]> => {
+): Promise<StopPositionRow[]> => {
 	const { north, south, east, west } = bounds;
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
