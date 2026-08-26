@@ -1,8 +1,8 @@
 "use client";
 
-import { memo } from "react";
 import { AdvancedMarker } from "@vis.gl/react-google-maps";
-import { busStop } from "public/icons";
+import { busStop, subwayStop } from "public/icons";
+import { memo } from "react";
 import colors from "../colors";
 import { Icon } from "../components/Icon";
 import type { IStopPositionJson } from "./stopPositionsTypes";
@@ -14,6 +14,8 @@ type Props = {
 	stopMarkersVisible: boolean;
 	/** Full storlek + buss-ikon; false = liten prick utan ikon (inaktiv stil). */
 	detailMode: boolean;
+	/** Visa hållplatsnamn i samma container som ikonen. */
+	labelMode: boolean;
 	/** Gul markör när vald hållplats (endast i detailMode). */
 	activeStopId?: string | null;
 };
@@ -24,41 +26,69 @@ export const StopMarkersLayer = memo(function StopMarkersLayer({
 	mapRef: _mapRef,
 	stopMarkersVisible,
 	detailMode,
+	labelMode,
 	activeStopId,
 }: Props) {
 	return (
 		<>
 			{stops.map((s) => {
+				const isPlatformLabel = s.presentation === "platform-label";
+				const isGroupStop = s.presentation === "group-stop";
+				const stopIcon = s.locationType === 2 ? subwayStop : busStop;
+				const stopIconTitle =
+					s.locationType === 2 ? "Tunnelbanestation" : "Hållplats";
 				const isActive = Boolean(
-					detailMode && activeStopId && s.id === activeStopId,
+					!isPlatformLabel &&
+						(detailMode || isGroupStop) &&
+						activeStopId &&
+						s.id === activeStopId,
 				);
+				const showIcon = !isPlatformLabel && (detailMode || isGroupStop);
+				const showLabel =
+					isPlatformLabel || isGroupStop || (labelMode && Boolean(s.name));
+				const label = isPlatformLabel
+					? `Läge ${s.platformCode}`
+					: s.platformCode
+						? `${s.name} · Läge ${s.platformCode}`
+						: s.name;
 				return (
 					<AdvancedMarker
 						key={s.id}
 						position={new google.maps.LatLng({ lat: s.lat, lng: s.lon })}
-						title={s.id}
-						zIndex={isActive ? 2 : 1}
-						clickable
-						onClick={(ev) => {
-							ev.stop?.();
-							onStopClick(s);
-						}}
+						title={label || s.id}
+						zIndex={isPlatformLabel ? 1 : isActive ? 3 : isGroupStop ? 2 : 1}
+						clickable={!isPlatformLabel}
+						onClick={
+							isPlatformLabel
+								? undefined
+								: (ev) => {
+										ev.stop?.();
+										onStopClick(s);
+									}
+						}
 					>
 						<div
-							className={`stop-marker-visibility-wrap ${stopMarkersVisible ? "--visible" : ""}`}
+							className={`stop-marker-visibility-wrap ${stopMarkersVisible ? "--visible" : ""}${showLabel ? " stop-marker-visibility-wrap--labeled" : ""}${isPlatformLabel ? " stop-marker-visibility-wrap--passive" : ""}`}
 						>
 							<div
-								className={`stop-marker-hit${isActive ? " stop-marker-hit--active" : ""}${detailMode ? "" : " stop-marker-hit--compact"}`}
+								className={`stop-marker-hit${isActive ? " stop-marker-hit--active" : ""}${showIcon ? "" : isPlatformLabel ? "" : " stop-marker-hit--compact"}${showLabel ? " stop-marker-hit--labeled" : ""}${isPlatformLabel ? " stop-marker-hit--platform-label" : ""}`}
 							>
-								{detailMode ? (
+								{showIcon ? (
 									<Icon
-										title="Hållplats"
-										path={busStop.pathD}
-										viewBox={busStop.viewBox}
+										title={stopIconTitle}
+										path={stopIcon.pathD}
+										viewBox={stopIcon.viewBox}
 										fill={isActive ? colors.primary : colors.secondary}
 										iconSize="24px"
 										className="stop-marker-hit__icon"
 									/>
+								) : null}
+								{showLabel ? (
+									<span
+										className={`stop-marker-label${isPlatformLabel ? " stop-marker-label--platform" : ""}`}
+									>
+										{label}
+									</span>
 								) : null}
 							</div>
 						</div>

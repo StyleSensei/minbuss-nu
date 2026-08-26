@@ -13,10 +13,11 @@ import {
 export function useLineShapeFitBounds(
 	mapReady: boolean,
 	mapRef: MutableRefObject<google.maps.Map | null>,
-	linjeParam: string,
+	shapeScopeKey: string,
 	lineShapesForFit: ShapeGroup[],
 	routeShapes: ShapeGroup[],
 	mapFitParam: boolean,
+	fitOnShapeScopeChange: boolean,
 	mapOperatorForView: string,
 	initialLinjeFromDocumentRef: MutableRefObject<string | null>,
 	lastLineShapeFitKeyRef: MutableRefObject<string>,
@@ -26,28 +27,34 @@ export function useLineShapeFitBounds(
 	const hasDoneInitialDocumentLinjeFitRef = useRef(false);
 
 	useEffect(() => {
-		if (!mapReady || !mapRef.current || !linjeParam) return;
+		if (!mapReady || !mapRef.current || !shapeScopeKey) return;
 
 		const bounds = boundsFromLineOrRouteShapes(lineShapesForFit, routeShapes);
 		const initialLinje = initialLinjeFromDocumentRef.current ?? "";
 		const allowInitialDocumentFit =
+			!fitOnShapeScopeChange &&
 			!hasDoneInitialDocumentLinjeFitRef.current &&
 			Boolean(initialLinje) &&
-			linjeParam === initialLinje;
+			shapeScopeKey === initialLinje;
+		const shapeScopeChanged =
+			lastLineShapeFitKeyRef.current !== shapeScopeKey;
 
-		const shouldFit = mapFitParam || allowInitialDocumentFit;
+		const shouldFit =
+			mapFitParam ||
+			allowInitialDocumentFit ||
+			(fitOnShapeScopeChange && shapeScopeChanged);
 
 		if (!bounds) {
 			return;
 		}
 
 		if (!shouldFit) {
-			lastLineShapeFitKeyRef.current = linjeParam;
+			lastLineShapeFitKeyRef.current = shapeScopeKey;
 			return;
 		}
 
 		hasDoneInitialDocumentLinjeFitRef.current = true;
-		lastLineShapeFitKeyRef.current = linjeParam;
+		lastLineShapeFitKeyRef.current = shapeScopeKey;
 
 		const map = mapRef.current;
 		setFollowBus(false);
@@ -78,10 +85,11 @@ export function useLineShapeFitBounds(
 		};
 	}, [
 		mapReady,
-		linjeParam,
+		shapeScopeKey,
 		lineShapesForFit,
 		routeShapes,
 		mapFitParam,
+		fitOnShapeScopeChange,
 		router,
 		mapOperatorForView,
 		mapRef,

@@ -1,6 +1,10 @@
 import type { IShapes } from "@shared/models/IShapes";
 
-export type ShapeGroup = { shape_id: string; points: IShapes[] };
+export type ShapeGroup = {
+	shape_id: string;
+	points: IShapes[];
+	route_short_name?: string;
+};
 
 export function isPointInBounds(
 	lat: number,

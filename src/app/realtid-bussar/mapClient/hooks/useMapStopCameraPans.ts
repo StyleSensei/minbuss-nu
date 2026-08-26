@@ -1,31 +1,32 @@
 import type { IDbData } from "@shared/models/IDbData";
-import { type MutableRefObject, useEffect } from "react";
-import type { IMapStopPreview } from "../../../context/DataContext";
+import { type MutableRefObject, useEffect, useRef } from "react";
+import type { IStopPositionJson } from "../../stopPositionsTypes";
 
 export function useMapStopCameraPans(
 	mapReady: boolean,
 	mapRef: MutableRefObject<google.maps.Map | null>,
-	mapStopPreview: IMapStopPreview | null,
 	selectedStopForSchedule: IDbData | null,
-	mapStopPanRequestIdRef: MutableRefObject<string | null>,
+	focusedStationStops: IStopPositionJson[] = [],
 ) {
-	useEffect(() => {
-		if (!mapStopPreview || !mapRef.current || !mapReady) return;
-		mapRef.current.panTo({
-			lat: mapStopPreview.stop.stop_lat,
-			lng: mapStopPreview.stop.stop_lon,
-		});
-		const z = mapRef.current.getZoom() ?? 10;
-		if (z < 18) {
-			mapRef.current.setZoom(18);
-		}
-	}, [mapStopPreview, mapReady, mapRef]);
+	const lastCameraKeyRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (!mapReady || !mapRef.current || !selectedStopForSchedule) return;
-		const want = mapStopPanRequestIdRef.current;
-		if (!want || want !== selectedStopForSchedule.stop_id) return;
-		mapStopPanRequestIdRef.current = null;
+		const cameraKey = `${selectedStopForSchedule.stop_id}:${focusedStationStops
+			.map((stop) => `${stop.id}:${stop.lat}:${stop.lon}`)
+			.sort()
+			.join("|")}`;
+		if (lastCameraKeyRef.current === cameraKey) return;
+		lastCameraKeyRef.current = cameraKey;
+
+		if (focusedStationStops.length > 1) {
+			const bounds = new google.maps.LatLngBounds();
+			for (const stop of focusedStationStops) {
+				bounds.extend({ lat: stop.lat, lng: stop.lon });
+			}
+			mapRef.current.fitBounds(bounds, 64);
+			return;
+		}
 		mapRef.current.panTo({
 			lat: selectedStopForSchedule.stop_lat,
 			lng: selectedStopForSchedule.stop_lon,
@@ -34,5 +35,5 @@ export function useMapStopCameraPans(
 		if (z < 18) {
 			mapRef.current.setZoom(18);
 		}
-	}, [mapReady, selectedStopForSchedule, mapRef, mapStopPanRequestIdRef]);
+	}, [focusedStationStops, mapReady, selectedStopForSchedule, mapRef]);
 }
