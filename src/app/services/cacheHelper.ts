@@ -1,26 +1,37 @@
 "use server";
-import { cache } from "react";
-import { redis } from "../utilities/redis";
-import {
-	selectCurrentTripsFromDatabase,
-	selectDistinctShapeIdsForLineFromDatabase,
-	selectDistinctStopsForLineFromDatabase,
-	selectShapesFromDatabase,
-	selectTripStopsFromDatabase,
-	selectUpcomingTripsFromDatabase,
-} from "./dataProcessors/selectFromDatabase";
-import { getVehiclePositions } from "./dataSources/gtfsRealtime";
-import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
-import { getTripUpdates } from "./dataSources/gtfsTripUpdates";
 import type { IDbData } from "@shared/models/IDbData";
 import type { ITripUpdate } from "@shared/models/ITripUpdate";
-import { MetricsTracker } from "../utilities/MetricsTracker";
-import type { ITripData } from "../context/DataContext";
-import type { IShapes } from "@/shared/models/IShapes";
+import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
+import { cache } from "react";
 import {
 	getDefaultOperator,
 	resolveOperator,
 } from "@/shared/config/gtfsOperators";
+import type { IShapes } from "@/shared/models/IShapes";
+import type { IStopBoardShape } from "@/shared/models/IStopBoardShape";
+import type { ITripData } from "../context/DataContext";
+import {
+	compactStopBoardShapes,
+	expandStopBoardShapes,
+	type ICompactStopBoardShape,
+} from "../utilities/compactStopBoardShapes";
+import { MetricsTracker } from "../utilities/MetricsTracker";
+import { redis } from "../utilities/redis";
+import { selectLatestFeedVersionTexts } from "./dataProcessors/latestFeedVersions";
+import type { IStopDepartureSchedule } from "./dataProcessors/selectFromDatabase";
+import {
+	selectCurrentTripsFromDatabase,
+	selectDistinctShapeIdsForLineFromDatabase,
+	selectDistinctShapesForStopFromDatabase,
+	selectDistinctStopsForLineFromDatabase,
+	selectShapesForIdsFromDatabase,
+	selectShapesFromDatabase,
+	selectTripStopsFromDatabase,
+	selectUpcomingDeparturesForStopFromDatabase,
+	selectUpcomingTripsFromDatabase,
+} from "./dataProcessors/selectFromDatabase";
+import { getVehiclePositions } from "./dataSources/gtfsRealtime";
+import { getTripUpdates } from "./dataSources/gtfsTripUpdates";
 
 interface VehiclePositionResult {
 	data: IVehiclePosition[];
@@ -48,6 +59,8 @@ const TRIP_UPDATES_LOCK_KEY = "trip-updates-lock";
 
 // TTL i sekunder
 const REALTIME_TTL = 4;
+const STOP_DEPARTURES_TTL = 60;
+const STOP_SHAPES_TTL = 60 * 60 * 24;
 const LOCK_TTL = 4;
 const LOCK_RETRY_DELAY = 100;
 const LOCK_MAX_RETRIES = 10;
@@ -62,7 +75,9 @@ const tripUpdatesLockKey = (operator: string) =>
 const vehicleLockKey = (operator: string) => `${VEHICLE_LOCK_KEY}:${operator}`;
 
 export const getCachedVehiclePositions = cache(
-	async (operatorInput = getDefaultOperator()): Promise<VehiclePositionResult> => {
+	async (
+		operatorInput = getDefaultOperator(),
+	): Promise<VehiclePositionResult> => {
 		const operator = resolveOperator(operatorInput);
 		const cacheKey = vehiclePositionsCacheKey(operator);
 		const lockKey = vehicleLockKey(operator);
@@ -142,7 +157,9 @@ export const getCachedVehiclePositions = cache(
 	},
 );
 
-async function waitForCachedData(cacheKey: string): Promise<VehiclePositionResult> {
+async function waitForCachedData(
+	cacheKey: string,
+): Promise<VehiclePositionResult> {
 	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
 		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
 
@@ -196,7 +213,9 @@ export const getCachedTripUpdates = cache(
 	},
 );
 
-async function waitForCachedTripUpdates(cacheKey: string): Promise<ITripUpdate[]> {
+async function waitForCachedTripUpdates(
+	cacheKey: string,
+): Promise<ITripUpdate[]> {
 	for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
 		await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY));
 
@@ -288,6 +307,80 @@ export const getCachedDbData = cache(
 	},
 );
 
+export const getCachedStopDepartures = cache(
+	async (
+		stopId: string,
+		operatorInput = getDefaultOperator(),
+	): Promise<IStopDepartureSchedule> => {
+		const operator = resolveOperator(operatorInput);
+		const minuteBucket = Math.floor(Date.now() / 60000);
+		const cacheKey = `stop-departures:v9:${operator}:${stopId}:${minuteBucket}`;
+		const cached = await redis.get(cacheKey);
+		if (cached) {
+			MetricsTracker.trackCacheHit();
+			return cached as IStopDepartureSchedule;
+		}
+
+		MetricsTracker.trackCacheMiss();
+		const result = await selectUpcomingDeparturesForStopFromDatabase(
+			stopId,
+			operator,
+		);
+		await redis.set(cacheKey, result, { ex: STOP_DEPARTURES_TTL });
+		MetricsTracker.trackRedisOperation();
+		return result;
+	},
+);
+
+export async function getCachedStopShapes(
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IStopBoardShape[]> {
+	const operator = resolveOperator(operatorInput);
+	const feed = await selectLatestFeedVersionTexts(operator);
+	const cacheKey = `stop-shapes:v8:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
+	const cached = await redis.get(cacheKey);
+	if (cached) {
+		MetricsTracker.trackCacheHit();
+		return expandStopBoardShapes(cached as ICompactStopBoardShape[]);
+	}
+
+	MetricsTracker.trackCacheMiss();
+	const shapeRefs = await selectDistinctShapesForStopFromDatabase(
+		stopId,
+		operator,
+	);
+	const representativeShapeRefs = [
+		...new Map(
+			shapeRefs.map((shape) => [
+				`${shape.route_type ?? "unknown"}:${shape.route_short_name}`,
+				shape,
+			]),
+		).values(),
+	];
+	const allPoints = await selectShapesForIdsFromDatabase(
+		representativeShapeRefs.map((shape) => shape.shape_id),
+		operator,
+	);
+	const pointsByShapeId = new Map<string, IShapes[]>();
+	for (const point of allPoints) {
+		const existing = pointsByShapeId.get(point.shape_id);
+		if (existing) {
+			existing.push(point);
+		} else {
+			pointsByShapeId.set(point.shape_id, [point]);
+		}
+	}
+	const shapes: IStopBoardShape[] = representativeShapeRefs.flatMap((shape) => {
+		const points = pointsByShapeId.get(shape.shape_id);
+		return points?.length ? [{ ...shape, points }] : [];
+	});
+	const compactShapes = compactStopBoardShapes(shapes);
+	await redis.set(cacheKey, compactShapes, { ex: STOP_SHAPES_TTL });
+	MetricsTracker.trackRedisOperation();
+	return expandStopBoardShapes(compactShapes);
+}
+
 export const getCachedTripStops = cache(
 	async (tripId: string, operatorInput = getDefaultOperator()) => {
 		const operator = resolveOperator(operatorInput);
@@ -296,7 +389,11 @@ export const getCachedTripStops = cache(
 );
 
 export const getCachedShapesData = cache(
-	async (_feedVersion: string, shapeId: string, operatorInput = getDefaultOperator()) => {
+	async (
+		_feedVersion: string,
+		shapeId: string,
+		operatorInput = getDefaultOperator(),
+	) => {
 		const operator = resolveOperator(operatorInput);
 		MetricsTracker.trackDbQuery();
 		const shapePoints = await selectShapesFromDatabase(shapeId, operator);
