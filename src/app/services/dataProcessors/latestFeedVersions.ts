@@ -4,7 +4,8 @@ import { shapes } from "@shared/db/schema/shapes";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { getDb } from "./db";
 
 /**
  * Latest feed_version per GTFS table for an operator.
@@ -21,5 +22,29 @@ export function latestFeedVersionsByOperator(operator: string) {
 		stopTimes: sql`(SELECT MAX(${stop_times.feed_version}) FROM stop_times WHERE ${stop_times.operator} = ${operator})`,
 		calendarDates: sql`(SELECT MAX(${calendarDates.feed_version}) FROM calendar_dates WHERE ${calendarDates.operator} = ${operator})`,
 		shapes: sql`(SELECT MAX(${shapes.feed_version}) FROM shapes WHERE ${shapes.operator} = ${operator})`,
+	};
+}
+
+/** String values for Redis keys. Do not stringify `latestFeedVersionsByOperator()`. */
+export async function selectLatestFeedVersionTexts(operator: string): Promise<{
+	trips: string;
+	shapes: string;
+}> {
+	const db = getDb();
+	const [tripRow, shapeRow] = await Promise.all([
+		db
+			.select({ v: sql<string>`MAX(${trips.feed_version})::text` })
+			.from(trips)
+			.where(eq(trips.operator, operator))
+			.then((rows) => rows[0]),
+		db
+			.select({ v: sql<string>`MAX(${shapes.feed_version})::text` })
+			.from(shapes)
+			.where(eq(shapes.operator, operator))
+			.then((rows) => rows[0]),
+	]);
+	return {
+		trips: tripRow?.v ?? "",
+		shapes: shapeRow?.v ?? "",
 	};
 }
