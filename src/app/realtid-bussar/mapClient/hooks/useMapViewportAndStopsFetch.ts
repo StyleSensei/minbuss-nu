@@ -153,7 +153,7 @@ export function useMapViewportAndStopsFetch(
 					);
 					const res = await fetch(url, {
 						signal: ctrl.signal,
-						cache: "force-cache",
+						// cache: "force-cache",
 					});
 					if (!res.ok || cancelled) return;
 					const data = (await res.json()) as StopsPositionsFile;
