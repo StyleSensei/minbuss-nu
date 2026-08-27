@@ -202,14 +202,28 @@ export const selectTripMarkerMetaForTripIdsFromDatabase = async (
 export const selectCurrentTripsFromDatabase = async (
 	busLine: string,
 	operatorInput = getDefaultOperator(),
+	tripIdsOverride?: string[],
 ) => {
 	const operator = resolveOperator(operatorInput);
 	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
-	const cachedVehiclePositions = await getCachedVehiclePositions(operator);
-	const filteredTripIds = cachedVehiclePositions.data
-		.map((vehicle) => vehicle?.trip?.tripId)
-		.filter((tripId): tripId is string => typeof tripId === "string");
+	let filteredTripIds = [
+		...new Set(
+			(tripIdsOverride ?? [])
+				.map((tripId) => tripId?.trim())
+				.filter((tripId): tripId is string => Boolean(tripId)),
+		),
+	];
+	if (!filteredTripIds.length) {
+		const cachedVehiclePositions = await getCachedVehiclePositions(operator);
+		filteredTripIds = [
+			...new Set(
+				cachedVehiclePositions.data
+					.map((vehicle) => vehicle?.trip?.tripId)
+					.filter((tripId): tripId is string => typeof tripId === "string"),
+			),
+		];
+	}
 
 	if (!filteredTripIds.length) return [];
 

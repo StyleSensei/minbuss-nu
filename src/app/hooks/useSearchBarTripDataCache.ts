@@ -9,6 +9,7 @@ interface UseSearchBarTripDataCacheParams {
 	effectiveOperator: string;
 	routeExists: boolean;
 	filteredVehiclesLength: number;
+	vehicleTripIds: string[];
 	userClosestStopName?: string;
 	selectedStopName?: string;
 	setTripData: Dispatch<SetStateAction<ITripData>>;
@@ -16,7 +17,14 @@ interface UseSearchBarTripDataCacheParams {
 		busLine: string,
 		operator: string,
 		stopName?: string,
+		tripIds?: string[],
 	) => Promise<ITripData>;
+}
+
+function buildLineFetchKey(line: string, tripIds: string[]) {
+	if (!line) return "";
+	if (!tripIds.length) return `${line}|idle`;
+	return `${line}|${[...new Set(tripIds)].sort().join(",")}`;
 }
 
 export function useSearchBarTripDataCache({
@@ -24,6 +32,7 @@ export function useSearchBarTripDataCache({
 	effectiveOperator,
 	routeExists,
 	filteredVehiclesLength,
+	vehicleTripIds,
 	userClosestStopName,
 	selectedStopName,
 	setTripData,
@@ -50,9 +59,7 @@ export function useSearchBarTripDataCache({
 	const handleCachedDbData = useCallback(async () => {
 		const scheduleStopName = selectedStopName ?? userClosestStopName;
 		const lineAtStart = userInput.trim();
-		const lineFetchKey = lineAtStart
-			? `${lineAtStart}|${filteredVehiclesLength > 0 ? "active" : "idle"}`
-			: "";
+		const lineFetchKey = buildLineFetchKey(lineAtStart, vehicleTripIds);
 
 		if (lineAtStart && tripDataFetchedForLineRef.current !== lineFetchKey) {
 			const genWhenFetchStarted = lineSelectionGenerationRef.current;
@@ -62,6 +69,8 @@ export function useSearchBarTripDataCache({
 				const { currentTrips, lineStops, lineShapes } = await fetchDbData(
 					lineAtStart,
 					effectiveOperator,
+					undefined,
+					vehicleTripIds.length ? vehicleTripIds : undefined,
 				);
 				if (genWhenFetchStarted !== lineSelectionGenerationRef.current) {
 					if (tripDataFetchedForLineRef.current === fetchKeyAtStart) {
@@ -82,11 +91,28 @@ export function useSearchBarTripDataCache({
 					const prevLine = prev.currentTrips[0]?.route_short_name ?? "";
 					const keepExistingUpcoming =
 						prevLine === lineAtStart || Boolean(scheduleStopName);
+					const prevMatchesLine =
+						prev.currentTrips.some(
+							(trip) => trip.route_short_name === lineAtStart,
+						) ||
+						prev.lineStops.some(
+							(stop) => stop.route_short_name === lineAtStart,
+						);
 					return {
-						currentTrips,
+						currentTrips:
+							currentTrips.length > 0
+								? currentTrips
+								: prevMatchesLine
+									? prev.currentTrips
+									: [],
 						upcomingTrips: keepExistingUpcoming ? prev.upcomingTrips : [],
 						lineStops: lineStops ?? [],
-						lineShapes: lineShapes ?? [],
+						lineShapes:
+							lineShapes.length > 0
+								? lineShapes
+								: prevMatchesLine
+									? prev.lineShapes
+									: [],
 					};
 				});
 			} catch {
@@ -121,6 +147,7 @@ export function useSearchBarTripDataCache({
 		userClosestStopName,
 		userInput,
 		filteredVehiclesLength,
+		vehicleTripIds,
 		fetchDbData,
 		effectiveOperator,
 		setTripData,
@@ -138,6 +165,7 @@ export function useSearchBarTripDataCache({
 		selectedStopName,
 		userClosestStopName,
 		filteredVehiclesLength,
+		vehicleTripIds,
 		userInput,
 		routeExists,
 		handleCachedDbData,

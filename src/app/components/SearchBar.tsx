@@ -105,11 +105,13 @@ async function fetchDbData(
   busLine: string,
   operator: string,
   stopName?: string,
+  tripIds?: string[],
 ): Promise<ITripData> {
   const base = `/api/db-data/${encodeURIComponent(busLine)}`;
   const qs = new URLSearchParams();
   if (stopName) qs.set('stopName', stopName);
   if (operator.trim()) qs.set('operator', operator.trim());
+  if (tripIds?.length) qs.set('tripIds', tripIds.join(','));
   const path = qs.toString() ? `${base}?${qs.toString()}` : base;
   if (!busLine) {
     return {
@@ -268,11 +270,24 @@ export const SearchBar = ({
     }
   }, [userInput, routesLoaded, routeExists]);
 
+  const vehicleTripIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          (filteredVehicles?.data ?? [])
+            .map((vehicle) => vehicle.trip?.tripId)
+            .filter((tripId): tripId is string => Boolean(tripId)),
+        ),
+      ],
+    [filteredVehicles?.data],
+  );
+
   const { resetGeneration } = useSearchBarTripDataCache({
     userInput,
     effectiveOperator,
     routeExists,
     filteredVehiclesLength: filteredVehicles?.data.length ?? 0,
+    vehicleTripIds,
     userClosestStopName: userPosition?.closestStop?.stop_name,
     selectedStopName: selectedStopForSchedule?.stop_name,
     setTripData,

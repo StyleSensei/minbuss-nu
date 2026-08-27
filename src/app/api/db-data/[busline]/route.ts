@@ -16,9 +16,20 @@ export async function GET(
 	const { searchParams } = new URL(request.url);
 	const stopName = searchParams.get("stopName") || undefined;
 	const operator = resolveOperator(searchParams.get("operator"));
+	const clientTripIds = searchParams
+		.get("tripIds")
+		?.split(",")
+		.map((tripId) => tripId.trim())
+		.filter(Boolean)
+		.slice(0, 64);
 
 	try {
-		const data = await getCachedDbData(busline, stopName, operator);
+		const data = await getCachedDbData(
+			busline,
+			stopName,
+			operator,
+			clientTripIds?.length ? clientTripIds : undefined,
+		);
 		return NextResponse.json(data, {
 			headers: {
 				"Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",

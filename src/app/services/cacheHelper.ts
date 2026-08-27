@@ -251,11 +251,73 @@ async function getLineShapesForTrips(
 	return results.filter((x): x is NonNullable<typeof x> => x !== null);
 }
 
+async function resolveLineTripIdsForMarkerMeta(
+	busLine: string,
+	operator: string,
+	clientTripIds?: string[],
+): Promise<string[]> {
+	const fromClient = [
+		...new Set(
+			(clientTripIds ?? [])
+				.map((tripId) => tripId?.trim())
+				.filter((tripId): tripId is string => Boolean(tripId)),
+		),
+	];
+	let activeTripIds = fromClient;
+	if (!activeTripIds.length) {
+		const cachedVehiclePositions = await getCachedVehiclePositions(operator);
+		activeTripIds = [
+			...new Set(
+				cachedVehiclePositions.data
+					.map((vehicle) => vehicle.trip?.tripId)
+					.filter((tripId): tripId is string => Boolean(tripId)),
+			),
+		];
+	}
+	if (!activeTripIds.length) return [];
+	return selectActiveTripIdsForLineFromDatabase(
+		busLine,
+		activeTripIds,
+		operator,
+	);
+}
+
+async function enrichCurrentTripsWithMarkerMeta(
+	busLine: string,
+	operator: string,
+	currentTrips: IDbData[],
+	clientTripIds?: string[],
+): Promise<IDbData[]> {
+	const lineTripIds = await resolveLineTripIdsForMarkerMeta(
+		busLine,
+		operator,
+		clientTripIds,
+	);
+	if (!lineTripIds.length) return currentTrips;
+
+	const coveredTripIds = new Set(
+		currentTrips.map((trip) => trip.trip_id).filter(Boolean),
+	);
+	const missingTripIds = lineTripIds.filter((tripId) => !coveredTripIds.has(tripId));
+	if (!missingTripIds.length) return currentTrips;
+
+	const markerMeta = await selectTripMarkerMetaForTripIdsFromDatabase(
+		busLine,
+		missingTripIds,
+		operator,
+	);
+	if (!markerMeta.length) {
+		return currentTrips.length > 0 ? currentTrips : markerMeta;
+	}
+	return [...currentTrips, ...markerMeta];
+}
+
 export const getCachedDbData = cache(
 	async (
 		busLine: string,
 		busStopName?: string,
 		operatorInput = getDefaultOperator(),
+		clientTripIds?: string[],
 	) => {
 		const operator = resolveOperator(operatorInput);
 		let currentTrips: IDbData[] = [];
@@ -263,6 +325,7 @@ export const getCachedDbData = cache(
 		let lineStops: IDbData[] = [];
 
 		const trimmedStopName = busStopName?.trim() || undefined;
+		const tripIdsForLine = clientTripIds?.length ? clientTripIds : undefined;
 
 		if (trimmedStopName) {
 			MetricsTracker.trackDbQuery();
@@ -274,34 +337,16 @@ export const getCachedDbData = cache(
 		} else {
 			MetricsTracker.trackDbQuery();
 			const [current, stops] = await Promise.all([
-				selectCurrentTripsFromDatabase(busLine, operator),
+				selectCurrentTripsFromDatabase(busLine, operator, tripIdsForLine),
 				selectDistinctStopsForLineFromDatabase(busLine, operator),
 			]);
-			currentTrips = current;
+			currentTrips = await enrichCurrentTripsWithMarkerMeta(
+				busLine,
+				operator,
+				current,
+				tripIdsForLine,
+			);
 			lineStops = stops;
-
-			if (currentTrips.length === 0) {
-				const cachedVehiclePositions = await getCachedVehiclePositions(operator);
-				const activeTripIds = [
-					...new Set(
-						cachedVehiclePositions.data
-							.map((vehicle) => vehicle.trip?.tripId)
-							.filter((tripId): tripId is string => Boolean(tripId)),
-					),
-				];
-				const lineTripIds = await selectActiveTripIdsForLineFromDatabase(
-					busLine,
-					activeTripIds,
-					operator,
-				);
-				if (lineTripIds.length > 0) {
-					currentTrips = await selectTripMarkerMetaForTripIdsFromDatabase(
-						busLine,
-						lineTripIds,
-						operator,
-					);
-				}
-			}
 		}
 
 		const tripsForShapes = [...currentTrips, ...upcomingTrips];
