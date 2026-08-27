@@ -8,38 +8,63 @@ import { routes } from "@shared/db/schema/routes";
 import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
-import { and, between, eq, exists, sql } from "drizzle-orm";
+import { and, between, eq, exists, or, sql } from "drizzle-orm";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
-import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 import {
 	getDefaultOperator,
 	resolveOperator,
 } from "@/shared/config/gtfsOperators";
 import { getDb } from "./db";
+import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
 
-const latestFeedVersionByOperator = (operator: string) =>
-	sql`(SELECT MAX(${trips.feed_version}) FROM trips WHERE ${trips.operator} = ${operator})`;
+export type StopPositionRow = {
+	id: string;
+	lat: number;
+	lon: number;
+	name: string;
+	isParent: boolean;
+	locationType: number;
+	platformCode?: string;
+	parent?: string;
+};
 
 function dedupeStopPositionRows(
 	data: {
 		stop_id: string | null;
+		stop_name: string | null;
 		stop_lat: number | null;
 		stop_lon: number | null;
+		location_type: number | null;
+		parent_station: string | null;
+		platform_code: string | null;
 	}[],
-): { id: string; lat: number; lon: number }[] {
+): StopPositionRow[] {
 	const seen = new Set<string>();
-	const out: { id: string; lat: number; lon: number }[] = [];
+	const out: StopPositionRow[] = [];
 	for (const row of data) {
 		const sid = row.stop_id;
-		if (!sid || seen.has(sid) || isStopIdExcludedFromClient(sid)) continue;
+		if (!sid || seen.has(sid)) continue;
 		seen.add(sid);
 		if (row.stop_lat == null || row.stop_lon == null) continue;
+		const locationType = Number(row.location_type);
+		const isParent = locationType === 1;
+		const parent = row.parent_station?.trim() || undefined;
+		const rawPlatformCode = row.platform_code?.trim();
+		const platformCode =
+			rawPlatformCode && !/^OLD\d*$/i.test(rawPlatformCode)
+				? rawPlatformCode
+				: undefined;
 		out.push({
 			id: sid,
 			lat: Number(row.stop_lat),
 			lon: Number(row.stop_lon),
+			name: row.stop_name?.trim() || sid,
+			isParent,
+			locationType,
+			...(platformCode ? { platformCode } : {}),
+			...(parent && !isParent ? { parent } : {}),
 		});
 	}
 	return out;
@@ -48,12 +73,12 @@ function dedupeStopPositionRows(
 async function selectStopPositionsFromDatabaseWithWhere(
 	whereExtra: ReturnType<typeof and> | undefined,
 	operatorInput = getDefaultOperator(),
-): Promise<{ id: string; lat: number; lon: number }[]> {
+): Promise<StopPositionRow[]> {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	const baseWhere = and(
-		eq(stops.feed_version, latestFeedVersion),
+		eq(stops.feed_version, feed.stops),
 		eq(stops.operator, operator),
 	);
 	const whereClause =
@@ -69,7 +94,7 @@ async function selectStopPositionsFromDatabaseWithWhere(
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
 					eq(trips.operator, stop_times.operator),
-					eq(trips.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
 				),
 			)
 			.innerJoin(
@@ -77,35 +102,55 @@ async function selectStopPositionsFromDatabaseWithWhere(
 				and(
 					eq(routes.route_id, trips.route_id),
 					eq(routes.operator, trips.operator),
-					eq(routes.feed_version, latestFeedVersion),
+					eq(routes.feed_version, feed.routes),
 				),
 			)
 			.where(
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
 					eq(stop_times.operator, stops.operator),
-					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, feed.stopTimes),
 				),
 			),
 	);
 
-	const data = await db
-		.select({
-			stop_id: stops.stop_id,
-			stop_lat: stops.stop_lat,
-			stop_lon: stops.stop_lon,
-		})
-		.from(stops)
-		.where(and(whereClause, hasServingTrip));
+	const stopSelect = {
+		stop_id: stops.stop_id,
+		stop_name: stops.stop_name,
+		stop_lat: stops.stop_lat,
+		stop_lon: stops.stop_lon,
+		location_type: stops.location_type,
+		parent_station: stops.parent_station,
+		platform_code: stops.platform_code,
+	};
 
-	return dedupeStopPositionRows(data);
+	/**
+	 * Split parents/entrances from served platforms.
+	 * A single `OR (location_type IN (1,2) OR EXISTS(...))` prevents Postgres from
+	 * using the bbox index and can hang `/api/stops/positions` under load.
+	 */
+	const [stationRows, servedRows] = await Promise.all([
+		db
+			.select(stopSelect)
+			.from(stops)
+			.where(
+				and(
+					whereClause,
+					or(eq(stops.location_type, 1), eq(stops.location_type, 2)),
+				),
+			),
+		db
+			.select(stopSelect)
+			.from(stops)
+			.where(and(whereClause, hasServingTrip)),
+	]);
+
+	return dedupeStopPositionRows([...stationRows, ...servedRows]);
 }
 
 export const selectAllStopPositionsFromDatabase = async (
 	operatorInput = getDefaultOperator(),
-): Promise<
-	{ id: string; lat: number; lon: number }[]
-> => {
+): Promise<StopPositionRow[]> => {
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
 			undefined,
@@ -118,12 +163,15 @@ export const selectAllStopPositionsFromDatabase = async (
 };
 
 /** Same as selectAll but only stops inside the bounding box (uses idx_stops_feed_lat_lon). */
-export const selectStopPositionsInBoundsFromDatabase = async (bounds: {
-	north: number;
-	south: number;
-	east: number;
-	west: number;
-}, operatorInput = getDefaultOperator()): Promise<{ id: string; lat: number; lon: number }[]> => {
+export const selectStopPositionsInBoundsFromDatabase = async (
+	bounds: {
+		north: number;
+		south: number;
+		east: number;
+		west: number;
+	},
+	operatorInput = getDefaultOperator(),
+): Promise<StopPositionRow[]> => {
 	const { north, south, east, west } = bounds;
 	try {
 		return await selectStopPositionsFromDatabaseWithWhere(
@@ -141,9 +189,7 @@ export const selectStopPositionsInBoundsFromDatabase = async (bounds: {
 
 export const selectLatestFeedVersionFromDatabase = async (
 	operatorInput = getDefaultOperator(),
-): Promise<
-	string | null
-> => {
+): Promise<string | null> => {
 	const operator = resolveOperator(operatorInput);
 	try {
 		const [filtered] = await db

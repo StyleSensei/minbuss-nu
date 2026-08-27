@@ -27,7 +27,66 @@ interface RouteShapePolylineProps {
 	animateReveal?: boolean;
 	/** Duration of reveal animation in seconds (GSAP duration). */
 	animationDuration?: number;
+	onClick?: () => void;
+}
 
+function toLatLngs(shapePoints: IShapes[]) {
+	return shapePoints.map((pt) => ({
+		lat: pt.shape_pt_lat,
+		lng: pt.shape_pt_lon,
+	}));
+}
+
+function bindPolylineClick(
+	polyline: google.maps.Polyline,
+	onClickRef: MutableRefObject<(() => void) | undefined>,
+) {
+	const listener = polyline.addListener(
+		"click",
+		(event: google.maps.PolyMouseEvent) => {
+			event.stop?.();
+			onClickRef.current?.();
+		},
+	);
+	return () => google.maps.event.removeListener(listener);
+}
+
+function createRoutePolylines(
+	map: google.maps.Map,
+	path: google.maps.LatLngLiteral[],
+	options: {
+		strokeColor: string;
+		strokeOpacity: number;
+		strokeWeight: number;
+		clickable: boolean;
+	},
+) {
+	const visual = new google.maps.Polyline({
+		path,
+		geodesic: true,
+		strokeColor: options.strokeColor,
+		strokeOpacity: options.strokeOpacity,
+		strokeWeight: options.strokeWeight,
+		clickable: false,
+		zIndex: 2,
+	});
+	visual.setMap(map);
+
+	let hit: google.maps.Polyline | null = null;
+	if (options.clickable) {
+		hit = new google.maps.Polyline({
+			path,
+			geodesic: true,
+			strokeColor: options.strokeColor,
+			strokeOpacity: 0.01,
+			strokeWeight: Math.max(options.strokeWeight * 4, 12),
+			clickable: true,
+			zIndex: 3,
+		});
+		hit.setMap(map);
+	}
+
+	return { visual, hit };
 }
 
 function RouteShapePolyline({
@@ -40,11 +99,15 @@ function RouteShapePolyline({
 	strokeOpacity = 0.7,
 	animateReveal = false,
 	animationDuration = 1.8,
+	onClick,
 }: RouteShapePolylineProps) {
 	const polylineRef = useRef<google.maps.Polyline | null>(null);
+	const hitPolylineRef = useRef<google.maps.Polyline | null>(null);
+	const onClickRef = useRef(onClick);
+	onClickRef.current = onClick;
 	const shapeKey = useMemo(() => getShapeKey(shapePoints), [shapePoints]);
+	const clickable = Boolean(onClick);
 
-	// Statisk rita (ingen animation) – beroende på shapeKey, inte shapePoints-referens
 	useEffect(() => {
 		if (animateReveal) return;
 
@@ -53,28 +116,26 @@ function RouteShapePolyline({
 			return;
 		}
 
-		const path = shapePoints.map((pt) => ({
-			lat: pt.shape_pt_lat,
-			lng: pt.shape_pt_lon,
-		}));
-
-		const polyline = new google.maps.Polyline({
-			path,
-			geodesic: true,
+		const { visual, hit } = createRoutePolylines(map, toLatLngs(shapePoints), {
 			strokeColor,
 			strokeOpacity,
 			strokeWeight,
+			clickable,
 		});
-
-		polyline.setMap(map);
-		polylineRef.current = polyline;
+		polylineRef.current = visual;
+		hitPolylineRef.current = hit;
+		const unbindClick = hit ? bindPolylineClick(hit, onClickRef) : undefined;
 
 		return () => {
-			polyline.setMap(null);
+			unbindClick?.();
+			visual.setMap(null);
+			hit?.setMap(null);
 			polylineRef.current = null;
+			hitPolylineRef.current = null;
 		};
 	}, [
 		animateReveal,
+		clickable,
 		googleMapRef,
 		mapReady,
 		shapeKey,
@@ -83,7 +144,6 @@ function RouteShapePolyline({
 		strokeWeight,
 	]);
 
-	// Animerad reveal med GSAP to() – shapeKey så att vi inte ritar om vid nya positioner
 	useGSAP(
 		() => {
 			if (
@@ -97,21 +157,17 @@ function RouteShapePolyline({
 			}
 
 			const map = googleMapRef.current;
-			const fullPath = shapePoints.map((pt) => ({
-				lat: pt.shape_pt_lat,
-				lng: pt.shape_pt_lon,
-			}));
-
-			const polyline = new google.maps.Polyline({
-				path: fullPath.slice(0, 2),
-				geodesic: true,
+			const fullPath = toLatLngs(shapePoints);
+			const { visual, hit } = createRoutePolylines(map, fullPath.slice(0, 2), {
 				strokeColor,
 				strokeOpacity,
 				strokeWeight,
+				clickable,
 			});
-
-			polyline.setMap(map);
-			polylineRef.current = polyline;
+			hit?.setPath(fullPath);
+			polylineRef.current = visual;
+			hitPolylineRef.current = hit;
+			const unbindClick = hit ? bindPolylineClick(hit, onClickRef) : undefined;
 
 			const progress = { value: 0 };
 
@@ -124,18 +180,22 @@ function RouteShapePolyline({
 						2,
 						Math.round(progress.value * fullPath.length),
 					);
-					polyline.setPath(fullPath.slice(0, pointCount));
+					visual.setPath(fullPath.slice(0, pointCount));
 				},
 			});
 
 			return () => {
-				polyline.setMap(null);
+				unbindClick?.();
+				visual.setMap(null);
+				hit?.setMap(null);
 				polylineRef.current = null;
+				hitPolylineRef.current = null;
 			};
 		},
 		{
 			dependencies: [
 				animateReveal,
+				clickable,
 				mapReady,
 				shapeKey,
 				strokeColor,

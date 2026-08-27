@@ -34,7 +34,11 @@ export const selectAllroutesForLatestFeed = async (
 	operatorInput = getDefaultOperator(),
 ) => {
 	const operator = resolveOperator(operatorInput);
-	const feedVersion = await getLatestFeedVersionFromDb(operator);
+	const rows = await db
+		.select({ v: sql<string>`MAX(${routes.feed_version})::text` })
+		.from(routes)
+		.where(eq(routes.operator, operator));
+	const feedVersion = rows[0]?.v ?? null;
 	if (!feedVersion) {
 		return [];
 	}
@@ -50,7 +54,12 @@ export const selectAllroutes = async (
 		const data = await db
 			.select({ line: routes.route_short_name })
 			.from(routes)
-			.where(and(eq(routes.feed_version, feedVersion), eq(routes.operator, operator)))
+			.where(
+				and(
+					eq(routes.feed_version, feedVersion),
+					eq(routes.operator, operator),
+				),
+			)
 			.orderBy(asc(routes.route_id));
 
 		const parsed = z.array(lineSelectSchema).parse(data);

@@ -4,53 +4,140 @@ import { stop_times } from "@shared/db/schema/stop_times";
 import { stops } from "@shared/db/schema/stops";
 import { trips } from "@shared/db/schema/trips";
 import type { IDbData } from "@shared/models/IDbData";
-import { and, eq, exists, gte, inArray, lte, sql } from "drizzle-orm";
+import type { IShapes } from "@shared/models/IShapes";
+import type { IStopBoardChild } from "@shared/models/IStopBoardStation";
+import {
+	and,
+	eq,
+	exists,
+	gte,
+	inArray,
+	isNotNull,
+	lte,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
-import {
-	calculateTimeFilter,
-	createMinutesFilter,
-} from "@/app/utilities/calculateTimeFilter";
-import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
+import { createMinutesFilter } from "@/app/utilities/calculateTimeFilter";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
+import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
+import { shouldExpandStopBoardToStation } from "@/app/utilities/stopBoardStopResolution";
 import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
-import { calendarDates } from "@/shared/db/schema/calendar_dates";
 import {
 	getDefaultOperator,
 	resolveOperator,
 } from "@/shared/config/gtfsOperators";
+import { calendarDates } from "@/shared/db/schema/calendar_dates";
 import { shapes } from "@/shared/db/schema/shapes";
 import { getDb } from "./db";
+import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
+const UPCOMING_TRIPS_HOURS_AHEAD = 12;
+/** Frequent lines can exceed ~100 departures in 12h; keep well below the old 1000 cap. */
+const UPCOMING_TRIPS_LIMIT = 200;
+/** Same horizon as line search; result count is still capped for busy stations. */
+const STOP_BOARD_HOURS_AHEAD = 12;
+const STOP_BOARD_DEPARTURES_LIMIT = 250;
 
-function getDateArray(isEarlyMorning = false) {
-	const dt = getGtfsDateTime();
-	const today = dt.toFormat("yyyy-MM-dd");
-	if (isEarlyMorning) {
-		const yesterday = dt.minus({ days: 1 }).toFormat("yyyy-MM-dd");
+function createUpcomingServiceWindowFilter(
+	minutesFilter: SQL,
+	dt: ReturnType<typeof getGtfsDateTime>,
+	hoursAhead: number,
+): SQL {
+	const windowStart = dt.minus({ minutes: 15 });
+	const windowEnd = dt.plus({ hours: hoursAhead });
+	const serviceDays = [
+		dt.minus({ days: 1 }).startOf("day"),
+		dt.startOf("day"),
+		dt.plus({ days: 1 }).startOf("day"),
+	];
+	const clauses = serviceDays.flatMap((serviceDay) => {
+		const minMinutes = Math.max(
+			0,
+			Math.floor(windowStart.diff(serviceDay, "minutes").minutes),
+		);
+		const maxMinutes = Math.ceil(windowEnd.diff(serviceDay, "minutes").minutes);
+		if (maxMinutes < minMinutes) return [];
 
-		return [today, yesterday];
-	}
-	return [today];
+		return [
+			and(
+				eq(calendarDates.date, new Date(serviceDay.toFormat("yyyy-MM-dd"))),
+				gte(minutesFilter, minMinutes),
+				lte(minutesFilter, maxMinutes),
+			),
+		];
+	});
+
+	return or(...clauses) ?? sql`false`;
 }
 
-const latestFeedVersionByOperator = (operator: string) =>
-	sql`(SELECT MAX(${trips.feed_version}) FROM trips WHERE ${trips.operator} = ${operator})`;
+/** Chronological board order: service date, then GTFS minutes (not lex HH:MM). */
+function upcomingDepartureOrderBy(minutesFilter: SQL): SQL {
+	return sql`min(${calendarDates.date}), ${minutesFilter}`;
+}
 
-export const selectCurrentTripsFromDatabase = async (
+/** Active trip IDs on a line — trips+routes only (for realtime filtering). */
+export const selectActiveTripIdsForLineFromDatabase = async (
 	busLine: string,
+	activeTripIds: string[],
 	operatorInput = getDefaultOperator(),
-) => {
-	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
-	MetricsTracker.trackDbQuery();
-	const cachedVehiclePositions = await getCachedVehiclePositions(operator);
-	const filteredTripIds = cachedVehiclePositions.data
-		.map((vehicle) => vehicle?.trip?.tripId)
-		.filter((tripId): tripId is string => typeof tripId === "string");
+): Promise<string[]> => {
+	const uniqueTripIds = [
+		...new Set(activeTripIds.filter((id): id is string => Boolean(id?.trim()))),
+	];
+	if (!busLine.trim() || uniqueTripIds.length === 0) return [];
 
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const rows = await db
+			.select({ trip_id: trips.trip_id })
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(routes.route_short_name, busLine),
+					inArray(trips.trip_id, uniqueTripIds),
+				),
+			);
+		return rows
+			.map((row) => row.trip_id)
+			.filter((id): id is string => Boolean(id));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+/** Lightweight trip metadata for map markers when stop_times join returns no rows. */
+export const selectTripMarkerMetaForTripIdsFromDatabase = async (
+	busLine: string,
+	activeTripIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<IDbData[]> => {
+	const uniqueTripIds = [
+		...new Set(activeTripIds.filter((id): id is string => Boolean(id?.trim()))),
+	];
+	if (!busLine.trim() || uniqueTripIds.length === 0) return [];
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
 			.select({
@@ -58,13 +145,7 @@ export const selectCurrentTripsFromDatabase = async (
 				trip_id: trips.trip_id,
 				shape_id: trips.shape_id,
 				route_short_name: routes.route_short_name,
-				stop_headsign: stop_times.stop_headsign,
-				departure_time: stop_times.departure_time,
-				stop_name: stops.stop_name,
-				stop_sequence: stop_times.stop_sequence,
-				stop_id: stops.stop_id,
-				stop_lat: stops.stop_lat,
-				stop_lon: stops.stop_lon,
+				trip_headsign: trips.trip_headsign,
 				route_long_name: routes.route_long_name,
 				route_type: routes.route_type,
 				route_desc: routes.route_desc,
@@ -73,7 +154,131 @@ export const selectCurrentTripsFromDatabase = async (
 			.from(trips)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(routes.route_short_name, busLine),
+					inArray(trips.trip_id, uniqueTripIds),
+				),
+			);
+
+		const headsignRows = await db
+			.selectDistinctOn([stop_times.trip_id], {
+				trip_id: stop_times.trip_id,
+				stop_headsign: stop_times.stop_headsign,
+			})
+			.from(stop_times)
+			.where(
+				and(
+					eq(stop_times.operator, operator),
+					eq(stop_times.feed_version, feed.stopTimes),
+					inArray(stop_times.trip_id, uniqueTripIds),
+					isNotNull(stop_times.stop_headsign),
+					sql`BTRIM(${stop_times.stop_headsign}) <> ''`,
+				),
+			)
+			.orderBy(stop_times.trip_id, stop_times.stop_sequence);
+		const headsignByTripId = new Map(
+			headsignRows
+				.filter((row) => row.trip_id && row.stop_headsign)
+				.map((row) => [row.trip_id as string, row.stop_headsign as string]),
+		);
+
+		return data
+			.filter((row) => Boolean(row.trip_id))
+			.map((row) => ({
+				operator: row.operator ?? operator,
+				trip_id: row.trip_id ?? "",
+				shape_id: row.shape_id ?? "",
+				route_short_name: row.route_short_name ?? busLine,
+				route_long_name: row.route_long_name ?? null,
+				route_type: row.route_type ?? null,
+				route_desc: row.route_desc ?? null,
+				stop_headsign:
+					row.trip_headsign?.trim() ||
+					headsignByTripId.get(row.trip_id ?? "") ||
+					"",
+				stop_id: "",
+				departure_time: "",
+				stop_name: "",
+				stop_sequence: 0,
+				stop_lat: 0,
+				stop_lon: 0,
+				feed_version: String(row.feed_version ?? ""),
+			}));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+export const selectCurrentTripsFromDatabase = async (
+	busLine: string,
+	operatorInput = getDefaultOperator(),
+	tripIdsOverride?: string[],
+) => {
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	let filteredTripIds = [
+		...new Set(
+			(tripIdsOverride ?? [])
+				.map((tripId) => tripId?.trim())
+				.filter((tripId): tripId is string => Boolean(tripId)),
+		),
+	];
+	if (!filteredTripIds.length) {
+		const cachedVehiclePositions = await getCachedVehiclePositions(operator);
+		filteredTripIds = [
+			...new Set(
+				cachedVehiclePositions.data
+					.map((vehicle) => vehicle?.trip?.tripId)
+					.filter((tripId): tripId is string => typeof tripId === "string"),
+			),
+		];
+	}
+
+	if (!filteredTripIds.length) return [];
+
+	const selectFields = {
+		operator: trips.operator,
+		trip_id: trips.trip_id,
+		shape_id: trips.shape_id,
+		route_short_name: routes.route_short_name,
+		stop_headsign: stop_times.stop_headsign,
+		departure_time: stop_times.departure_time,
+		stop_name: stops.stop_name,
+		stop_sequence: stop_times.stop_sequence,
+		stop_id: stops.stop_id,
+		stop_lat: stops.stop_lat,
+		stop_lon: stops.stop_lon,
+		route_long_name: routes.route_long_name,
+		route_type: routes.route_type,
+		route_desc: routes.route_desc,
+		feed_version: trips.feed_version,
+	};
+
+	const runCurrentTripsQuery = async (
+		stopTimesFeed: typeof feed.stopTimes,
+		stopsFeed: typeof feed.stops,
+	) =>
+		db
+			.select(selectFields)
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.innerJoin(
 				stop_times,
@@ -95,19 +300,24 @@ export const selectCurrentTripsFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
-					eq(stops.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, stopTimesFeed),
+					eq(stops.feed_version, stopsFeed),
 					eq(routes.route_short_name, busLine),
 					inArray(trips.trip_id, filteredTripIds),
 				),
 			)
 			.orderBy(trips.trip_id, stop_times.departure_time)
 			.limit(1000);
-		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 
-		return parsed;
+	try {
+		let data = await runCurrentTripsQuery(feed.stopTimes, feed.stops);
+		if (data.length === 0) {
+			/** Fallback when stop_times/stops lag trips feed — matches pre-220909f behavior. */
+			data = await runCurrentTripsQuery(feed.trips, feed.trips);
+		}
+		return z.array(selectAllSchema).parse(data) as IDbData[];
 	} catch (error) {
 		console.log(error);
 		return [];
@@ -120,7 +330,7 @@ export const selectDistinctStopsForLineFromDatabase = async (
 	operatorInput = getDefaultOperator(),
 ): Promise<IDbData[]> => {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -136,7 +346,10 @@ export const selectDistinctStopsForLineFromDatabase = async (
 			.from(trips)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.innerJoin(
 				stop_times,
@@ -158,10 +371,10 @@ export const selectDistinctStopsForLineFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
-					eq(stops.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
+					eq(stops.feed_version, feed.stops),
 					eq(routes.route_short_name, busLine),
 				),
 			)
@@ -201,7 +414,7 @@ export const selectDistinctShapeIdsForLineFromDatabase = async (
 	operatorInput = getDefaultOperator(),
 ): Promise<string[]> => {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -211,14 +424,17 @@ export const selectDistinctShapeIdsForLineFromDatabase = async (
 			.from(trips)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.where(
 				and(
 					eq(trips.operator, operator),
 					eq(routes.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
 					eq(routes.route_short_name, busLine),
 				),
 			)
@@ -242,9 +458,15 @@ export const selectRoutesForStopFromDatabase = async (
 		return [];
 	}
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
-	MetricsTracker.trackDbQuery();
+	const feed = latestFeedVersionsByOperator(operator);
 	try {
+		const { boardStopIds } = await resolveStopBoardStopIdsFromDatabase(
+			stopId,
+			operator,
+		);
+		if (boardStopIds.length === 0) return [];
+
+		MetricsTracker.trackDbQuery();
 		const data = await db
 			.select({ route_short_name: routes.route_short_name })
 			.from(stop_times)
@@ -257,17 +479,20 @@ export const selectRoutesForStopFromDatabase = async (
 			)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.where(
 				and(
 					eq(stop_times.operator, operator),
 					eq(trips.operator, operator),
 					eq(routes.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
-					eq(stop_times.stop_id, stopId),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
+					inArray(stop_times.stop_id, boardStopIds),
 				),
 			)
 			.groupBy(routes.route_short_name);
@@ -295,7 +520,7 @@ export const selectRoutesForStopsFromDatabase = async (
 	}
 
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const data = await db
@@ -313,16 +538,19 @@ export const selectRoutesForStopsFromDatabase = async (
 			)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.where(
 				and(
 					eq(stop_times.operator, operator),
 					eq(trips.operator, operator),
 					eq(routes.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
 					inArray(stop_times.stop_id, cleanedStopIds),
 				),
 			)
@@ -362,57 +590,38 @@ export const selectStopMetaFromDatabase = async (
 		return null;
 	}
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
-		const rows = await db
+		const [row] = await db
 			.select({
 				stop_id: stops.stop_id,
 				stop_name: stops.stop_name,
+				location_type: stops.location_type,
+				parent_station: stops.parent_station,
+				platform_code: stops.platform_code,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
 				feed_version: stops.feed_version,
 			})
 			.from(stops)
-			.innerJoin(
-				stop_times,
-				and(
-					eq(stop_times.stop_id, stops.stop_id),
-					eq(stop_times.operator, stops.operator),
-					eq(stop_times.feed_version, latestFeedVersion),
-				),
-			)
-			.innerJoin(
-				trips,
-				and(
-					eq(trips.trip_id, stop_times.trip_id),
-					eq(trips.operator, stop_times.operator),
-					eq(trips.feed_version, latestFeedVersion),
-				),
-			)
-			.innerJoin(
-				routes,
-				and(
-					eq(routes.route_id, trips.route_id),
-					eq(routes.operator, trips.operator),
-					eq(routes.feed_version, latestFeedVersion),
-				),
-			)
 			.where(
 				and(
-					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.feed_version, feed.stops),
 					eq(stops.operator, operator),
 					eq(stops.stop_id, stopId),
 				),
 			)
 			.limit(1);
-		const row = rows[0];
-		if (!row?.stop_id) {
+		if (!row?.stop_id || row.stop_lat == null || row.stop_lon == null) {
 			return null;
 		}
 		return {
 			stop_id: row.stop_id,
 			stop_name: row.stop_name ?? "",
+			location_type: row.location_type ?? 0,
+			parent_station: row.parent_station?.trim() || null,
+			platform_code: row.platform_code?.trim() || null,
 			stop_lat: Number(row.stop_lat),
 			stop_lon: Number(row.stop_lon),
 			feed_version: String(row.feed_version ?? ""),
@@ -426,6 +635,9 @@ export const selectStopMetaFromDatabase = async (
 export interface INearbyStopRow {
 	stop_id: string;
 	stop_name: string;
+	location_type?: number;
+	parent_station?: string | null;
+	platform_code?: string | null;
 	stop_lat: number;
 	stop_lon: number;
 }
@@ -453,7 +665,7 @@ export const selectNearestStopsFromDatabase = async (
 	operatorInput = getDefaultOperator(),
 ): Promise<INearbyStopRow[]> => {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		/** Semi-join (samma idé som stopPositionsStaticQueries): undvik JOIN+GROUP BY över enorma stop_times-rader. */
@@ -466,7 +678,7 @@ export const selectNearestStopsFromDatabase = async (
 					and(
 						eq(trips.trip_id, stop_times.trip_id),
 						eq(trips.operator, stop_times.operator),
-						eq(trips.feed_version, latestFeedVersion),
+						eq(trips.feed_version, feed.trips),
 					),
 				)
 				.innerJoin(
@@ -474,14 +686,14 @@ export const selectNearestStopsFromDatabase = async (
 					and(
 						eq(routes.route_id, trips.route_id),
 						eq(routes.operator, trips.operator),
-						eq(routes.feed_version, latestFeedVersion),
+						eq(routes.feed_version, feed.routes),
 					),
 				)
 				.where(
 					and(
 						eq(stop_times.stop_id, stops.stop_id),
 						eq(stop_times.operator, stops.operator),
-						eq(stop_times.feed_version, latestFeedVersion),
+						eq(stop_times.feed_version, feed.stopTimes),
 					),
 				),
 		);
@@ -494,13 +706,16 @@ export const selectNearestStopsFromDatabase = async (
 				.select({
 					stop_id: stops.stop_id,
 					stop_name: stops.stop_name,
+					location_type: stops.location_type,
+					parent_station: stops.parent_station,
+					platform_code: stops.platform_code,
 					stop_lat: stops.stop_lat,
 					stop_lon: stops.stop_lon,
 				})
 				.from(stops)
 				.where(
 					and(
-						eq(stops.feed_version, latestFeedVersion),
+						eq(stops.feed_version, feed.stops),
 						eq(stops.operator, operator),
 						hasServingTrip,
 						...(bboxHalfDeg != null
@@ -518,6 +733,9 @@ export const selectNearestStopsFromDatabase = async (
 		let data: {
 			stop_id: string | null;
 			stop_name: string | null;
+			location_type: number | null;
+			parent_station: string | null;
+			platform_code: string | null;
 			stop_lat: unknown;
 			stop_lon: unknown;
 		}[];
@@ -553,6 +771,9 @@ export const selectNearestStopsFromDatabase = async (
 			.map((row) => ({
 				stop_id: row.stop_id as string,
 				stop_name: row.stop_name as string,
+				location_type: row.location_type ?? 0,
+				parent_station: row.parent_station?.trim() || null,
+				platform_code: row.platform_code?.trim() || null,
 				stop_lat: Number(row.stop_lat),
 				stop_lon: Number(row.stop_lon),
 			}));
@@ -580,7 +801,7 @@ export const searchStopsByNameFromDatabase = async (
 		return [];
 	}
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	const pattern = `%${trimmed}%`;
 	try {
@@ -588,6 +809,9 @@ export const searchStopsByNameFromDatabase = async (
 			.select({
 				stop_id: stops.stop_id,
 				stop_name: stops.stop_name,
+				location_type: stops.location_type,
+				parent_station: stops.parent_station,
+				platform_code: stops.platform_code,
 				stop_lat: stops.stop_lat,
 				stop_lon: stops.stop_lon,
 			})
@@ -597,7 +821,7 @@ export const searchStopsByNameFromDatabase = async (
 				and(
 					eq(stop_times.stop_id, stops.stop_id),
 					eq(stop_times.operator, stops.operator),
-					eq(stop_times.feed_version, latestFeedVersion),
+					eq(stop_times.feed_version, feed.stopTimes),
 				),
 			)
 			.innerJoin(
@@ -605,7 +829,7 @@ export const searchStopsByNameFromDatabase = async (
 				and(
 					eq(trips.trip_id, stop_times.trip_id),
 					eq(trips.operator, stop_times.operator),
-					eq(trips.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
 				),
 			)
 			.innerJoin(
@@ -613,17 +837,25 @@ export const searchStopsByNameFromDatabase = async (
 				and(
 					eq(routes.route_id, trips.route_id),
 					eq(routes.operator, trips.operator),
-					eq(routes.feed_version, latestFeedVersion),
+					eq(routes.feed_version, feed.routes),
 				),
 			)
 			.where(
 				and(
-					eq(stops.feed_version, latestFeedVersion),
+					eq(stops.feed_version, feed.stops),
 					eq(stops.operator, operator),
 					sql`lower(${stops.stop_name}) like lower(${pattern})`,
 				),
 			)
-			.groupBy(stops.stop_id, stops.stop_name, stops.stop_lat, stops.stop_lon)
+			.groupBy(
+				stops.stop_id,
+				stops.stop_name,
+				stops.location_type,
+				stops.parent_station,
+				stops.platform_code,
+				stops.stop_lat,
+				stops.stop_lon,
+			)
 			.limit(limit);
 
 		return data
@@ -638,6 +870,9 @@ export const searchStopsByNameFromDatabase = async (
 			.map((row) => ({
 				stop_id: row.stop_id as string,
 				stop_name: row.stop_name as string,
+				location_type: row.location_type ?? 0,
+				parent_station: row.parent_station?.trim() || null,
+				platform_code: row.platform_code?.trim() || null,
 				stop_lat: Number(row.stop_lat),
 				stop_lon: Number(row.stop_lon),
 			}));
@@ -658,7 +893,7 @@ export const selectTripStopsFromDatabase = async (
 	}
 
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 
 	try {
@@ -683,7 +918,10 @@ export const selectTripStopsFromDatabase = async (
 			.from(trips)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.innerJoin(
 				stop_times,
@@ -705,10 +943,10 @@ export const selectTripStopsFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
-					eq(stops.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
+					eq(stops.feed_version, feed.stops),
 					eq(trips.trip_id, trimmedTripId),
 				),
 			)
@@ -732,31 +970,15 @@ export const selectUpcomingTripsFromDatabase = async (
 	}
 
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 
 	const dt = getGtfsDateTime();
-	const currentHour = dt.hour;
-	const hoursAhead = 6;
-	const isEarlyMorning = currentHour < 4;
-
 	const minutesFilter = createMinutesFilter(stop_times.departure_time);
-
-	const startTimeMinutes =
-		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
-	const endTimeMinutes =
-		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 +
-		dt.minute;
-
-	const timeFilter = calculateTimeFilter({
+	const serviceWindowFilter = createUpcomingServiceWindowFilter(
 		minutesFilter,
-		startTimeMinutes,
-		endTimeMinutes,
-		isEarlyMorning,
-	});
-
-	const dates = getDateArray(isEarlyMorning).map(
-		(dateStr) => new Date(dateStr),
+		dt,
+		UPCOMING_TRIPS_HOURS_AHEAD,
 	);
 
 	try {
@@ -781,7 +1003,10 @@ export const selectUpcomingTripsFromDatabase = async (
 			.from(trips)
 			.innerJoin(
 				routes,
-				and(eq(trips.route_id, routes.route_id), eq(trips.operator, routes.operator)),
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
 			)
 			.innerJoin(
 				stop_times,
@@ -802,6 +1027,7 @@ export const selectUpcomingTripsFromDatabase = async (
 				and(
 					eq(trips.service_id, calendarDates.service_id),
 					eq(trips.operator, calendarDates.operator),
+					eq(calendarDates.feed_version, feed.calendarDates),
 				),
 			)
 			.where(
@@ -811,16 +1037,14 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
 					eq(calendarDates.operator, operator),
-					eq(trips.feed_version, latestFeedVersion),
-					eq(routes.feed_version, latestFeedVersion),
-					eq(stop_times.feed_version, latestFeedVersion),
-					eq(stops.feed_version, latestFeedVersion),
-					eq(calendarDates.feed_version, latestFeedVersion),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
+					eq(stops.feed_version, feed.stops),
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
-					inArray(calendarDates.date, dates),
 					eq(calendarDates.exception_type, 1),
-					timeFilter,
+					serviceWindowFilter,
 				),
 			)
 			.groupBy(
@@ -840,10 +1064,584 @@ export const selectUpcomingTripsFromDatabase = async (
 				trips.feed_version,
 				trips.shape_id,
 			)
-			.orderBy(stop_times.departure_time)
-			.limit(100);
+			.orderBy(upcomingDepartureOrderBy(minutesFilter))
+			.limit(UPCOMING_TRIPS_LIMIT);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 		return parsed;
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+export interface IStopDepartureSchedule {
+	stationStopId: string;
+	stationStopIds: string[];
+	departures: IDbData[];
+}
+
+export interface IResolvedStopBoardIds {
+	stationStopId: string;
+	stationStopIds: string[];
+	boardStopIds: string[];
+}
+
+const STOP_BOARD_GROUP_MAX_DISTANCE_METERS = 750;
+/** ~750 m in latitude degrees; longitude scaled by cos(lat) below. */
+const STOP_BOARD_GROUP_LAT_DELTA =
+	STOP_BOARD_GROUP_MAX_DISTANCE_METERS / 111_320;
+
+export const resolveStopBoardStopIdsFromDatabase = async (
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IResolvedStopBoardIds> => {
+	const trimmedStopId = stopId.trim();
+	if (!trimmedStopId) {
+		return { stationStopId: "", stationStopIds: [], boardStopIds: [] };
+	}
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const [selectedStop] = await db
+			.select({
+				stop_id: stops.stop_id,
+				parent_station: stops.parent_station,
+				location_type: stops.location_type,
+				platform_code: stops.platform_code,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.where(
+				and(
+					eq(stops.operator, operator),
+					eq(stops.feed_version, feed.stops),
+					eq(stops.stop_id, trimmedStopId),
+				),
+			)
+			.limit(1);
+
+		if (!selectedStop?.stop_id) {
+			return {
+				stationStopId: trimmedStopId,
+				stationStopIds: [trimmedStopId],
+				boardStopIds: [],
+			};
+		}
+
+		const parentId = selectedStop.parent_station?.trim();
+		const stationStopId =
+			selectedStop.location_type === 1
+				? selectedStop.stop_id
+				: parentId || selectedStop.stop_id;
+		const shouldExpandToStationPlatforms = shouldExpandStopBoardToStation(
+			selectedStop.location_type,
+			parentId,
+			selectedStop.platform_code,
+		);
+		if (!shouldExpandToStationPlatforms) {
+			return {
+				stationStopId,
+				stationStopIds: [stationStopId],
+				boardStopIds: [selectedStop.stop_id],
+			};
+		}
+
+		const directPlatformRows = await db
+			.select({
+				stop_id: stops.stop_id,
+				parent_station: stops.parent_station,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.where(
+				and(
+					eq(stops.operator, operator),
+					eq(stops.feed_version, feed.stops),
+					eq(stops.location_type, 0),
+					eq(stops.parent_station, stationStopId),
+				),
+			);
+		const groupStopNames = [
+			...new Set(
+				[
+					selectedStop.location_type === 0 ? selectedStop.stop_name : null,
+					...directPlatformRows.map((row) => row.stop_name),
+				]
+					.map((name) => name?.trim())
+					.filter((name): name is string => Boolean(name)),
+			),
+		];
+
+		/** Sibling platforms under other parents with the same display name (nearby only). */
+		let nameMatchedRows: {
+			stop_id: string | null;
+			parent_station: string | null;
+			stop_lat: unknown;
+			stop_lon: unknown;
+		}[] = [];
+		if (
+			groupStopNames.length > 0 &&
+			selectedStop.stop_lat != null &&
+			selectedStop.stop_lon != null
+		) {
+			const lat = Number(selectedStop.stop_lat);
+			const lon = Number(selectedStop.stop_lon);
+			const cosLat = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+			const lonDelta = STOP_BOARD_GROUP_LAT_DELTA / cosLat;
+			const nameMatch =
+				or(
+					...groupStopNames.map(
+						(name) => sql`lower(${stops.stop_name}) = lower(${name})`,
+					),
+				) ?? sql`false`;
+			nameMatchedRows = await db
+				.select({
+					stop_id: stops.stop_id,
+					parent_station: stops.parent_station,
+					stop_lat: stops.stop_lat,
+					stop_lon: stops.stop_lon,
+				})
+				.from(stops)
+				.where(
+					and(
+						eq(stops.operator, operator),
+						eq(stops.feed_version, feed.stops),
+						eq(stops.location_type, 0),
+						nameMatch,
+						gte(stops.stop_lat, lat - STOP_BOARD_GROUP_LAT_DELTA),
+						lte(stops.stop_lat, lat + STOP_BOARD_GROUP_LAT_DELTA),
+						gte(stops.stop_lon, lon - lonDelta),
+						lte(stops.stop_lon, lon + lonDelta),
+					),
+				);
+		}
+
+		const platformRows = [...directPlatformRows, ...nameMatchedRows];
+		const seenPlatformIds = new Set<string>();
+		const groupedPlatformRows = platformRows.filter((row) => {
+			if (!row.stop_id || seenPlatformIds.has(row.stop_id)) return false;
+			seenPlatformIds.add(row.stop_id);
+			if (row.parent_station === stationStopId) return true;
+			if (
+				selectedStop.stop_lat == null ||
+				selectedStop.stop_lon == null ||
+				row.stop_lat == null ||
+				row.stop_lon == null
+			) {
+				return false;
+			}
+			return (
+				getDistanceFromLatLon(
+					Number(selectedStop.stop_lat),
+					Number(selectedStop.stop_lon),
+					Number(row.stop_lat),
+					Number(row.stop_lon),
+				) <= STOP_BOARD_GROUP_MAX_DISTANCE_METERS
+			);
+		});
+		const platformStopIds = groupedPlatformRows
+			.map((row) => row.stop_id)
+			.filter((id): id is string => Boolean(id));
+		const stationStopIds = [
+			...new Set([
+				stationStopId,
+				...groupedPlatformRows
+					.map((row) => row.parent_station?.trim())
+					.filter((id): id is string => Boolean(id)),
+			]),
+		];
+
+		/** Cap board size so departure queries stay within statement time budgets. */
+		const MAX_BOARD_STOP_IDS = 80;
+		const cappedBoardStopIds =
+			platformStopIds.length > 0 ? platformStopIds : [selectedStop.stop_id];
+
+		return {
+			stationStopId,
+			stationStopIds,
+			boardStopIds: cappedBoardStopIds.slice(0, MAX_BOARD_STOP_IDS),
+		};
+	} catch (error) {
+		console.log(error);
+		return {
+			stationStopId: trimmedStopId,
+			stationStopIds: [trimmedStopId],
+			boardStopIds: [],
+		};
+	}
+};
+
+export const selectStopBoardChildrenFromDatabase = async (
+	stationStopIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<IStopBoardChild[]> => {
+	const cleanedStationStopIds = [
+		...new Set(stationStopIds.map((id) => id.trim()).filter(Boolean)),
+	];
+	if (cleanedStationStopIds.length === 0) return [];
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const rows = await db
+			.select({
+				stop_id: stops.stop_id,
+				stop_name: stops.stop_name,
+				location_type: stops.location_type,
+				parent_station: stops.parent_station,
+				platform_code: stops.platform_code,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.where(
+				and(
+					eq(stops.operator, operator),
+					eq(stops.feed_version, feed.stops),
+					inArray(stops.parent_station, cleanedStationStopIds),
+				),
+			);
+
+		return rows.flatMap((row) => {
+			if (
+				!row.stop_id ||
+				row.stop_lat == null ||
+				row.stop_lon == null ||
+				!row.parent_station
+			) {
+				return [];
+			}
+			return [
+				{
+					stop_id: row.stop_id,
+					stop_name: row.stop_name ?? "",
+					location_type: row.location_type ?? 0,
+					parent_station: row.parent_station,
+					platform_code: row.platform_code?.trim() || null,
+					stop_lat: Number(row.stop_lat),
+					stop_lon: Number(row.stop_lon),
+				},
+			];
+		});
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+/**
+ * Upcoming departures across every route at a stop/station.
+ * Parent stations and their children resolve to all served platform stop IDs.
+ */
+export const selectUpcomingDeparturesForStopFromDatabase = async (
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IStopDepartureSchedule> => {
+	const trimmedStopId = stopId.trim();
+	if (!trimmedStopId) {
+		return { stationStopId: "", stationStopIds: [], departures: [] };
+	}
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+
+	try {
+		const { stationStopId, stationStopIds, boardStopIds } =
+			await resolveStopBoardStopIdsFromDatabase(trimmedStopId, operator);
+		if (boardStopIds.length === 0) {
+			return {
+				stationStopId: trimmedStopId,
+				stationStopIds,
+				departures: [],
+			};
+		}
+
+		const dt = getGtfsDateTime();
+		const hoursAhead = STOP_BOARD_HOURS_AHEAD;
+		const minutesFilter = createMinutesFilter(stop_times.departure_time);
+		const serviceWindowFilter = createUpcomingServiceWindowFilter(
+			minutesFilter,
+			dt,
+			hoursAhead,
+		);
+
+		const data = await db
+			.select({
+				operator: trips.operator,
+				shape_id: trips.shape_id,
+				trip_id: trips.trip_id,
+				route_short_name: routes.route_short_name,
+				route_long_name: routes.route_long_name,
+				route_type: routes.route_type,
+				route_desc: routes.route_desc,
+				stop_headsign: stop_times.stop_headsign,
+				departure_time: stop_times.departure_time,
+				stop_name: stops.stop_name,
+				platform_code: stops.platform_code,
+				stop_sequence: stop_times.stop_sequence,
+				stop_id: stops.stop_id,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+				feed_version: trips.feed_version,
+			})
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.innerJoin(
+				stop_times,
+				and(
+					eq(trips.trip_id, stop_times.trip_id),
+					eq(trips.operator, stop_times.operator),
+				),
+			)
+			.innerJoin(
+				stops,
+				and(
+					eq(stop_times.stop_id, stops.stop_id),
+					eq(stop_times.operator, stops.operator),
+				),
+			)
+			.innerJoin(
+				calendarDates,
+				and(
+					eq(trips.service_id, calendarDates.service_id),
+					eq(trips.operator, calendarDates.operator),
+					eq(calendarDates.feed_version, feed.calendarDates),
+					eq(calendarDates.operator, operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.operator, operator),
+					eq(stops.operator, operator),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(stop_times.feed_version, feed.stopTimes),
+					eq(stops.feed_version, feed.stops),
+					inArray(stop_times.stop_id, boardStopIds),
+					eq(calendarDates.exception_type, 1),
+					serviceWindowFilter,
+				),
+			)
+			.groupBy(
+				trips.operator,
+				trips.trip_id,
+				routes.route_short_name,
+				routes.route_long_name,
+				routes.route_type,
+				routes.route_desc,
+				stop_times.stop_headsign,
+				stop_times.departure_time,
+				stops.stop_name,
+				stops.platform_code,
+				stop_times.stop_sequence,
+				stops.stop_id,
+				stops.stop_lat,
+				stops.stop_lon,
+				trips.feed_version,
+				trips.shape_id,
+			)
+			.orderBy(upcomingDepartureOrderBy(minutesFilter))
+			.limit(STOP_BOARD_DEPARTURES_LIMIT);
+
+		return {
+			stationStopId,
+			stationStopIds,
+			departures: z.array(selectAllSchema).parse(data) as IDbData[],
+		};
+	} catch (error) {
+		console.log(error);
+		return {
+			stationStopId: trimmedStopId,
+			stationStopIds: [trimmedStopId],
+			departures: [],
+		};
+	}
+};
+
+export interface IStopRouteShapeRef {
+	route_short_name: string;
+	route_type: number | null;
+	shape_id: string;
+	direction_id: number | null;
+}
+
+export const selectDistinctShapesForStopFromDatabase = async (
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IStopRouteShapeRef[]> => {
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	const { boardStopIds } = await resolveStopBoardStopIdsFromDatabase(
+		stopId,
+		operator,
+	);
+	if (boardStopIds.length === 0) return [];
+
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				route_short_name: routes.route_short_name,
+				route_type: routes.route_type,
+				shape_id: trips.shape_id,
+				direction_id: trips.direction_id,
+			})
+			.from(stop_times)
+			.innerJoin(
+				trips,
+				and(
+					eq(stop_times.trip_id, trips.trip_id),
+					eq(stop_times.operator, trips.operator),
+				),
+			)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.where(
+				and(
+					eq(stop_times.operator, operator),
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(stop_times.feed_version, feed.stopTimes),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					inArray(stop_times.stop_id, boardStopIds),
+					isNotNull(trips.shape_id),
+				),
+			)
+			.groupBy(
+				routes.route_short_name,
+				routes.route_type,
+				trips.shape_id,
+				trips.direction_id,
+			);
+
+		return data
+			.filter(
+				(
+					row,
+				): row is {
+					route_short_name: string;
+					route_type: number | null;
+					shape_id: string;
+					direction_id: number | null;
+				} => Boolean(row.route_short_name && row.shape_id),
+			)
+			.map((row) => ({
+				route_short_name: row.route_short_name,
+				route_type: row.route_type,
+				shape_id: row.shape_id,
+				direction_id: row.direction_id,
+			}));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
+export const selectShapeLengthsFromDatabase = async (
+	shapeIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<Map<string, number>> => {
+	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
+	if (uniqueShapeIds.length === 0) return new Map();
+
+	const operator = resolveOperator(operatorInput);
+	MetricsTracker.trackDbQuery();
+	try {
+		// Skip feed_version so Postgres can use uq_shapes_operator_shape_seq.
+		const data = await db
+			.select({
+				shape_id: shapes.shape_id,
+				length: sql<number>`max(${shapes.shape_pt_sequence})`,
+			})
+			.from(shapes)
+			.where(
+				and(
+					eq(shapes.operator, operator),
+					inArray(shapes.shape_id, uniqueShapeIds),
+				),
+			)
+			.groupBy(shapes.shape_id);
+
+		return new Map(
+			data
+				.filter((row): row is { shape_id: string; length: number } =>
+					Boolean(row.shape_id),
+				)
+				.map((row) => [row.shape_id, Number(row.length) || 0]),
+		);
+	} catch (error) {
+		console.log(error);
+		return new Map();
+	}
+};
+
+export const selectShapesForIdsFromDatabase = async (
+	shapeIds: string[],
+	operatorInput = getDefaultOperator(),
+	feedVersions?: string[],
+): Promise<IShapes[]> => {
+	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
+	if (uniqueShapeIds.length === 0) return [];
+
+	const operator = resolveOperator(operatorInput);
+	const uniqueFeedVersions = [
+		...new Set((feedVersions ?? []).map((v) => v.trim()).filter(Boolean)),
+	];
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				shape_id: shapes.shape_id,
+				shape_pt_lat: shapes.shape_pt_lat,
+				shape_pt_lon: shapes.shape_pt_lon,
+				shape_pt_sequence: shapes.shape_pt_sequence,
+				shape_dist_traveled: shapes.shape_dist_traveled,
+			})
+			.from(shapes)
+			.where(
+				and(
+					eq(shapes.operator, operator),
+					uniqueFeedVersions.length
+						? inArray(shapes.feed_version, uniqueFeedVersions)
+						: eq(shapes.feed_version, feed.shapes),
+					inArray(shapes.shape_id, uniqueShapeIds),
+				),
+			)
+			.orderBy(shapes.shape_id, shapes.shape_pt_sequence);
+
+		return data.map((point) => ({
+			shape_id: point.shape_id,
+			shape_pt_lat: Number(point.shape_pt_lat),
+			shape_pt_lon: Number(point.shape_pt_lon),
+			shape_pt_sequence: point.shape_pt_sequence,
+			shape_dist_traveled:
+				point.shape_dist_traveled != null
+					? Number(point.shape_dist_traveled)
+					: undefined,
+		}));
 	} catch (error) {
 		console.log(error);
 		return [];
@@ -855,7 +1653,7 @@ export const selectShapesFromDatabase = async (
 	operatorInput = getDefaultOperator(),
 ) => {
 	const operator = resolveOperator(operatorInput);
-	const latestFeedVersion = latestFeedVersionByOperator(operator);
+	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
 		const shapePoints = await db
@@ -871,7 +1669,7 @@ export const selectShapesFromDatabase = async (
 				and(
 					eq(shapes.shape_id, shapeId),
 					eq(shapes.operator, operator),
-					eq(shapes.feed_version, latestFeedVersion),
+					eq(shapes.feed_version, feed.shapes),
 				),
 			)
 			.orderBy(shapes.shape_pt_sequence);

@@ -22,29 +22,30 @@ import UserMessage from "../components/UserMessage";
 import VehicleMarkers from "../components/VehicleMarkers";
 import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
-import {
-	parseOperatorFromRealtimePathname,
-	searchPathForOperator,
-} from "../paths";
+import { useStopBoardShapes } from "../hooks/useStopBoardShapes";
+import { useStopDepartures } from "../hooks/useStopDepartures";
+import { parseOperatorFromRealtimePathname } from "../paths";
 import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
-import { MapStopPreview } from "./MapStopPreview";
+import { createRouteShapeColorMap } from "../utilities/routeShapeColors";
+import {
+	filterStopBoardByLines,
+	filterStopBoardShapes,
+	toggleStopBoardLine,
+} from "../utilities/stopBoardLineFilter";
+import { hasDisplayablePlatformCode } from "../utilities/stopBoardStopResolution";
 import { useAutoOpenCurrentTrips } from "./mapClient/hooks/useAutoOpenCurrentTrips";
 import { useEndFollowOnUserGesture } from "./mapClient/hooks/useEndFollowOnUserGesture";
 import { useFollowBusBorderClass } from "./mapClient/hooks/useFollowBusBorderClass";
 import { useHideUserMarkerDuringZoom } from "./mapClient/hooks/useHideUserMarkerDuringZoom";
+import { useInitialRegionFromGeo } from "./mapClient/hooks/useInitialRegionFromGeo";
 import { useLandingChromeHide } from "./mapClient/hooks/useLandingChromeHide";
 import { useLineShapeFitBounds } from "./mapClient/hooks/useLineShapeFitBounds";
 import { useMapBootRecoveryAndOnline } from "./mapClient/hooks/useMapBootRecoveryAndOnline";
-import { useInitialRegionFromGeo } from "./mapClient/hooks/useInitialRegionFromGeo";
-import { useMapInitialCenter } from "./mapClient/hooks/useMapInitialCenter";
-import {
-	hrefForOperatorAtUserPosition,
-	shouldCenterMapOnUserPosition,
-} from "./mapClient/mapClientRegionNavigation";
 import {
 	useInitialLinjeFromDocumentRef,
 	useMapInitialCamera,
 } from "./mapClient/hooks/useMapInitialCamera";
+import { useMapInitialCenter } from "./mapClient/hooks/useMapInitialCenter";
 import { useMapOperatorResolution } from "./mapClient/hooks/useMapOperatorResolution";
 import { useMapStopCameraPans } from "./mapClient/hooks/useMapStopCameraPans";
 import { useMapVectorReady } from "./mapClient/hooks/useMapVectorReady";
@@ -52,7 +53,6 @@ import { useMapViewportAndStopsFetch } from "./mapClient/hooks/useMapViewportAnd
 import { useMobileInfoWindowCollapsesTrips } from "./mapClient/hooks/useMobileInfoWindowCollapsesTrips";
 import { useOperatorsMeta } from "./mapClient/hooks/useOperatorsMeta";
 import { useRouteShapesForMap } from "./mapClient/hooks/useRouteShapesForMap";
-import { useSyncCurrentTripsOpenToContext } from "./mapClient/hooks/useSyncCurrentTripsOpenToContext";
 import { useSyncTripsIntoUserPosition } from "./mapClient/hooks/useSyncTripsIntoUserPosition";
 import { useWindowZoomPercent } from "./mapClient/hooks/useWindowZoomPercent";
 import {
@@ -60,11 +60,18 @@ import {
 	MAP_TARGET_INITIAL_ZOOM,
 	mapBootstrapZoomTabState,
 } from "./mapClient/mapClientConstants";
-import { isClickFromStopUi } from "./mapClient/mapClientStopUi";
+import {
+	hrefForOperatorAtUserPosition,
+	shouldCenterMapOnUserPosition,
+} from "./mapClient/mapClientRegionNavigation";
+import {
+	isClickFromStopUi,
+	resolveActiveStopMarkerId,
+} from "./mapClient/mapClientStopUi";
 import { StopMarkersLayer } from "./StopMarkersLayer";
 import {
+	buildFocusedStationMarkers,
 	type IStopPositionJson,
-	STOP_MARKERS_DETAIL_ZOOM,
 } from "./stopPositionsTypes";
 
 export default function MapClient() {
@@ -73,12 +80,19 @@ export default function MapClient() {
 		tripData,
 		userPosition,
 		setUserPosition,
+		isCurrentTripsOpen,
 		setIsCurrentTripsOpen,
-		mapStopPreview,
-		setMapStopPreview,
 		selectedStopForSchedule,
 		setSelectedStopForSchedule,
+		selectedStopRouteLines,
 		setSelectedStopRouteLines,
+		stopBoardData,
+		selectedStopLineFilter,
+		selectedStopPlatformFilter,
+		setSelectedStopPlatformFilter,
+		selectedStopModeFilter,
+		setSelectedStopModeFilter,
+		setSelectedStopLineFilter,
 		activeFollowedTripId,
 		setActiveFollowedTripId,
 	} = useDataContext();
@@ -88,41 +102,90 @@ export default function MapClient() {
 	const mapRef = useRef<google.maps.Map | null>(null);
 	const zoomRef = useRef<number>(8);
 	const [clickedOutside, setClickedOutside] = useState(false);
-	const [showCurrentTrips, setShowCurrentTrips] = useState(false);
+	const showCurrentTrips = isCurrentTripsOpen;
+	const setShowCurrentTrips = setIsCurrentTripsOpen;
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+	const [activeStopMarkerId, setActiveStopMarkerId] = useState<string | null>(
+		null,
+	);
 	const [scheduleInfoBoardStop, setScheduleInfoBoardStop] =
 		useState<IDbData | null>(null);
 	const [myPositionErrorMessage, setMyPositionErrorMessage] = useState<
 		string | null
 	>(null);
+	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+	const isPinnedStopMode =
+		selectedStopForSchedule !== null && !linjeParam;
+	const filteredStopBoard = useMemo(
+		() =>
+			filterStopBoardByLines(
+				stopBoardData.departures,
+				stopBoardData.vehicles,
+				selectedStopLineFilter,
+				selectedStopPlatformFilter,
+				selectedStopModeFilter,
+			),
+		[
+			selectedStopLineFilter,
+			selectedStopModeFilter,
+			selectedStopPlatformFilter,
+			stopBoardData.departures,
+			stopBoardData.vehicles,
+		],
+	);
+	const visibleVehicles = isPinnedStopMode
+		? filteredStopBoard.vehicles
+		: filteredVehicles.data;
+	const visibleVehicleResult = useMemo(
+		() => ({
+			data: visibleVehicles,
+			error: isPinnedStopMode ? undefined : filteredVehicles.error,
+		}),
+		[filteredVehicles.error, isPinnedStopMode, visibleVehicles],
+	);
+	const markerTripRows = useMemo(() => {
+		if (!isPinnedStopMode) return tripData.currentTrips;
+		const seen = new Set<string>();
+		return [...tripData.currentTrips, ...filteredStopBoard.departures].filter(
+			(row) => {
+				const key = `${row.trip_id}:${row.stop_id}:${row.stop_sequence}`;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			},
+		);
+	}, [filteredStopBoard.departures, isPinnedStopMode, tripData.currentTrips]);
 	const followedTripId = useMemo(() => {
 		if (!activeMarkerId) return null;
 		return (
-			filteredVehicles.data.find((v) => v.vehicle.id === activeMarkerId)?.trip
+			visibleVehicles.find((v) => v.vehicle.id === activeMarkerId)?.trip
 				?.tripId ?? null
 		);
-	}, [activeMarkerId, filteredVehicles.data]);
+	}, [activeMarkerId, visibleVehicles]);
 	const fallbackFollowed = useMemo(() => {
 		const baseStop =
 			selectedStopForSchedule ?? userPosition?.closestStop ?? null;
-		if (!baseStop || filteredVehicles.data.length === 0) {
+		if (!baseStop || visibleVehicles.length === 0) {
 			return { tripId: null as string | null };
 		}
-		const matchingRows = tripData.currentTrips.filter(
+		const matchingRows = markerTripRows.filter(
 			(row) =>
 				row.stop_id === baseStop.stop_id ||
 				row.stop_name.trim() === baseStop.stop_name.trim(),
 		);
 		let candidateTripId =
 			matchingRows.find((row) =>
-				filteredVehicles.data.some((v) => v.trip.tripId === row.trip_id),
+				visibleVehicles.some((v) => v.trip.tripId === row.trip_id),
 			)?.trip_id ?? null;
 		if (!candidateTripId) {
 			candidateTripId =
-				tripData.upcomingTrips.find((row) =>
-					filteredVehicles.data.some((v) => v.trip.tripId === row.trip_id),
+				(isPinnedStopMode
+					? filteredStopBoard.departures
+					: tripData.upcomingTrips
+				).find((row) =>
+					visibleVehicles.some((v) => v.trip.tripId === row.trip_id),
 				)?.trip_id ?? null;
 		}
 		if (!candidateTripId) {
@@ -132,17 +195,34 @@ export default function MapClient() {
 	}, [
 		selectedStopForSchedule,
 		userPosition?.closestStop,
-		filteredVehicles.data,
-		tripData.currentTrips,
+		visibleVehicles,
+		markerTripRows,
+		isPinnedStopMode,
+		filteredStopBoard.departures,
 		tripData.upcomingTrips,
+	]);
+	useEffect(() => {
+		if (!isPinnedStopMode || !activeMarkerId) return;
+		if (
+			visibleVehicles.some((vehicle) => vehicle.vehicle.id === activeMarkerId)
+		) {
+			return;
+		}
+		setActiveMarkerId(null);
+		setFollowBus(false);
+		setInfoWindowActive(false);
+		setActiveFollowedTripId(null);
+	}, [
+		activeMarkerId,
+		isPinnedStopMode,
+		setActiveFollowedTripId,
+		visibleVehicles,
 	]);
 	const [mapReady, setMapReady] = useState(false);
 	const [mapMountKey, setMapMountKey] = useState(0);
 	const isMobile = useIsMobile();
 	const stopPreviewFetchGenRef = useRef(0);
-	const mapStopPanRequestIdRef = useRef<string | null>(null);
 
-	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const operatorUrlParam = searchParams.get("operator")?.trim() ?? "";
 	const mapFitParam = searchParams.get("mapfit") === "1";
 	const focusUserParam = searchParams.get("focusUser") === "1";
@@ -153,21 +233,84 @@ export default function MapClient() {
 	);
 
 	const operatorsMeta = useOperatorsMeta();
-	const {
+	const { mapOperatorForView, operatorMapView, findOperatorForPosition } =
+		useMapOperatorResolution(
+			operatorsMeta,
+			operatorSlugFromPath,
+			operatorUrlParam,
+		);
+	useStopDepartures(selectedStopForSchedule, mapOperatorForView);
+	const stopBoardShapes = useStopBoardShapes(
+		selectedStopForSchedule,
 		mapOperatorForView,
-		operatorMapView,
-		findOperatorForPosition,
-		searchHrefWithLinje,
-	} = useMapOperatorResolution(
-		operatorsMeta,
-		operatorSlugFromPath,
-		operatorUrlParam,
+	);
+	const availableStopRouteShapes = useMemo(
+		() => filterStopBoardShapes(stopBoardShapes.shapes, stopBoardData.routes),
+		[stopBoardData.routes, stopBoardShapes.shapes],
+	);
+	const filteredStopShapes = useMemo(
+		() =>
+			filterStopBoardShapes(
+				availableStopRouteShapes,
+				selectedStopLineFilter,
+				selectedStopModeFilter,
+			),
+		[availableStopRouteShapes, selectedStopLineFilter, selectedStopModeFilter],
+	);
+	const stopRouteShapeColors = useMemo(
+		() =>
+			createRouteShapeColorMap(
+				availableStopRouteShapes.map((shape) => shape.route_short_name),
+			),
+		[availableStopRouteShapes],
+	);
+	const availableStopRouteNames = useMemo(
+		() =>
+			selectedStopRouteLines ??
+			[
+				...new Set(
+					availableStopRouteShapes.map((shape) => shape.route_short_name),
+				),
+			],
+		[availableStopRouteShapes, selectedStopRouteLines],
+	);
+	const handleRouteShapeClick = useCallback(
+		(routeShortName: string) => {
+			if (!isPinnedStopMode || !routeShortName.trim()) return;
+			setSelectedStopLineFilter((current) =>
+				toggleStopBoardLine(current, routeShortName, availableStopRouteNames),
+			);
+			setShowCurrentTrips(true);
+		},
+		[
+			availableStopRouteNames,
+			isPinnedStopMode,
+			setSelectedStopLineFilter,
+			setShowCurrentTrips,
+		],
 	);
 
 	const hideUserPositionForZoom = useHideUserMarkerDuringZoom(
 		mapReady,
 		mapRef,
 		zoomRef,
+	);
+	const focusedStationIds = useMemo(
+		() => (isPinnedStopMode ? stopBoardData.stationStopIds : []),
+		[isPinnedStopMode, stopBoardData.stationStopIds],
+	);
+	const focusedStationStops = useMemo(
+		() =>
+			buildFocusedStationMarkers(
+				stopBoardData.children,
+				stopBoardData.departures,
+				selectedStopForSchedule?.stop_name ?? "",
+			),
+		[
+			selectedStopForSchedule?.stop_name,
+			stopBoardData.children,
+			stopBoardData.departures,
+		],
 	);
 
 	const {
@@ -179,11 +322,13 @@ export default function MapClient() {
 		stopsForStopLayer,
 		stopMarkersVisible,
 		stopMarkersDetail,
+		stopMarkersLabels,
 	} = useMapViewportAndStopsFetch(
 		mapReady,
 		mapOperatorForView,
 		operatorMapView.restriction,
-		hideUserPositionForZoom,
+		focusedStationIds,
+		focusedStationStops,
 	);
 
 	const { clearVectorPaintIdleWatchers, beginVectorMapAttach } =
@@ -214,12 +359,7 @@ export default function MapClient() {
 				mapOperatorForView,
 				findOperatorForPosition,
 			),
-		[
-			focusUserParam,
-			userPosition,
-			mapOperatorForView,
-			findOperatorForPosition,
-		],
+		[focusUserParam, userPosition, mapOperatorForView, findOperatorForPosition],
 	);
 
 	const initialLinjeFromDocumentRef = useInitialLinjeFromDocumentRef();
@@ -235,7 +375,7 @@ export default function MapClient() {
 	);
 
 	useLandingChromeHide();
-	useFollowBusBorderClass(followBus, filteredVehicles.data.length);
+	useFollowBusBorderClass(followBus, visibleVehicles.length);
 	useEndFollowOnUserGesture(mapReady, mapRef, setFollowBus);
 
 	useSyncTripsIntoUserPosition(
@@ -249,9 +389,8 @@ export default function MapClient() {
 	useMapStopCameraPans(
 		mapReady,
 		mapRef,
-		mapStopPreview,
 		selectedStopForSchedule,
-		mapStopPanRequestIdRef,
+		focusedStationStops,
 	);
 
 	useAutoOpenCurrentTrips(selectedStopForSchedule, setShowCurrentTrips);
@@ -263,25 +402,34 @@ export default function MapClient() {
 
 	useWindowZoomPercent();
 
+	const activeLineShapes = isPinnedStopMode
+		? filteredStopShapes
+		: tripData.lineShapes;
+	const shapeVehicles = isPinnedStopMode
+		? visibleVehicles
+		: filteredVehicles.data;
 	const { routeShapes, lineShapesForFit } = useRouteShapesForMap(
-		filteredVehicles.data,
-		tripData.lineShapes,
+		shapeVehicles,
+		activeLineShapes,
 	);
+	const activeShapeScopeKey = isPinnedStopMode
+		? `${selectedStopForSchedule?.stop_id ?? ""}:${selectedStopModeFilter ?? "all"}:${selectedStopPlatformFilter ?? "all"}:${selectedStopLineFilter?.join(",") ?? "all"}`
+		: linjeParam;
 
 	useLineShapeFitBounds(
 		mapReady,
 		mapRef,
-		linjeParam,
+		activeShapeScopeKey,
 		lineShapesForFit,
 		routeShapes,
-		mapFitParam,
+		isPinnedStopMode ? false : mapFitParam,
+		false,
 		mapOperatorForView,
 		initialLinjeFromDocumentRef,
 		lastLineShapeFitKeyRef,
 		setFollowBus,
 	);
 
-	useSyncCurrentTripsOpenToContext(showCurrentTrips, setIsCurrentTripsOpen);
 
 	const regionResolved = useInitialRegionFromGeo(
 		userPosition,
@@ -296,46 +444,45 @@ export default function MapClient() {
 		linjeParam,
 		centerMapOnUser,
 	);
-	const canMountMap = regionResolved && mapMountReady && mapInitialCenter != null;
-	const handlePreviewLineClick = useCallback(
-		(routeShortName: string, stop: IDbData) => {
-			const names = mapStopPreview?.routeShortNames;
-			setSelectedStopRouteLines(
-				names?.length
-					? [...names].sort((a, b) => a.localeCompare(b, "sv"))
-					: null,
-			);
-			setSelectedStopForSchedule(stop);
-			setMapStopPreview(null);
-			router.push(searchHrefWithLinje(routeShortName));
-		},
-		[
-			mapStopPreview,
-			router,
-			searchHrefWithLinje,
-			setMapStopPreview,
-			setSelectedStopForSchedule,
-			setSelectedStopRouteLines,
-		],
-	);
+	const canMountMap =
+		regionResolved && mapMountReady && mapInitialCenter != null;
 
 	const handleStopMarkerClick = useCallback(
 		async (stop: IStopPositionJson) => {
+			if (stop.presentation === "platform-label") return;
 			const gen = ++stopPreviewFetchGenRef.current;
+			setActiveStopMarkerId(stop.id);
+			if (stop.isParent) {
+				setFollowBus(false);
+			}
+			const selectedPlatformId =
+				stop.presentation === "group-stop" ||
+				stop.isParent ||
+				stop.locationType === 2 ||
+				!hasDisplayablePlatformCode(stop.platformCode)
+					? null
+					: stop.locationType === 0
+						? stop.id
+						: null;
+			const stopIdForTrips = stop.parent || stop.id;
 			try {
 				const res = await fetch(
 					appendOperatorToApiUrl(
-						`/api/stops/${encodeURIComponent(stop.id)}/routes`,
+						`/api/stops/${encodeURIComponent(stopIdForTrips)}/routes`,
 						mapOperatorForView,
 					),
 				);
 				if (gen !== stopPreviewFetchGenRef.current) return;
 				if (!res.ok) {
+					setActiveStopMarkerId((current) =>
+						current === stop.id ? null : current,
+					);
 					return;
 				}
 				const data = (await res.json()) as {
 					stop_id: string;
 					stop_name: string;
+					platform_code?: string | null;
 					stop_lat: number;
 					stop_lon: number;
 					feed_version: string;
@@ -353,33 +500,32 @@ export default function MapClient() {
 					stop_id: data.stop_id,
 					departure_time: "",
 					stop_name: data.stop_name,
+					platform_code: data.platform_code,
 					stop_sequence: 0,
 					stop_lat: data.stop_lat,
 					stop_lon: data.stop_lon,
 					feed_version: data.feed_version ?? "",
 				};
-				mapStopPanRequestIdRef.current = data.stop_id;
 				setSelectedStopForSchedule(stopDb);
 				setSelectedStopRouteLines(sortedRoutes);
+				setSelectedStopModeFilter(null);
+				setSelectedStopPlatformFilter(selectedPlatformId);
+				setSelectedStopLineFilter(null);
 				setShowCurrentTrips(true);
-
-				const linje = searchParams.get("linje")?.trim().toUpperCase() ?? "";
-				const currentLineServesStop =
-					Boolean(linje) && sortedRoutes.some((r) => r.toUpperCase() === linje);
-				if (sortedRoutes.length > 0 && !currentLineServesStop) {
-					router.push(searchHrefWithLinje(sortedRoutes[0]));
-				}
 			} catch (e) {
 				if (gen !== stopPreviewFetchGenRef.current) return;
+				setActiveStopMarkerId((current) =>
+					current === stop.id ? null : current,
+				);
 				console.error(e);
 			}
 		},
 		[
-			router,
-			searchParams,
 			mapOperatorForView,
-			searchHrefWithLinje,
 			setSelectedStopForSchedule,
+			setSelectedStopLineFilter,
+			setSelectedStopModeFilter,
+			setSelectedStopPlatformFilter,
 			setSelectedStopRouteLines,
 		],
 	);
@@ -408,9 +554,7 @@ export default function MapClient() {
 			return;
 		}
 		if (matchedOperator !== mapOperatorForView) {
-			router.push(
-				hrefForOperatorAtUserPosition(matchedOperator, searchParams),
-			);
+			router.push(hrefForOperatorAtUserPosition(matchedOperator, searchParams));
 			return;
 		}
 
@@ -429,9 +573,7 @@ export default function MapClient() {
 
 	const handleTripSelect = useCallback(
 		(tripId: string, boardRow?: IDbData) => {
-			const vehicle = filteredVehicles.data.find(
-				(v) => v.trip.tripId === tripId,
-			);
+			const vehicle = visibleVehicles.find((v) => v.trip.tripId === tripId);
 			if (vehicle) {
 				setScheduleInfoBoardStop(null);
 				setFollowBus(false);
@@ -481,7 +623,7 @@ export default function MapClient() {
 			}
 		},
 		[
-			filteredVehicles,
+			visibleVehicles,
 			isMobile,
 			selectedStopForSchedule,
 			userPosition?.closestStop,
@@ -499,7 +641,29 @@ export default function MapClient() {
 
 	const handleCloseCurrentTrips = useCallback(() => {
 		setShowCurrentTrips(false);
-	}, []);
+		setSelectedStopForSchedule(null);
+		setSelectedStopRouteLines(null);
+		setActiveStopMarkerId(null);
+		setActiveMarkerId(null);
+		setActiveFollowedTripId(null);
+		setFollowBus(false);
+		setClickedOutside(true);
+	}, [
+		setActiveFollowedTripId,
+		setSelectedStopForSchedule,
+		setSelectedStopRouteLines,
+	]);
+
+	const handleSetCurrentTripsVisibility = useCallback(
+		(show: boolean) => {
+			if (show) {
+				setShowCurrentTrips(true);
+				return;
+			}
+			handleCloseCurrentTrips();
+		},
+		[handleCloseCurrentTrips],
+	);
 
 	const handleCloseInfoWindow = useCallback(() => {
 		setInfoWindowActive(false);
@@ -512,100 +676,99 @@ export default function MapClient() {
 
 	/** Rensa sökfält / linje i URL → stäng paneler som hör till vald linje. */
 	useEffect(() => {
-		if (linjeParam) return;
+		if (linjeParam || selectedStopForSchedule) return;
 		handleCloseInfoWindow();
 		setShowCurrentTrips(false);
-	}, [linjeParam, handleCloseInfoWindow]);
+		setActiveStopMarkerId(null);
+	}, [handleCloseInfoWindow, linjeParam, selectedStopForSchedule]);
 
 	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
 		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
 	}
 
 	const hasRouteData =
+		isPinnedStopMode ||
 		filteredVehicles.data.length > 0 ||
 		tripData.upcomingTrips.length > 0 ||
 		tripData.lineStops.length > 0 ||
 		tripData.lineShapes.length > 0;
 
-	const mapZoom = mapViewport?.zoom ?? MAP_TARGET_INITIAL_ZOOM;
-	const showMapStopPreview =
-		Boolean(mapStopPreview) && mapReady && mapZoom >= STOP_MARKERS_DETAIL_ZOOM;
-
 	return (
 		<div className="map-client-root">
 			<APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
 				{canMountMap && mapInitialCenter && (
-				<GoogleMap
-					key={`${mapOperatorForView}:${mapMountKey}`}
-					mapId={"fb3dad0c952dfd27"}
-					style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
-					defaultZoom={
-						linjeParam || mapBootstrapZoomTabState.doneInTab
-							? MAP_TARGET_INITIAL_ZOOM
-							: MAP_BOOTSTRAP_ZOOM
-					}
-					minZoom={10}
-					defaultCenter={mapInitialCenter}
-					gestureHandling={"greedy"}
-					onTilesLoaded={(e: MapEvent) => {
-						beginVectorMapAttach(e, true);
-					}}
-					onIdle={(e: MapEvent) => {
-						if (!mapReady) {
-							beginVectorMapAttach(e, false);
+					<GoogleMap
+						key={`${mapOperatorForView}:${mapMountKey}`}
+						mapId={"fb3dad0c952dfd27"}
+						style={{ width: "100vw", height: "100dvh", zIndex: "unset" }}
+						defaultZoom={
+							linjeParam || mapBootstrapZoomTabState.doneInTab
+								? MAP_TARGET_INITIAL_ZOOM
+								: MAP_BOOTSTRAP_ZOOM
 						}
-					}}
-					onCameraChanged={handleCameraChanged}
-					disableDefaultUI={true}
-					rotateControl={false}
-					mapTypeControl={false}
-					streetViewControl={false}
-					fullscreenControl={false}
-					onClick={(e: MapMouseEvent) => {
-						if (isClickFromStopUi(e)) return;
-						setClickedOutside(true);
-						setMapStopPreview(null);
-					}}
-					colorScheme="DARK"
-					renderingType={RenderingType.VECTOR}
-					reuseMaps={true}
-					restriction={{
-						latLngBounds: operatorMapView.restriction,
-					}}
-				>
-					<MapControl position={ControlPosition.INLINE_END_BLOCK_CENTER}>
-						<MapControlButtons
+						minZoom={10}
+						defaultCenter={mapInitialCenter}
+						gestureHandling={"greedy"}
+						onTilesLoaded={(e: MapEvent) => {
+							beginVectorMapAttach(e, true);
+						}}
+						onIdle={(e: MapEvent) => {
+							if (!mapReady) {
+								beginVectorMapAttach(e, false);
+							}
+						}}
+						onCameraChanged={handleCameraChanged}
+						disableDefaultUI={true}
+						rotateControl={false}
+						mapTypeControl={false}
+						streetViewControl={false}
+						fullscreenControl={false}
+						onClick={(e: MapMouseEvent) => {
+							if (isClickFromStopUi(e)) return;
+							setClickedOutside(true);
+						}}
+						colorScheme="DARK"
+						renderingType={RenderingType.VECTOR}
+						reuseMaps={true}
+						restriction={{
+							latLngBounds: operatorMapView.restriction,
+						}}
+					>
+						<MapControl position={ControlPosition.INLINE_END_BLOCK_CENTER}>
+							<MapControlButtons
+								googleMapRef={mapRef}
+								zoomIn={zoomIn}
+								zoomOut={zoomOut}
+								setShowCurrentTrips={handleSetCurrentTripsVisibility}
+								showCurrentTrips={showCurrentTrips}
+								filteredVehicles={visibleVehicleResult}
+								setFollowBus={setFollowBus}
+								followBus={activeMarkerId ? followBus : false}
+								activeMarker={activeMarkerId !== null}
+								mapReady={mapReady}
+								onMyPositionClick={handleMyPositionClick}
+							/>
+						</MapControl>
+						<VehicleMarkers
 							googleMapRef={mapRef}
-							zoomIn={zoomIn}
-							zoomOut={zoomOut}
-							setShowCurrentTrips={setShowCurrentTrips}
-							showCurrentTrips={showCurrentTrips}
-							filteredVehicles={filteredVehicles}
+							clickedOutside={clickedOutside}
+							setClickedOutside={setClickedOutside}
+							vehicles={visibleVehicles}
+							currentTrips={markerTripRows}
+							lineShapes={activeLineShapes}
+							mapZoom={mapViewport?.zoom ?? zoomRef.current}
+							routeColors={
+								isPinnedStopMode ? stopRouteShapeColors : undefined
+							}
+							setInfoWindowActiveExternal={setInfoWindowActive}
+							infoWindowActiveExternal={infoWindowActive}
+							followBus={followBus}
 							setFollowBus={setFollowBus}
-							followBus={activeMarkerId ? followBus : false}
-							activeMarker={activeMarkerId !== null}
-							mapReady={mapReady}
-							onMyPositionClick={handleMyPositionClick}
+							activeMarkerId={activeMarkerId}
+							setActiveMarkerId={setActiveMarkerId}
+							showCurrentTrips={showCurrentTrips}
 						/>
-					</MapControl>
-					<VehicleMarkers
-						googleMapRef={mapRef}
-						clickedOutside={clickedOutside}
-						setClickedOutside={setClickedOutside}
-						vehicles={filteredVehicles.data}
-						currentTrips={tripData.currentTrips}
-						lineShapes={tripData.lineShapes}
-						setInfoWindowActiveExternal={setInfoWindowActive}
-						infoWindowActiveExternal={infoWindowActive}
-						followBus={followBus}
-						setFollowBus={setFollowBus}
-						activeMarkerId={activeMarkerId}
-						setActiveMarkerId={setActiveMarkerId}
-						showCurrentTrips={showCurrentTrips}
-					/>
-					{infoWindowActive &&
-						!activeMarkerId &&
-						activeFollowedTripId && (
+						{infoWindowActive && !activeMarkerId && activeFollowedTripId && (
 							<InfoWindow
 								tripId={activeFollowedTripId}
 								closestStopState={scheduleInfoBoardStop}
@@ -618,82 +781,91 @@ export default function MapClient() {
 								}
 							/>
 						)}
-					{mapReady &&
-						routeShapes.map(
-							(s) =>
-								s.points && (
-									<RouteShapePolyline
-										key={s.shape_id}
-										googleMapRef={mapRef}
-										shapePoints={s.points}
-										mapReady={mapReady}
-										animateReveal
-										animationDuration={1.8}
-										hasActiveVehicle={filteredVehicles.data.length > 0}
-									/>
-								),
-						)}
-					{mapReady && visibleStopMarkers.length > 0 && (
-						<StopMarkersLayer
-							stops={stopsForStopLayer}
-							mapRef={mapRef}
-							onStopClick={handleStopMarkerClick}
-							stopMarkersVisible={stopMarkersVisible}
-							detailMode={stopMarkersDetail}
-							activeStopId={
-								showCurrentTrips ? selectedStopForSchedule?.stop_id : undefined
-							}
-						/>
-					)}
-					{showCurrentTrips && hasRouteData && userPosition && (
-						<CurrentTrips
-							onTripSelect={handleTripSelect}
-							onClose={handleCloseCurrentTrips}
-							mapRef={mapRef}
-							followedTripId={followedTripId ?? fallbackFollowed.tripId}
-							closestStop={
-								selectedStopForSchedule ??
-								userPosition?.closestStop ??
-								undefined
-							}
-						/>
-					)}
-					{showMapStopPreview && mapStopPreview && (
-						<MapStopPreview
-							preview={mapStopPreview}
-							onRouteSelect={handlePreviewLineClick}
-						/>
-					)}
-					{userPosition && mapRef.current && (
-						<AdvancedMarker
-							title={"Min position"}
-							anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-							zIndex={50}
-							position={
-								new google.maps.LatLng({
-									lat: userPosition.lat,
-									lng: userPosition.lng,
-								})
-							}
-						>
-							<div
-								className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+						{mapReady &&
+							routeShapes.map(
+								(s) =>
+									s.points && (
+										<RouteShapePolyline
+											key={s.shape_id}
+											googleMapRef={mapRef}
+											shapePoints={s.points}
+											mapReady={mapReady}
+											strokeColor={
+												isPinnedStopMode
+													? stopRouteShapeColors.get(s.route_short_name ?? "")
+													: undefined
+											}
+											animateReveal
+											animationDuration={1.8}
+											hasActiveVehicle={visibleVehicles.length > 0}
+											onClick={
+												isPinnedStopMode && s.route_short_name
+													? () => handleRouteShapeClick(s.route_short_name ?? "")
+													: undefined
+											}
+										/>
+									),
+							)}
+						{mapReady && visibleStopMarkers.length > 0 && (
+							<StopMarkersLayer
+								stops={stopsForStopLayer}
+								mapRef={mapRef}
+								onStopClick={handleStopMarkerClick}
+								stopMarkersVisible={stopMarkersVisible}
+								detailMode={stopMarkersDetail}
+								labelMode={stopMarkersLabels}
+								activeStopId={resolveActiveStopMarkerId(
+									activeStopMarkerId,
+									selectedStopPlatformFilter,
+									selectedStopForSchedule?.stop_id,
+									showCurrentTrips,
+								)}
+								focusedStationIds={focusedStationIds}
 							/>
-							<div
-								className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+						)}
+						{showCurrentTrips && hasRouteData && userPosition && (
+							<CurrentTrips
+								onTripSelect={handleTripSelect}
+								onClose={handleCloseCurrentTrips}
+								mapRef={mapRef}
+								followedTripId={followedTripId ?? fallbackFollowed.tripId}
+								closestStop={
+									selectedStopForSchedule ??
+									userPosition?.closestStop ??
+									undefined
+								}
+							/>
+						)}
+						{userPosition && mapRef.current && (
+							<AdvancedMarker
+								title={"Min position"}
+								anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
+								zIndex={50}
+								position={
+									new google.maps.LatLng({
+										lat: userPosition.lat,
+										lng: userPosition.lng,
+									})
+								}
 							>
-								<span
-									className="user-location__text"
-									style={{
-										fontSize: (mapRef.current?.getZoom() ?? 10) * 0.8,
-									}}
+								<div
+									className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+								/>
+								<div
+									className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
 								>
-									Min position
-								</span>
-							</div>
-						</AdvancedMarker>
-					)}
-				</GoogleMap>
+									<span
+										className="user-location__text"
+										style={{
+											fontSize: (mapRef.current?.getZoom() ?? 10) * 0.8,
+										}}
+									>
+										Min position
+									</span>
+								</div>
+							</AdvancedMarker>
+						)}
+					</GoogleMap>
 				)}
 			</APIProvider>
 			{(!canMountMap || !mapReady) && (

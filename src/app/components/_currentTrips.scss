@@ -20,6 +20,10 @@
     transition: all .5s ease;
     z-index: 0;
 
+    @media (min-width: m.$desktop) {
+        width: 500px;
+    }
+
     /** Samma som InfoWindow vid borttagna rader: fadeTable + slideUpTableRow. */
     .tbody-fade {
         animation: fadeTable 1s ease-out forwards;
@@ -44,34 +48,66 @@
     }
 }
 
-.current-trips__line-picker {
+.current-trips__filter-overview,
+.current-trips__departure-meta {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
 }
 
-.current-trips__line-btn {
-    touch-action: manipulation;
-    cursor: pointer;
-    border: 1px solid v.$accent-color;
-    background: transparent;
+.current-trips__filter-label {
+    flex: 0 0 100%;
+    color: v.$tertiary-color;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.current-trips__departure-meta {
+    margin-top: .35rem;
+}
+
+.current-trips__platform-label {
+    color: v.$tertiary-color;
+    display: block;
+    font-size: .68rem;
+    line-height: 1.2;
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+.current-trips__line-badge,
+.current-trips__line-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    background-color: v.$primary-color--muted;
     color: v.$accent-color;
     font-weight: 700;
-    font-size: 0.8rem;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background 0.15s ease, color 0.15s ease;
+    font-size: .75rem;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 10%
+}
+
+.current-trips__line-filter {
+    cursor: pointer;
+    background: transparent;
+    transition: background-color .15s ease, color .15s ease;
 
     &:hover,
-    &:focus-visible {
-        background: v.$accent-color;
-        color: v.$primary-color;
-        outline: none;
-    }
-
+    &:focus-visible,
     &--active {
         background: v.$accent-color;
         color: v.$primary-color;
+    }
+
+    &:focus-visible {
+        outline: 2px solid v.$secondary-color;
+        outline-offset: 2px;
     }
 }
 
@@ -133,6 +169,19 @@
     table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
+
+        .current-trips__status-column {
+            width: 18px;
+        }
+
+        .current-trips__line-column {
+            width: 70px;
+        }
+
+        .current-trips__time-column {
+            width: 88px;
+        }
 
         th {
             border-bottom: solid 1px v.$border-color;
@@ -170,6 +219,7 @@
         td:last-child,
         th:last-child {
             text-align: right;
+            white-space: nowrap;
 
             span {
                 overflow: hidden;
@@ -177,6 +227,15 @@
                 max-width: 190px;
                 text-overflow: ellipsis;
             }
+        }
+
+        .row-button {
+            display: block;
+            width: 100%;
+            overflow: hidden;
+            text-align: left;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         @include m.desktop {

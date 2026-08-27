@@ -1,4 +1,12 @@
 "use client";
+import type { IDbData } from "@shared/models/IDbData";
+import type { IShapes } from "@shared/models/IShapes";
+import type { IStopBoardChild } from "@shared/models/IStopBoardStation";
+import type { ITripUpdate } from "@shared/models/ITripUpdate";
+import type {
+	IVehicleFilterResult,
+	IVehiclePosition,
+} from "@shared/models/IVehiclePosition";
 import {
 	createContext,
 	type Dispatch,
@@ -7,11 +15,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import type { IDbData } from "@shared/models/IDbData";
-import type { IShapes } from "@shared/models/IShapes";
-import type { ITripUpdate } from "@shared/models/ITripUpdate";
-import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
-import { useGeolocation, type IUser } from "../hooks/useUserPosition";
+import { type IUser, useGeolocation } from "../hooks/useUserPosition";
 
 export interface ITripData {
 	currentTrips: IDbData[];
@@ -21,11 +25,31 @@ export interface ITripData {
 	lineShapes: { shape_id: string; points: IShapes[] }[];
 }
 
-export interface IMapStopPreview {
-	stop: IDbData;
-	routeShortNames: string[];
-	routesLoading?: boolean;
+export interface IStopBoardData {
+	stationStopId: string | null;
+	stationStopIds: string[];
+	children: IStopBoardChild[];
+	departures: IDbData[];
+	tripUpdates: ITripUpdate[];
+	activeTripIds: string[];
+	vehicles: IVehiclePosition[];
+	routes: string[];
+	isLoading: boolean;
+	error: string | null;
 }
+
+export const EMPTY_STOP_BOARD_DATA: IStopBoardData = {
+	stationStopId: null,
+	stationStopIds: [],
+	children: [],
+	departures: [],
+	tripUpdates: [],
+	activeTripIds: [],
+	vehicles: [],
+	routes: [],
+	isLoading: false,
+	error: null,
+};
 
 interface IDataContext {
 	filteredVehicles: IVehicleFilterResult;
@@ -40,12 +64,18 @@ interface IDataContext {
 	setIsLoading: Dispatch<SetStateAction<boolean>>;
 	isCurrentTripsOpen: boolean;
 	setIsCurrentTripsOpen: Dispatch<SetStateAction<boolean>>;
-	mapStopPreview: IMapStopPreview | null;
-	setMapStopPreview: Dispatch<SetStateAction<IMapStopPreview | null>>;
 	selectedStopForSchedule: IDbData | null;
 	setSelectedStopForSchedule: Dispatch<SetStateAction<IDbData | null>>;
 	selectedStopRouteLines: string[] | null;
 	setSelectedStopRouteLines: Dispatch<SetStateAction<string[] | null>>;
+	stopBoardData: IStopBoardData;
+	setStopBoardData: Dispatch<SetStateAction<IStopBoardData>>;
+	selectedStopLineFilter: string[] | null;
+	setSelectedStopLineFilter: Dispatch<SetStateAction<string[] | null>>;
+	selectedStopPlatformFilter: string | null;
+	setSelectedStopPlatformFilter: Dispatch<SetStateAction<string | null>>;
+	selectedStopModeFilter: number | null;
+	setSelectedStopModeFilter: Dispatch<SetStateAction<number | null>>;
 	/**
 	 * Hållplats längs vald fordons tur (samma som InfoWindow / findClosestOrNextStop).
 	 * Används av CurrentTrips så avgångslistan följer bussens läge, inte bara användarens närmaste hållplats.
@@ -73,12 +103,18 @@ const DataContext = createContext<IDataContext>({
 	setIsLoading: () => {},
 	isCurrentTripsOpen: false,
 	setIsCurrentTripsOpen: () => {},
-	mapStopPreview: null,
-	setMapStopPreview: () => {},
 	selectedStopForSchedule: null,
 	setSelectedStopForSchedule: () => {},
 	selectedStopRouteLines: null,
 	setSelectedStopRouteLines: () => {},
+	stopBoardData: EMPTY_STOP_BOARD_DATA,
+	setStopBoardData: () => {},
+	selectedStopLineFilter: null,
+	setSelectedStopLineFilter: () => {},
+	selectedStopPlatformFilter: null,
+	setSelectedStopPlatformFilter: () => {},
+	selectedStopModeFilter: null,
+	setSelectedStopModeFilter: () => {},
 	activeVehicleBoardStop: null,
 	setActiveVehicleBoardStop: () => {},
 	activeFollowedTripId: null,
@@ -101,19 +137,28 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 	);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCurrentTripsOpen, setIsCurrentTripsOpen] = useState(false);
-	const [mapStopPreview, setMapStopPreview] = useState<IMapStopPreview | null>(
-		null,
-	);
 	const [selectedStopForSchedule, setSelectedStopForSchedule] =
 		useState<IDbData | null>(null);
 	const [selectedStopRouteLines, setSelectedStopRouteLines] = useState<
 		string[] | null
 	>(null);
+	const [stopBoardData, setStopBoardData] = useState<IStopBoardData>(
+		EMPTY_STOP_BOARD_DATA,
+	);
+	const [selectedStopLineFilter, setSelectedStopLineFilter] = useState<
+		string[] | null
+	>(null);
+	const [selectedStopPlatformFilter, setSelectedStopPlatformFilter] = useState<
+		string | null
+	>(null);
+	const [selectedStopModeFilter, setSelectedStopModeFilter] = useState<
+		number | null
+	>(null);
 	const [activeVehicleBoardStop, setActiveVehicleBoardStop] =
 		useState<IDbData | null>(null);
-	const [activeFollowedTripId, setActiveFollowedTripId] = useState<string | null>(
-		null,
-	);
+	const [activeFollowedTripId, setActiveFollowedTripId] = useState<
+		string | null
+	>(null);
 	const [userPosition, setUserPosition] = useGeolocation(
 		tripData.lineStops,
 		tripData.currentTrips,
@@ -133,12 +178,18 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 			setIsLoading,
 			isCurrentTripsOpen,
 			setIsCurrentTripsOpen,
-			mapStopPreview,
-			setMapStopPreview,
 			selectedStopForSchedule,
 			setSelectedStopForSchedule,
 			selectedStopRouteLines,
 			setSelectedStopRouteLines,
+			stopBoardData,
+			setStopBoardData,
+			selectedStopLineFilter,
+			setSelectedStopLineFilter,
+			selectedStopPlatformFilter,
+			setSelectedStopPlatformFilter,
+			selectedStopModeFilter,
+			setSelectedStopModeFilter,
 			activeVehicleBoardStop,
 			setActiveVehicleBoardStop,
 			activeFollowedTripId,
@@ -149,11 +200,15 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 			tripData,
 			filteredTripUpdates,
 			userPosition,
+			setUserPosition,
 			isLoading,
 			isCurrentTripsOpen,
-			mapStopPreview,
 			selectedStopForSchedule,
 			selectedStopRouteLines,
+			stopBoardData,
+			selectedStopLineFilter,
+			selectedStopPlatformFilter,
+			selectedStopModeFilter,
 			activeVehicleBoardStop,
 			activeFollowedTripId,
 		],

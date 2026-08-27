@@ -3,6 +3,7 @@ import { memo, useMemo, useRef } from "react";
 import type { IDbData } from "@/shared/models/IDbData";
 import type { IShapes } from "@/shared/models/IShapes";
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
+import { colorForRoute } from "../utilities/routeShapeColors";
 import CustomMarker from "./CustomMarker";
 
 interface IVehicleMarkersProps {
@@ -19,17 +20,23 @@ interface IVehicleMarkersProps {
 	showCurrentTrips: boolean;
 	currentTrips: IDbData[];
 	lineShapes: { shape_id: string; points: IShapes[] }[];
+	mapZoom: number;
+	routeColors?: Map<string, string>;
 }
 
 const VehicleMarkers = memo(function VehicleMarkers({
 	vehicles,
 	currentTrips,
 	lineShapes,
+	routeColors,
 	...props
 }: IVehicleMarkersProps) {
 	const renderCountRef = useRef(0);
 	renderCountRef.current += 1;
-	if (process.env.NODE_ENV !== "production" && renderCountRef.current % 20 === 0) {
+	if (
+		process.env.NODE_ENV !== "production" &&
+		renderCountRef.current % 20 === 0
+	) {
 		console.debug("[vehicle-markers] render-count", renderCountRef.current);
 	}
 
@@ -70,6 +77,8 @@ const VehicleMarkers = memo(function VehicleMarkers({
 	}
 	return vehiclesWithShapes.map((vehicle) => {
 		const isActive = props.activeMarkerId === vehicle.vehicle.id;
+		const routeShortName =
+			tripsByTripId.get(vehicle.trip?.tripId ?? "")?.[0]?.route_short_name;
 		return (
 			<CustomMarker
 				{...props}
@@ -91,6 +100,7 @@ const VehicleMarkers = memo(function VehicleMarkers({
 				showCurrentTrips={props.showCurrentTrips}
 				tripsByTripId={tripsByTripId}
 				zIndex={isActive ? 200 : 100}
+				routeColor={colorForRoute(routeColors, routeShortName)}
 			/>
 		);
 	});

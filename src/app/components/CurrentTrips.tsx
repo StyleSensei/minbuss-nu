@@ -1,6 +1,5 @@
 import type { IDbData } from "@shared/models/IDbData";
 import { MapPinned } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	useCallback,
 	useEffect,
@@ -13,10 +12,6 @@ import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
 import { arrow } from "../../../public/icons";
 import { useDataContext } from "../context/DataContext";
 import { useOverflow } from "../hooks/useOverflow";
-import {
-	lineSearchUrl,
-	parseOperatorFromRealtimePathname,
-} from "../paths";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { getClosest } from "../utilities/getClosest";
 import {
@@ -24,6 +19,11 @@ import {
 	gtfsRouteVehicleLabelSv,
 } from "../utilities/gtfsRouteTypeLabel";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
+import {
+	filterStopBoardByLines,
+	toggleStopBoardLine,
+} from "../utilities/stopBoardLineFilter";
+import { hasDisplayablePlatformCode } from "../utilities/stopBoardStopResolution";
 import { CurrentTripsLoader } from "./CurrentTripsLoader";
 import { Icon } from "./Icon";
 import { PanelCloseButton } from "./PanelCloseButton";
@@ -37,7 +37,9 @@ interface ICurrentTripsProps {
 }
 
 function tripIdsSignature(arr: IDbData[]): string {
-	return arr.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`).join("|");
+	return arr
+		.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
+		.join("|");
 }
 
 function stopIdMatchesBoardRow(
@@ -61,14 +63,12 @@ function resolveBoardStopSequenceForTripAtBoard(
 	const tryRows = (rows: IDbData[]): number | undefined => {
 		const byStopId = rows.find(
 			(s) =>
-				s.trip_id === tripId &&
-				stopIdMatchesBoardRow(s.stop_id, board.stop_id),
+				s.trip_id === tripId && stopIdMatchesBoardRow(s.stop_id, board.stop_id),
 		);
 		if (byStopId != null) return byStopId.stop_sequence;
 		const byName = rows.find(
 			(s) =>
-				s.trip_id === tripId &&
-				s.stop_name.trim() === board.stop_name.trim(),
+				s.trip_id === tripId && s.stop_name.trim() === board.stop_name.trim(),
 		);
 		return byName?.stop_sequence;
 	};
@@ -94,8 +94,7 @@ function injectFollowedTripRowAtBoard(
 		}
 		return rows.find(
 			(s) =>
-				s.trip_id === tripId &&
-				s.stop_name.trim() === board.stop_name.trim(),
+				s.trip_id === tripId && s.stop_name.trim() === board.stop_name.trim(),
 		);
 	};
 	return bySeqOrStopId(currentTrips) ?? bySeqOrStopId(upcomingTrips);
@@ -125,21 +124,20 @@ export const CurrentTrips = ({
 		filteredTripUpdates,
 		userPosition,
 		isLoading,
+		selectedStopForSchedule,
 		selectedStopRouteLines,
+		stopBoardData,
+		selectedStopLineFilter,
+		setSelectedStopLineFilter,
+		selectedStopPlatformFilter,
+		setSelectedStopPlatformFilter,
+		selectedStopModeFilter,
+		setSelectedStopModeFilter,
 		activeFollowedTripId,
 		activeVehicleBoardStop,
 	} = useDataContext();
-	const effectiveFollowedTripId = activeFollowedTripId ?? followedTripId ?? null;
-	const router = useRouter();
-	const pathname = usePathname();
-	const searchParams = useSearchParams();
-
-	const operatorForLineLinks = useMemo(() => {
-		const pathOp = parseOperatorFromRealtimePathname(pathname);
-		const q = searchParams.get("operator")?.trim().toLowerCase() ?? "";
-		return (pathOp ?? q) || "sl";
-	}, [pathname, searchParams]);
-	const lastLinePickAtRef = useRef(0);
+	const effectiveFollowedTripId =
+		activeFollowedTripId ?? followedTripId ?? null;
 	const [hasFilteredOnce, setHasFilteredOnce] = useState(false);
 
 	const [displayTrips, setDisplayTrips] = useState<IDbData[]>([]);
@@ -152,7 +150,12 @@ export const CurrentTrips = ({
 		towardSig: null,
 		removalTarget: null,
 	});
-	const isPinnedStopMode = selectedStopRouteLines !== null;
+	const isPinnedStopMode = selectedStopForSchedule !== null;
+	const showCurrentTripsLoader =
+		!hasFilteredOnce ||
+		(isPinnedStopMode
+			? stopBoardData.isLoading && stopBoardData.departures.length === 0
+			: isLoading);
 	/** Närmaste hållplats från GPS (för etikett/knapp — fångas i const så TS kan smalna i handlers). */
 	const userNearestStop = userPosition?.closestStop ?? null;
 	/** Hållplats för tabellens avgångar (vald eller användarens närmaste — inte bussens läge). */
@@ -162,43 +165,52 @@ export const CurrentTrips = ({
 		!isPinnedStopMode && activeVehicleBoardStop
 			? activeVehicleBoardStop
 			: listBoardStop;
-
-	const urlLine = searchParams.get("linje")?.trim().toUpperCase() ?? "";
-
-	const pickLineInModal = useCallback(
-		(routeShortName: string) => {
-			const now = Date.now();
-			if (now - lastLinePickAtRef.current < 350) {
-				return;
-			}
-			lastLinePickAtRef.current = now;
-			router.push(lineSearchUrl(routeShortName, operatorForLineLinks));
-		},
-		[router, operatorForLineLinks],
+	const filteredStopBoard = useMemo(
+		() =>
+			filterStopBoardByLines(
+				stopBoardData.departures,
+				stopBoardData.vehicles,
+				selectedStopLineFilter,
+				selectedStopPlatformFilter,
+				selectedStopModeFilter,
+			),
+		[
+			selectedStopLineFilter,
+			selectedStopModeFilter,
+			selectedStopPlatformFilter,
+			stopBoardData.departures,
+			stopBoardData.vehicles,
+		],
 	);
 
 	const activeVehiclePositions = useMemo(
 		() =>
-			new Set(
-				filteredVehicles.data.map((bus: IVehiclePosition) => bus.trip.tripId),
-			),
-		[filteredVehicles.data],
+			isPinnedStopMode
+				? new Set(
+						filteredStopBoard.vehicles
+							.map((vehicle) => vehicle.trip?.tripId)
+							.filter((tripId): tripId is string => Boolean(tripId)),
+					)
+				: new Set(
+						filteredVehicles.data.map(
+							(bus: IVehiclePosition) => bus.trip.tripId,
+						),
+					),
+		[filteredStopBoard.vehicles, filteredVehicles.data, isPinnedStopMode],
 	);
-
-	const vehiclePositionSig = filteredVehicles.data
-		.map(
-			(v) =>
-				`${v.trip?.tripId ?? ""}:${v.position.latitude.toFixed(4)}:${v.position.longitude.toFixed(4)}`,
-		)
-		.sort()
-		.join("|");
+	const departureTripUpdates = isPinnedStopMode
+		? stopBoardData.tripUpdates
+		: filteredTripUpdates;
+	const departureVehicles = isPinnedStopMode
+		? filteredStopBoard.vehicles
+		: filteredVehicles.data;
 
 	const getUpdatedDepartureTime = useCallback(
 		(tripId: string, stop: IDbData | null | undefined): string | undefined => {
 			if (!stop?.stop_id) return undefined;
-			if (!filteredTripUpdates.length) return undefined;
+			if (!departureTripUpdates.length) return undefined;
 
-			const tripUpdate = filteredTripUpdates.find(
+			const tripUpdate = departureTripUpdates.find(
 				(t) => t.trip.tripId === tripId,
 			);
 
@@ -215,15 +227,15 @@ export const CurrentTrips = ({
 			const departureDate = new Date(Number(stopUpdate.departure.time) * 1000);
 			return departureDate.toLocaleTimeString().slice(0, 5);
 		},
-		[filteredTripUpdates],
+		[departureTripUpdates],
 	);
 
 	const getDepartureInstantForFilter = useCallback(
 		(trip: IDbData, boardRef: IDbData): Date => {
-			if (!filteredTripUpdates.length) {
+			if (!departureTripUpdates.length) {
 				return convertGTFSTimeToDate(trip.departure_time);
 			}
-			const tripUpdate = filteredTripUpdates.find(
+			const tripUpdate = departureTripUpdates.find(
 				(t) => t.trip.tripId === trip.trip_id,
 			);
 			const su = tripUpdate?.stopTimeUpdate;
@@ -231,10 +243,7 @@ export const CurrentTrips = ({
 				return convertGTFSTimeToDate(trip.departure_time);
 			}
 			const byTripStop = trip.stop_id
-				? su.find(
-						(s) =>
-							s.stopId === trip.stop_id && s.departure?.time != null,
-					)
+				? su.find((s) => s.stopId === trip.stop_id && s.departure?.time != null)
 				: undefined;
 			if (byTripStop?.departure?.time != null) {
 				return new Date(Number(byTripStop.departure.time) * 1000);
@@ -249,7 +258,7 @@ export const CurrentTrips = ({
 			}
 			return convertGTFSTimeToDate(trip.departure_time);
 		},
-		[filteredTripUpdates],
+		[departureTripUpdates],
 	);
 
 	useEffect(() => {
@@ -353,16 +362,12 @@ export const CurrentTrips = ({
 							)
 						: undefined;
 
-			
 				/** RT-försening: följd tur vid bräda får ligga kvar längre efter "passerad" tid. */
 				const FOLLOWED_MAX_PAST_MIN = 20;
 
 				function rowPassesDepartureTimeRule(trip: IDbData): boolean {
 					try {
-						const departureTime = getDepartureInstantForFilter(
-							trip,
-							boardStop,
-						);
+						const departureTime = getDepartureInstantForFilter(trip, boardStop);
 						const minutesSince =
 							(Date.now() - departureTime.getTime()) / (1000 * 60);
 
@@ -379,8 +384,8 @@ export const CurrentTrips = ({
 								vehicleBoard.stop_sequence > trip.stop_sequence;
 
 							if (!passedThisStopByVehicle) {
-								const veh = filteredVehicles.data.find(
-									(v: IVehiclePosition) => v.trip.tripId === trip.trip_id,
+								const veh = departureVehicles.find(
+									(v: IVehiclePosition) => v.trip?.tripId === trip.trip_id,
 								);
 								if (veh?.position) {
 									const stopsOnTrip = tripData.currentTrips
@@ -405,34 +410,22 @@ export const CurrentTrips = ({
 							let atCurrentBoardStop: boolean;
 							if (vehicleBoard != null) {
 								atCurrentBoardStop =
-									stopIdMatchesBoardRow(
-										trip.stop_id,
-										vehicleBoard.stop_id,
-									) ||
+									stopIdMatchesBoardRow(trip.stop_id, vehicleBoard.stop_id) ||
 									trip.stop_sequence === vehicleBoard.stop_sequence ||
-									stopIdMatchesBoardRow(
-										trip.stop_id,
-										boardStop.stop_id,
-									) ||
+									stopIdMatchesBoardRow(trip.stop_id, boardStop.stop_id) ||
 									(boardStopSequenceForFollowed != null &&
-										trip.stop_sequence ===
-											boardStopSequenceForFollowed);
+										trip.stop_sequence === boardStopSequenceForFollowed);
 							} else {
 								atCurrentBoardStop =
-									stopIdMatchesBoardRow(
-										trip.stop_id,
-										boardStop.stop_id,
-									) ||
+									stopIdMatchesBoardRow(trip.stop_id, boardStop.stop_id) ||
 									(boardStopSequenceForFollowed != null &&
-										trip.stop_sequence ===
-											boardStopSequenceForFollowed);
+										trip.stop_sequence === boardStopSequenceForFollowed);
 							}
 
 							if (minutesSince <= 0) return true;
 
 							const keep =
-								atCurrentBoardStop &&
-								minutesSince <= FOLLOWED_MAX_PAST_MIN;
+								atCurrentBoardStop && minutesSince <= FOLLOWED_MAX_PAST_MIN;
 							return keep;
 						}
 
@@ -447,44 +440,54 @@ export const CurrentTrips = ({
 					}
 				}
 
-				newList = tripData.upcomingTrips.filter((trip) => {
-					const rowNameNorm = trip.stop_name.trim();
-					const nameMatchesBoard = rowNameNorm === stopNameNorm;
-					const followedRowAlignsWithBoard =
-						effectiveFollowedTripId != null &&
-						trip.trip_id === effectiveFollowedTripId &&
-						boardStopSequenceForFollowed != null &&
-						trip.stop_sequence === boardStopSequenceForFollowed;
-
-					if (!nameMatchesBoard && !followedRowAlignsWithBoard) {
-						return false;
-					}
-						return rowPassesDepartureTimeRule(trip);
-				});
-
-				if (effectiveFollowedTripId && injectBoardStop) {
-					const injected = injectFollowedTripRowAtBoard(
-						effectiveFollowedTripId,
-						injectBoardStop,
-						boardStopSequenceForFollowed,
-						tripData.currentTrips,
-						tripData.upcomingTrips,
+				if (isPinnedStopMode) {
+					newList = filteredStopBoard.departures.filter(
+						rowPassesDepartureTimeRule,
 					);
-			
-					if (injected) {
-						newList = [
-							injected,
-							...newList.filter(
-								(t) => t.trip_id !== effectiveFollowedTripId,
-							),
-						];
+				} else {
+					newList = tripData.upcomingTrips.filter((trip) => {
+						const rowNameNorm = trip.stop_name.trim();
+						const nameMatchesBoard = rowNameNorm === stopNameNorm;
+						const followedRowAlignsWithBoard =
+							effectiveFollowedTripId != null &&
+							trip.trip_id === effectiveFollowedTripId &&
+							boardStopSequenceForFollowed != null &&
+							trip.stop_sequence === boardStopSequenceForFollowed;
+
+						if (!nameMatchesBoard && !followedRowAlignsWithBoard) {
+							return false;
+						}
+						return rowPassesDepartureTimeRule(trip);
+					});
+
+					if (effectiveFollowedTripId && injectBoardStop) {
+						const injected = injectFollowedTripRowAtBoard(
+							effectiveFollowedTripId,
+							injectBoardStop,
+							boardStopSequenceForFollowed,
+							tripData.currentTrips,
+							tripData.upcomingTrips,
+						);
+
+						if (injected) {
+							newList = [
+								injected,
+								...newList.filter((t) => t.trip_id !== effectiveFollowedTripId),
+							];
+						}
 					}
+					newList = newList.filter(rowPassesDepartureTimeRule);
 				}
 
-				newList = newList.filter(rowPassesDepartureTimeRule);
 				newList = [...newList].sort((a, b) => {
-					const ta = getDepartureInstantForFilter(a, boardStop).getTime();
-					const tb = getDepartureInstantForFilter(b, boardStop).getTime();
+					const ta = getDepartureInstantForFilter(
+						a,
+						isPinnedStopMode ? a : boardStop,
+					).getTime();
+					const tb = getDepartureInstantForFilter(
+						b,
+						isPinnedStopMode ? b : boardStop,
+					).getTime();
 					if (ta !== tb) return ta - tb;
 					return (a.trip_id ?? "").localeCompare(b.trip_id ?? "");
 				});
@@ -508,22 +511,16 @@ export const CurrentTrips = ({
 			}
 		};
 	}, [
-		listBoardStop?.stop_id,
-		listBoardStop?.stop_sequence,
-		listBoardStop?.stop_name,
-		injectBoardStop?.stop_id,
-		injectBoardStop?.stop_sequence,
+		listBoardStop,
+		injectBoardStop,
+		isPinnedStopMode,
+		filteredStopBoard.departures,
 		tripData.upcomingTrips,
 		tripData.currentTrips,
-		getUpdatedDepartureTime,
 		getDepartureInstantForFilter,
-		followedTripId,
-		activeFollowedTripId,
-		activeVehicleBoardStop?.stop_id,
-		activeVehicleBoardStop?.stop_sequence,
-		activeVehicleBoardStop?.trip_id,
-		activeVehiclePositions,
-		vehiclePositionSig,
+		effectiveFollowedTripId,
+		activeVehicleBoardStop,
+		departureVehicles,
 	]);
 
 	let nextBus: IDbData | undefined;
@@ -534,7 +531,10 @@ export const CurrentTrips = ({
 	}
 
 	const nextBusUpdatedTime = nextBus
-		? getUpdatedDepartureTime(nextBus.trip_id, listBoardStop)
+		? getUpdatedDepartureTime(
+				nextBus.trip_id,
+				isPinnedStopMode ? nextBus : listBoardStop,
+			)
 		: undefined;
 
 	const nextBusScheduledTime = nextBus?.departure_time
@@ -557,6 +557,83 @@ export const CurrentTrips = ({
 		tripData.upcomingTrips[0] ??
 		tripData.currentTrips[0];
 	const vehicleLabel = gtfsRouteVehicleLabelSv(routeMeta?.route_type);
+	const boardModes = [
+		...new Set(
+			stopBoardData.departures
+				.map((departure) => departure.route_type)
+				.filter((routeType): routeType is number => routeType != null),
+		),
+	].sort((a, b) =>
+		gtfsRouteModeShortLabelSv(a).localeCompare(
+			gtfsRouteModeShortLabelSv(b),
+			"sv",
+		),
+	);
+	const departuresInSelectedMode = stopBoardData.departures.filter(
+		(departure) =>
+			selectedStopModeFilter === null ||
+			departure.route_type === selectedStopModeFilter,
+	);
+	const servedPlatformIds = new Set(
+		departuresInSelectedMode.map((departure) => departure.stop_id),
+	);
+	const boardPlatforms = stopBoardData.children
+		.filter(
+			(child) =>
+				child.location_type === 0 &&
+				servedPlatformIds.has(child.stop_id) &&
+				hasDisplayablePlatformCode(child.platform_code),
+		)
+		.sort((a, b) =>
+			(a.platform_code || a.stop_name).localeCompare(
+				b.platform_code || b.stop_name,
+				"sv",
+				{ numeric: true },
+			),
+		);
+	const boardRoutes = [
+		...new Set(
+			departuresInSelectedMode
+				.filter(
+					(departure) =>
+						selectedStopPlatformFilter === null ||
+						departure.stop_id === selectedStopPlatformFilter,
+				)
+				.map((departure) => departure.route_short_name)
+				.filter(Boolean),
+		),
+	].sort((a, b) => a.localeCompare(b, "sv", { numeric: true }));
+	const boardPlatformCode = hasDisplayablePlatformCode(
+		listBoardStop?.platform_code,
+	)
+		? listBoardStop?.platform_code?.trim()
+		: null;
+
+	useEffect(() => {
+		if (
+			selectedStopPlatformFilter !== null &&
+			!boardPlatforms.some(
+				(platform) => platform.stop_id === selectedStopPlatformFilter,
+			)
+		) {
+			setSelectedStopPlatformFilter(null);
+		}
+	}, [
+		boardPlatforms,
+		selectedStopPlatformFilter,
+		setSelectedStopPlatformFilter,
+	]);
+
+	useEffect(() => {
+		if (
+			selectedStopLineFilter !== null &&
+			!selectedStopLineFilter.some((line) =>
+				boardRoutes.some((route) => route.toUpperCase() === line.toUpperCase()),
+			)
+		) {
+			setSelectedStopLineFilter(null);
+		}
+	}, [boardRoutes, selectedStopLineFilter, setSelectedStopLineFilter]);
 
 	const isActive = nextBus
 		? activeVehiclePositions.has(nextBus?.trip_id)
@@ -570,7 +647,7 @@ export const CurrentTrips = ({
 	};
 
 	useLayoutEffect(() => {
-		if (!hasFilteredOnce || isLoading) return;
+		if (showCurrentTripsLoader) return;
 		const el = containerRef.current;
 		if (!el) return;
 
@@ -588,6 +665,7 @@ export const CurrentTrips = ({
 		checkOverflow,
 		hasFilteredOnce,
 		isLoading,
+		showCurrentTripsLoader,
 		hasTripsToDisplay,
 		displayTrips.length,
 		tripData.upcomingTrips.length,
@@ -595,7 +673,7 @@ export const CurrentTrips = ({
 		selectedStopRouteLines?.join("|") ?? "",
 	]);
 
-	if (!hasFilteredOnce || isLoading) {
+	if (showCurrentTripsLoader) {
 		return <CurrentTripsLoader />;
 	}
 
@@ -611,51 +689,139 @@ export const CurrentTrips = ({
 				<div className="trips-header">
 					<h2 className="text-left text-2xl font-extrabold tracking-tight text-balance">
 						{isPinnedStopMode && listBoardStop
-							? listBoardStop.stop_name
+							? `${listBoardStop.stop_name}${boardPlatformCode ? `, läge ${boardPlatformCode}` : ""}`
 							: "Avgångar närmast dig"}
 					</h2>
-					{selectedStopRouteLines && selectedStopRouteLines.length > 0 ? (
+					{isPinnedStopMode ? (
+						<p className="text-sm text-muted-foreground dark">
+							{selectedStopModeFilter === null &&
+							selectedStopPlatformFilter === null &&
+							selectedStopLineFilter === null
+								? "Avgångar för alla trafikslag och lägen"
+								: "Avgångar för valda filter"}
+						</p>
+					) : null}
+					{isPinnedStopMode && boardModes.length > 1 ? (
 						<section
-							className="current-trips__line-picker"
-							aria-label="Byt linje för denna hållplats"
+							className="current-trips__filter-overview"
+							aria-label="Filtrera trafikslag"
 						>
-							{selectedStopRouteLines.map((name) => {
-								const active = name.toUpperCase() === urlLine;
-								return (
-									<button
-										key={name}
-										type="button"
-										className={`current-trips__line-btn${active ? " current-trips__line-btn--active" : ""}`}
-										onPointerUp={(e) => {
-											e.stopPropagation();
-											pickLineInModal(name);
-										}}
-										onTouchEnd={(e) => {
-											e.stopPropagation();
-											pickLineInModal(name);
-										}}
-										onClick={(e) => {
-											e.stopPropagation();
-											pickLineInModal(name);
-										}}
-									>
-										{name}
-									</button>
-								);
-							})}
+							<span className="current-trips__filter-label">Trafikslag</span>
+							<button
+								type="button"
+								aria-pressed={selectedStopModeFilter === null}
+								className={`current-trips__line-filter${selectedStopModeFilter === null ? " current-trips__line-filter--active" : ""}`}
+								onClick={() => {
+									setSelectedStopModeFilter(null);
+									setSelectedStopPlatformFilter(null);
+									setSelectedStopLineFilter(null);
+								}}
+							>
+								Alla
+							</button>
+							{boardModes.map((routeType) => (
+								<button
+									key={routeType}
+									type="button"
+									aria-pressed={selectedStopModeFilter === routeType}
+									className={`current-trips__line-filter${selectedStopModeFilter === routeType ? " current-trips__line-filter--active" : ""}`}
+									onClick={() => {
+										setSelectedStopModeFilter(
+											selectedStopModeFilter === routeType ? null : routeType,
+										);
+										setSelectedStopPlatformFilter(null);
+										setSelectedStopLineFilter(null);
+									}}
+								>
+									{gtfsRouteModeShortLabelSv(routeType)}
+								</button>
+							))}
 						</section>
 					) : null}
-					<p title={routeMeta?.route_desc ?? undefined}>
-						<span className="text-muted-foreground dark">Linje: </span>
-						<span className="font-bold">{routeShortName}</span>
-						{routeMeta?.route_type != null && (
-							<span className="text-muted-foreground dark">
-								{" "}
-								· {gtfsRouteModeShortLabelSv(routeMeta.route_type)}
-							</span>
-						)}
-					</p>
-					{routeMeta?.route_long_name ? (
+					{isPinnedStopMode && boardPlatforms.length > 1 ? (
+						<section
+							className="current-trips__filter-overview"
+							aria-label="Filtrera läge"
+						>
+							<span className="current-trips__filter-label">Läge</span>
+							<button
+								type="button"
+								aria-pressed={selectedStopPlatformFilter === null}
+								className={`current-trips__line-filter${selectedStopPlatformFilter === null ? " current-trips__line-filter--active" : ""}`}
+								onClick={() => {
+									setSelectedStopPlatformFilter(null);
+									setSelectedStopLineFilter(null);
+								}}
+							>
+								Alla
+							</button>
+							{boardPlatforms.map((platform) => (
+								<button
+									key={platform.stop_id}
+									type="button"
+									aria-pressed={selectedStopPlatformFilter === platform.stop_id}
+									className={`current-trips__line-filter${selectedStopPlatformFilter === platform.stop_id ? " current-trips__line-filter--active" : ""}`}
+									onClick={() => {
+										setSelectedStopPlatformFilter(
+											selectedStopPlatformFilter === platform.stop_id
+												? null
+												: platform.stop_id,
+										);
+										setSelectedStopLineFilter(null);
+									}}
+								>
+									{platform.platform_code}
+								</button>
+							))}
+						</section>
+					) : null}
+					{isPinnedStopMode && boardRoutes.length > 0 ? (
+						<section
+							className="current-trips__filter-overview"
+							aria-label="Filtrera linjer vid hållplatsen"
+						>
+							<span className="current-trips__filter-label">Linje</span>
+							<button
+								type="button"
+								aria-pressed={selectedStopLineFilter === null}
+								className={`current-trips__line-filter${selectedStopLineFilter === null ? " current-trips__line-filter--active" : ""}`}
+								onClick={() => setSelectedStopLineFilter(null)}
+							>
+								Alla
+							</button>
+							{boardRoutes.map((name) => (
+								<button
+									key={name}
+									type="button"
+									aria-pressed={
+										selectedStopLineFilter?.includes(name.toUpperCase()) ??
+										false
+									}
+									className={`current-trips__line-filter${selectedStopLineFilter?.includes(name.toUpperCase()) ? " current-trips__line-filter--active" : ""}`}
+									onClick={() =>
+										setSelectedStopLineFilter((current) =>
+											toggleStopBoardLine(current, name, boardRoutes),
+										)
+									}
+								>
+									{name}
+								</button>
+							))}
+						</section>
+					) : null}
+					{!isPinnedStopMode ? (
+						<p title={routeMeta?.route_desc ?? undefined}>
+							<span className="text-muted-foreground dark">Linje: </span>
+							<span className="font-bold">{routeShortName}</span>
+							{routeMeta?.route_type != null && (
+								<span className="text-muted-foreground dark">
+									{" "}
+									· {gtfsRouteModeShortLabelSv(routeMeta.route_type)}
+								</span>
+							)}
+						</p>
+					) : null}
+					{!isPinnedStopMode && routeMeta?.route_long_name ? (
 						<p className="route-long-name text-sm text-muted-foreground dark">
 							{routeMeta.route_long_name}
 						</p>
@@ -681,9 +847,7 @@ export const CurrentTrips = ({
 						<button
 							type="button"
 							title={
-								isActive
-									? "Visa position"
-									: "Visa hållplatser längs linjen"
+								isActive ? "Visa position" : "Visa hållplatser längs linjen"
 							}
 							aria-label={`Visa nästa avgång mot ${nextBus?.stop_headsign} som avgår ${nextBusUpdatedTime || nextBusScheduledTime}`}
 							className={`next-departure ${isActive ? " --active" : ""}`}
@@ -709,6 +873,19 @@ export const CurrentTrips = ({
 							<p className="!text-xs uppercase text-zinc-300/80 tracking-wide">
 								Nästa avgång:
 							</p>
+							{isPinnedStopMode ? (
+								<p className="current-trips__departure-meta">
+									<span className="current-trips__line-badge">
+										{nextBus?.route_short_name}
+									</span>
+									{boardPlatforms.length > 1 &&
+									hasDisplayablePlatformCode(nextBus?.platform_code) ? (
+										<span className="current-trips__platform-label">
+											Läge {nextBus?.platform_code}
+										</span>
+									) : null}
+								</p>
+							) : null}
 							<p className="time text-lg font-semibold">
 								<Icon
 									path={arrow.pathD}
@@ -724,8 +901,7 @@ export const CurrentTrips = ({
 								<span className={hasUpdate ? "updated-time" : "scheduled-time"}>
 									{nextBusScheduledTime}
 								</span>{" "}
-								{(isActive ||
-									nextBus?.trip_id === effectiveFollowedTripId) && (
+								{(isActive || nextBus?.trip_id === effectiveFollowedTripId) && (
 									<span className="inline-block -translate-y-[1px] translate-x-[6px]">
 										<MapPinned className="w-6 h-6" />
 									</span>
@@ -733,10 +909,19 @@ export const CurrentTrips = ({
 							</p>
 						</button>
 						{rest.length > 0 ? (
-							<table>
+							<table className="current-trips__departures-table">
+								<colgroup>
+									<col className="current-trips__status-column" />
+									{isPinnedStopMode ? (
+										<col className="current-trips__line-column" />
+									) : null}
+									<col className="current-trips__destination-column" />
+									<col className="current-trips__time-column" />
+								</colgroup>
 								<thead className="px-2">
 									<tr key="th-row">
 										<th />
+										{isPinnedStopMode ? <th>Linje</th> : null}
 										<th>Mot</th>
 										<th>Avgår</th>
 									</tr>
@@ -747,7 +932,7 @@ export const CurrentTrips = ({
 									{rest.map((trip, i) => {
 										const updatedTime = getUpdatedDepartureTime(
 											trip?.trip_id,
-											listBoardStop,
+											isPinnedStopMode ? trip : listBoardStop,
 										);
 										const scheduledTime = normalizeTimeForDisplay(
 											trip?.departure_time?.slice(0, 5),
@@ -769,6 +954,19 @@ export const CurrentTrips = ({
 														className={`inline-block w-2 h-2 -translate-y-[1.5px] !mr-1 rounded-full ${isActive ? "bg-accent" : "bg-destructive"}`}
 													/>
 												</td>
+												{isPinnedStopMode ? (
+													<td>
+														<span className="current-trips__line-badge">
+															{trip.route_short_name}
+														</span>
+														{boardPlatforms.length > 1 &&
+														hasDisplayablePlatformCode(trip.platform_code) ? (
+															<span className="current-trips__platform-label">
+																Läge {trip.platform_code}
+															</span>
+														) : null}
+													</td>
+												) : null}
 												<td key={trip.trip_id} className="align-middle">
 													<button
 														type="button"
@@ -809,13 +1007,20 @@ export const CurrentTrips = ({
 							</table>
 						) : (
 							<p className="text-muted-foreground dark text-center">
-								Inga fler avgångar inom 6 timmar
+								Inga fler avgångar inom 12 timmar
 							</p>
 						)}
 					</>
 				) : (
 					<p className="text-muted-foreground dark text-center">
-						Inga fler avgångar inom 6 timmar
+						{isPinnedStopMode && stopBoardData.error
+							? "Kunde inte hämta avgångar"
+							: isPinnedStopMode &&
+									(selectedStopLineFilter !== null ||
+										selectedStopPlatformFilter !== null ||
+										selectedStopModeFilter !== null)
+								? "Inga kommande avgångar för valda filter"
+								: "Inga fler avgångar inom 12 timmar"}
 					</p>
 				)}
 			</div>

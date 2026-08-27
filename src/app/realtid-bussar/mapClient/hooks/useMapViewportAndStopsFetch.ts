@@ -15,6 +15,7 @@ import {
 	type IStopPositionJson,
 	STOP_MARKERS_COMPACT_ZOOM,
 	STOP_MARKERS_DETAIL_ZOOM,
+	STOP_MARKERS_LABEL_ZOOM,
 	type StopsPositionsFile,
 	snapStopQueryBounds,
 } from "../../stopPositionsTypes";
@@ -33,7 +34,8 @@ export function useMapViewportAndStopsFetch(
 		east: number;
 		west: number;
 	},
-	hideUserPositionForZoom: boolean,
+	focusedStationIds: string[] = [],
+	focusedStops: IStopPositionJson[] = [],
 ) {
 	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
@@ -67,32 +69,58 @@ export function useMapViewportAndStopsFetch(
 		[],
 	);
 
+	const stopPositionsWithFocused = useMemo(() => {
+		if (focusedStops.length === 0) return allStopPositions;
+		const focusedParentIds = new Set(focusedStationIds);
+		const byId = new Map<string, IStopPositionJson>();
+		for (const stop of allStopPositions ?? []) {
+			if (
+				(stop.parent && focusedParentIds.has(stop.parent)) ||
+				(stop.isParent && focusedParentIds.has(stop.id))
+			) {
+				continue;
+			}
+			byId.set(stop.id, stop);
+		}
+		for (const stop of focusedStops) byId.set(stop.id, stop);
+		return [...byId.values()];
+	}, [allStopPositions, focusedStationIds, focusedStops]);
+
 	const visibleStopMarkers = useMemo(
 		() =>
 			filterStopsInViewport(
-				allStopPositions,
+				stopPositionsWithFocused,
 				viewportForStops?.zoom ?? 0,
 				viewportForStops?.bounds ?? null,
+				focusedStationIds,
 			),
-		[allStopPositions, viewportForStops],
+		[focusedStationIds, stopPositionsWithFocused, viewportForStops],
 	);
 
 	const stopsForStopLayer = useDeferredValue(visibleStopMarkers);
 
 	const zoomForStopUi = viewportForStops?.zoom ?? 0;
 	const stopMarkersVisible = useMemo(
-		() =>
-			zoomForStopUi >= STOP_MARKERS_COMPACT_ZOOM && !hideUserPositionForZoom,
-		[zoomForStopUi, hideUserPositionForZoom],
+		() => zoomForStopUi >= STOP_MARKERS_COMPACT_ZOOM,
+		[zoomForStopUi],
 	);
 	const stopMarkersDetail = useMemo(
-		() => zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
-		[zoomForStopUi, hideUserPositionForZoom],
+		() => zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM,
+		[zoomForStopUi],
+	);
+	const stopMarkersLabels = useMemo(
+		() => zoomForStopUi >= STOP_MARKERS_LABEL_ZOOM,
+		[zoomForStopUi],
 	);
 
 	const stopFetchBoundsKey = viewportForStops?.bounds
 		? `${viewportForStops.bounds.north.toFixed(5)},${viewportForStops.bounds.south.toFixed(5)},${viewportForStops.bounds.east.toFixed(5)},${viewportForStops.bounds.west.toFixed(5)}`
 		: null;
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: clear cached markers when switching operator
+	useEffect(() => {
+		setAllStopPositions(null);
+	}, [mapOperatorForView]);
 
 	useEffect(() => {
 		if (!mapReady || !stopFetchBoundsKey) return;
@@ -125,7 +153,7 @@ export function useMapViewportAndStopsFetch(
 					);
 					const res = await fetch(url, {
 						signal: ctrl.signal,
-						cache: "force-cache",
+						// cache: "force-cache",
 					});
 					if (!res.ok || cancelled) return;
 					const data = (await res.json()) as StopsPositionsFile;
@@ -143,38 +171,8 @@ export function useMapViewportAndStopsFetch(
 						});
 					}
 				} catch {
+					// Keep last good markers; never fall back to unbounded /api/stops/positions.
 					if (cancelled || ctrl.signal.aborted) return;
-					try {
-						const res = await fetch("/stops-positions.json", {
-							cache: "force-cache",
-						});
-						if (!res.ok || cancelled) return;
-						let data = (await res.json()) as StopsPositionsFile;
-						if (
-							!cancelled &&
-							Array.isArray(data.stops) &&
-							data.stops.length === 0
-						) {
-							const resApi = await fetch(
-								appendOperatorToApiUrl(
-									"/api/stops/positions",
-									mapOperatorForView,
-								),
-							);
-							if (resApi.ok) {
-								data = (await resApi.json()) as StopsPositionsFile;
-							}
-						}
-						if (
-							!cancelled &&
-							Array.isArray(data.stops) &&
-							data.stops.length > 0
-						) {
-							setAllStopPositions(data.stops);
-						}
-					} catch {
-						// ignore
-					}
 				}
 			})();
 		}, MAP_STOPS_POSITIONS_FETCH_DEBOUNCE_MS);
@@ -214,5 +212,6 @@ export function useMapViewportAndStopsFetch(
 		stopsForStopLayer,
 		stopMarkersVisible,
 		stopMarkersDetail,
+		stopMarkersLabels,
 	};
 }

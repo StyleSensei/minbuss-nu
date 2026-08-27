@@ -34,7 +34,7 @@ $userColor: rgb(0, 149, 255);
     border-radius: 50%;
     cursor: pointer;
     float: none;
-    background: color.adjust(v.$accent-color, $lightness: 5%);
+    background: var(--marker-route-color, #{color.adjust(v.$accent-color, $lightness: 5%)});
     border: 2px solid rgb(0, 0, 0);
     backface-visibility: hidden;
     transition: all .3s ease;

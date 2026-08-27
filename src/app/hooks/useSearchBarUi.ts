@@ -173,6 +173,7 @@ export function useSearchBarUi({
 			setStopSearchLoading(false);
 			return;
 		}
+		setStopSearchList([]);
 		setStopSearchLoading(true);
 		let cancelled = false;
 		const t = setTimeout(async () => {

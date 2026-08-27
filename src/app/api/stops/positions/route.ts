@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
-	selectAllStopPositionsFromDatabase,
 	selectLatestFeedVersionFromDatabase,
 	selectStopPositionsInBoundsFromDatabase,
 } from "@/app/services/dataProcessors/stopPositionsStaticQueries";
@@ -39,35 +38,56 @@ function parseBounds(sp: URLSearchParams): {
 	return { north, south, east, west };
 }
 
+/** Reject huge boxes that defeat the bbox index and risk function timeouts. */
+const MAX_BBOX_LAT_SPAN = 0.35;
+const MAX_BBOX_LON_SPAN = 0.5;
+
 /**
- * Same shape as public/stops-positions.json — used when the static file is empty
- * (e.g. fresh clone) so the map can still load stop positions (cached at the edge).
- *
- * Optional query: north, south, east, west — returns only stops inside the box (smaller payload).
+ * Viewport stop markers. Requires north/south/east/west — unbounded scans
+ * (`selectAllStopPositionsFromDatabase`) are reserved for offline generation scripts.
  */
 export async function GET(request: NextRequest) {
 	const t0 = Date.now();
 	try {
 		const bbox = parseBounds(request.nextUrl.searchParams);
-		const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
+		if (!bbox) {
+			return NextResponse.json(
+				{
+					error:
+						"Missing or invalid bounds. Pass north, south, east, west query params.",
+				},
+				{ status: 400 },
+			);
+		}
+		if (
+			bbox.north - bbox.south > MAX_BBOX_LAT_SPAN ||
+			bbox.east - bbox.west > MAX_BBOX_LON_SPAN
+		) {
+			return NextResponse.json(
+				{ error: "Bounds too large; zoom in and retry." },
+				{ status: 400 },
+			);
+		}
 
-		const [stops, v] = bbox
-			? await Promise.all([
-					selectStopPositionsInBoundsFromDatabase(bbox, operator),
-					selectLatestFeedVersionFromDatabase(operator),
-				])
-			: await Promise.all([
-					selectAllStopPositionsFromDatabase(operator),
-					selectLatestFeedVersionFromDatabase(operator),
-				]);
+		const operator = resolveOperator(
+			request.nextUrl.searchParams.get("operator"),
+		);
+
+		const [stops, v] = await Promise.all([
+			selectStopPositionsInBoundsFromDatabase(bbox, operator),
+			selectLatestFeedVersionFromDatabase(operator),
+		]);
 
 		const durationMs = Date.now() - t0;
+		const cacheControl =
+			stops.length > 0
+				? "public, s-maxage=86400, stale-while-revalidate=604800"
+				: "public, s-maxage=60, stale-while-revalidate=300";
 		return NextResponse.json(
 			{ v: v ?? "0", stops },
 			{
 				headers: {
-					"Cache-Control":
-						"public, s-maxage=86400, stale-while-revalidate=604800",
+					"Cache-Control": cacheControl,
 					"x-handler-duration-ms": String(durationMs),
 					"x-server-uptime-ms": String(Math.floor(process.uptime() * 1000)),
 				},

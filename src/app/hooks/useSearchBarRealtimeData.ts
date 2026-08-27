@@ -27,7 +27,6 @@ interface UseSearchBarRealtimeDataParams {
 		routeCandidate: string,
 		opts?: { mapFit?: boolean },
 	) => void;
-	setMapStopPreview: (value: null) => void;
 	setSelectedStopForSchedule: (value: null) => void;
 	setSelectedStopRouteLines: (value: null) => void;
 	resetTripDataToEmpty: () => void;
@@ -39,6 +38,7 @@ interface UseSearchBarRealtimeDataParams {
 		query: string,
 		operator: string,
 	) => Promise<ResponseWithData<ITripUpdate, IError>>;
+	isPinnedStopMode: boolean;
 }
 
 export function useSearchBarRealtimeData({
@@ -53,12 +53,12 @@ export function useSearchBarRealtimeData({
 	setFilteredTripUpdates,
 	setErrorMessage,
 	navigateToValidLineIfUrlDiffers,
-	setMapStopPreview,
 	setSelectedStopForSchedule,
 	setSelectedStopRouteLines,
 	resetTripDataToEmpty,
 	fetchVehicles,
 	fetchTripUpdates,
+	isPinnedStopMode,
 }: UseSearchBarRealtimeDataParams) {
 	const VEHICLE_POLL_INTERVAL_MS = 5000;
 	const latestVehicleLineRef = useRef(userInput);
@@ -189,17 +189,19 @@ export function useSearchBarRealtimeData({
 			setFilteredVehicles({ data: [] });
 			resetTripDataToEmpty();
 			setFilteredTripUpdates([]);
-			setMapStopPreview(null);
-			setSelectedStopForSchedule(null);
-			setSelectedStopRouteLines(null);
+			if (!isPinnedStopMode) {
+				setSelectedStopForSchedule(null);
+				setSelectedStopRouteLines(null);
+			}
 			return;
 		}
 		if (!userInput) {
 			resetTripDataToEmpty();
 			setFilteredTripUpdates([]);
-			setMapStopPreview(null);
-			setSelectedStopForSchedule(null);
-			setSelectedStopRouteLines(null);
+			if (!isPinnedStopMode) {
+				setSelectedStopForSchedule(null);
+				setSelectedStopRouteLines(null);
+			}
 			return;
 		}
 
@@ -238,10 +240,10 @@ export function useSearchBarRealtimeData({
 		setFilteredTripUpdates,
 		resetTripDataToEmpty,
 		setFilteredVehicles,
-		setMapStopPreview,
 		setSelectedStopForSchedule,
 		setSelectedStopRouteLines,
 		fetchTripUpdates,
+		isPinnedStopMode,
 	]);
 
 	return { runLineQuery, latestVehicleLineRef };
