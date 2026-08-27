@@ -74,7 +74,7 @@ Om du vill låsa positionen till markerat fordon och följa det på kartan, klic
 		{
 			h2: "Hållplatstabell",
 			text: `
-	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom sex timmar från din valda hållplats, så länge de ännu inte har passerat hållplatsen. Här visas också den beräknade ankomsttiden för varje fordon./`,
+	Du kan även klicka på “Tabell” för att se en översikt över alla pågående resor och de som avgår inom tolv timmar från din valda hållplats, så länge de ännu inte har passerat hållplatsen. Här visas också den beräknade ankomsttiden för varje fordon./`,
 			image: {
 				src: "/stop-table.webp",
 				alt: "Tabell med pågående resor för vald hållplats och avgångstider från din valda hållplats.",
