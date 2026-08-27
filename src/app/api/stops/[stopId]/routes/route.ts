@@ -1,9 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import {
-	resolveStopBoardStopIdsFromDatabase,
 	selectRoutesForStopFromDatabase,
 	selectStopMetaFromDatabase,
 } from "@/app/services/dataProcessors/selectFromDatabase";
+import { isStopIdExcludedFromClient } from "@/app/utilities/stopIdRules";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 120;
@@ -12,9 +12,7 @@ export async function GET(
 	request: NextRequest,
 	context: { params: Promise<{ stopId: string }> },
 ) {
-	const operator = resolveOperator(
-		request.nextUrl.searchParams.get("operator"),
-	);
+	const operator = resolveOperator(request.nextUrl.searchParams.get("operator"));
 	const { stopId: rawStopId } = await context.params;
 	const stopId = decodeURIComponent(rawStopId);
 
@@ -22,15 +20,17 @@ export async function GET(
 		return NextResponse.json({ error: "Missing stopId" }, { status: 400 });
 	}
 
-	try {
-		const { stationStopId } = await resolveStopBoardStopIdsFromDatabase(
-			stopId,
-			operator,
+	if (isStopIdExcludedFromClient(stopId)) {
+		return NextResponse.json(
+			{ error: "Stop id not supported" },
+			{ status: 400 },
 		);
-		const normalizedStopId = stationStopId || stopId;
+	}
+
+	try {
 		const [meta, routes] = await Promise.all([
-			selectStopMetaFromDatabase(normalizedStopId, operator),
-			selectRoutesForStopFromDatabase(normalizedStopId, operator),
+			selectStopMetaFromDatabase(stopId, operator),
+			selectRoutesForStopFromDatabase(stopId, operator),
 		]);
 
 		if (!meta) {
@@ -40,9 +40,7 @@ export async function GET(
 		return NextResponse.json(
 			{
 				stop_id: meta.stop_id,
-				stationStopId: normalizedStopId,
 				stop_name: meta.stop_name,
-				platform_code: meta.platform_code,
 				stop_lat: meta.stop_lat,
 				stop_lon: meta.stop_lon,
 				feed_version: meta.feed_version,

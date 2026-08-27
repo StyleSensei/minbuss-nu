@@ -23,8 +23,8 @@ import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useRtTimeline } from "../hooks/useRtTimeline";
-import { useSetZoom } from "../hooks/useSetZoom";
 import { useShapeCoasting } from "../hooks/useShapeCoasting";
+import { useSetZoom } from "../hooks/useSetZoom";
 import { getClosest } from "../utilities/getClosest";
 import { projectRtToShape } from "../utilities/projectPointOnSegment";
 import { snapToShapeInitial } from "../utilities/snapToShape";
@@ -46,7 +46,6 @@ interface ICustomMarkerProps {
 	showCurrentTrips: boolean;
 	onActivateMarker: (id: string | null) => void;
 	tripsByTripId: Map<string, IDbData[]>;
-	mapZoom: number;
 	zIndex?: number;
 }
 
@@ -64,31 +63,35 @@ export default function CustomMarker({
 	showCurrentTrips,
 	onActivateMarker,
 	tripsByTripId,
-	mapZoom,
 	zIndex = 100,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
 
-	const { setActiveVehicleBoardStop, setActiveFollowedTripId } =
-		useDataContext();
+	const {
+		filteredVehicles,
+		setActiveVehicleBoardStop,
+		setActiveFollowedTripId,
+	} = useDataContext();
 	const [infoWindowActive, setInfoWindowActive] = useState(
 		infoWindowActiveExternal,
 	);
 	const checkIfFurtherFromStop = useCheckIfFurtherFromStop();
 	const setZoom = useSetZoom();
 	const isMobile = useIsMobile();
+	const zoomRef = useRef<number>(8);
+	const [hideDestinationForZoom, setHideDestinationForZoom] = useState(false);
+	const hideDestinationTimeoutRef = useRef<ReturnType<
+		typeof setTimeout
+	> | null>(null);
 	const markerAnimationRef = useRef<gsap.core.Tween | null>(null);
 	const lastShapeIndexRef = useRef<number | null>(null);
 	const [markerReady, setMarkerReady] = useState(false);
-	const [loadedTripStops, setLoadedTripStops] = useState<IDbData[]>([]);
 	const lockedShapeRef = useRef<{ shapeId: string; points: IShapes[] } | null>(
 		null,
 	);
 	const skipMarkerWritesRef = useRef(false);
-	const onPositionWriteRef = useRef<
-		((lat: number, lng: number) => void) | null
-	>(null);
+	const onPositionWriteRef = useRef<((lat: number, lng: number) => void) | null>(null);
 	const rtTimelineBusyRef = useRef(false);
 	skipMarkerWritesRef.current = followBus && !isActive;
 
@@ -239,19 +242,8 @@ export default function CustomMarker({
 	const stopsOnCurrentTrip = useMemo(() => {
 		const tripId = currentVehicle?.trip?.tripId;
 		if (!tripId) return [];
-		if (loadedTripStops.length > 0 && loadedTripStops[0]?.trip_id === tripId) {
-			return loadedTripStops;
-		}
 		return tripsByTripId.get(tripId) ?? [];
-	}, [currentVehicle?.trip?.tripId, loadedTripStops, tripsByTripId]);
-
-	const handleTripStopsLoaded = useCallback((stops: IDbData[]) => {
-		setLoadedTripStops(stops);
-	}, []);
-
-	useEffect(() => {
-		setLoadedTripStops([]);
-	}, [currentVehicle?.trip?.tripId]);
+	}, [currentVehicle?.trip?.tripId, tripsByTripId]);
 
 	const findClosestOrNextStop = useCallback(() => {
 		if (!currentVehicle) return null;
@@ -267,11 +259,7 @@ export default function CustomMarker({
 			busLon,
 		) as IDbData;
 
-		const isMovingAway = checkIfFurtherFromStop(
-			currentVehicle,
-			closestStop,
-			true,
-		);
+		const isMovingAway = checkIfFurtherFromStop(currentVehicle, closestStop, true);
 
 		const nextStop = stopsOnCurrentTrip.find(
 			(stop) => stop.stop_sequence > closestStop.stop_sequence,
@@ -294,8 +282,7 @@ export default function CustomMarker({
 
 	const handleOnClick = () => {
 		if (followBus) return;
-		if (currentVehicle)
-			onActivateMarker(isActive ? null : currentVehicle.vehicle?.id);
+		if (currentVehicle) onActivateMarker(isActive ? null : currentVehicle.vehicle?.id);
 		setClickedOutside(false);
 		setInfoWindowActive(!infoWindowActive);
 		if (googleMapRef.current) {
@@ -319,9 +306,7 @@ export default function CustomMarker({
 
 		const map = googleMapRef.current;
 		const mapDiv = map.getDiv();
-		const innerDiv = mapDiv.querySelector(
-			".gm-style > div:first-child",
-		) as HTMLElement | null;
+		const innerDiv = mapDiv.querySelector(".gm-style > div:first-child") as HTMLElement | null;
 		if (!innerDiv) return;
 
 		if (marker.position) {
@@ -355,21 +340,14 @@ export default function CustomMarker({
 			if (!proj || zoom == null) return;
 
 			const scale = 1 << zoom;
-			const basePoint = proj.fromLatLngToPoint(
-				new google.maps.LatLng(baseLat, baseLng),
-			);
-			const currentPoint = proj.fromLatLngToPoint(
-				new google.maps.LatLng(lat, lng),
-			);
+			const basePoint = proj.fromLatLngToPoint(new google.maps.LatLng(baseLat, baseLng));
+			const currentPoint = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
 			if (!basePoint || !currentPoint) return;
 
 			const dx = (currentPoint.x - basePoint.x) * scale;
 			const dy = (currentPoint.y - basePoint.y) * scale;
 
-			if (
-				Math.abs(dx) > RECENTER_THRESHOLD_PX ||
-				Math.abs(dy) > RECENTER_THRESHOLD_PX
-			) {
+			if (Math.abs(dx) > RECENTER_THRESHOLD_PX || Math.abs(dy) > RECENTER_THRESHOLD_PX) {
 				map.setCenter(new google.maps.LatLng(lat, lng));
 				innerDiv.style.transform = "";
 				baseLat = lat;
@@ -433,7 +411,11 @@ export default function CustomMarker({
 		}
 		const tid = currentVehicle.trip?.tripId ?? null;
 		setActiveFollowedTripId(tid ?? null);
-	}, [isActive, currentVehicle.trip?.tripId, setActiveFollowedTripId]);
+	}, [
+		isActive,
+		currentVehicle.trip?.tripId,
+		setActiveFollowedTripId,
+	]);
 
 	useEffect(() => {
 		setInfoWindowActiveExternal(infoWindowActive);
@@ -447,6 +429,40 @@ export default function CustomMarker({
 			return;
 		}
 	}, [clickedOutside, setFollowBus, onActivateMarker]);
+
+	useEffect(() => {
+		if (filteredVehicles.data.length) {
+			if (googleMapRef.current) {
+				const listener = google.maps.event.addListener(
+					googleMapRef.current,
+					"zoom_changed",
+					() => {
+						const newZoom = googleMapRef.current?.getZoom()!;
+						if (newZoom !== zoomRef.current) {
+							zoomRef.current = newZoom;
+							setHideDestinationForZoom(true);
+							if (hideDestinationTimeoutRef.current) {
+								clearTimeout(hideDestinationTimeoutRef.current);
+							}
+							hideDestinationTimeoutRef.current = setTimeout(() => {
+								setHideDestinationForZoom(false);
+								hideDestinationTimeoutRef.current = null;
+							}, 400);
+						}
+					},
+				);
+
+				return () => {
+					if (hideDestinationTimeoutRef.current) {
+						clearTimeout(hideDestinationTimeoutRef.current);
+					}
+					if (listener) {
+						google.maps.event.removeListener(listener);
+					}
+				};
+			}
+		}
+	}, [filteredVehicles, googleMapRef]);
 
 	const markerTitle = tripForMarker
 		? `${tripForMarker.route_short_name || "Okänd linje"},${tripForMarker.stop_headsign || "Okänd destination"}`
@@ -465,17 +481,21 @@ export default function CustomMarker({
 			>
 				<div
 					className={`custom-marker ${isActive ? "--active" : ""}`}
-					style={{
-						width: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
-						height: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
-					}}
+					style={
+						zoomRef?.current < 11
+							? {
+									width: zoomRef.current * 1.5,
+									height: zoomRef.current * 1.5,
+								}
+							: undefined
+					}
 				/>
 				<div
-					className={`line-destination-container ${mapZoom >= 13 ? "--visible" : ""}`}
+					className={`line-destination-container ${zoomRef.current >= 13 && !hideDestinationForZoom ? "--visible" : ""}`}
 				>
 					<span
 						className="line-text"
-						style={{ fontSize: Math.min(14, Math.max(10, mapZoom * 0.8)) }}
+						style={{ fontSize: zoomRef.current * 0.8 }}
 					>
 						{currentLine ? (
 							<>
@@ -494,7 +514,6 @@ export default function CustomMarker({
 					tripId={currentVehicle?.trip.tripId ?? undefined}
 					googleMapRef={googleMapRef}
 					onClose={handleCloseInfoWindow}
-					onTripStopsLoaded={handleTripStopsLoaded}
 					style={
 						showCurrentTrips && isMobile
 							? { display: "none" }

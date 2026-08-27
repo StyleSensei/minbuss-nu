@@ -1,34 +1,31 @@
-export function convertGTFSTimeToDate(
-	gtfsTime: string,
-	now = new Date(),
-): Date {
+export function convertGTFSTimeToDate(gtfsTime: string): Date {
 	const [hoursStr, minutes, seconds] = gtfsTime.split(":");
-	const hours = Number.parseInt(hoursStr, 10);
-	const minute = Number.parseInt(minutes, 10);
-	const second = seconds ? Number.parseInt(seconds, 10) : 0;
-	const candidates = [-1, 0, 1].map((serviceDayOffset) => {
-		const date = new Date(now);
-		date.setHours(0, 0, 0, 0);
-		date.setDate(date.getDate() + serviceDayOffset);
-		date.setMinutes(hours * 60 + minute, second, 0);
-		return date;
-	});
-	const graceMs = 15 * 60 * 1000;
-	const upcoming = candidates
-		.filter((date) => date.getTime() >= now.getTime() - graceMs)
-		.sort(
-			(a, b) =>
-				Math.abs(a.getTime() - now.getTime()) -
-				Math.abs(b.getTime() - now.getTime()),
-		);
+	let hours = Number.parseInt(hoursStr, 10);
 
-	return (
-		upcoming[0] ??
-		candidates.sort(
-			(a, b) =>
-				Math.abs(a.getTime() - now.getTime()) -
-				Math.abs(b.getTime() - now.getTime()),
-		)[0] ??
-		new Date(Number.NaN)
+	const now = new Date();
+	const currentHour = now.getHours();
+	const date = new Date();
+
+	const nightServiceMorning = currentHour < 6;
+
+	if (hours >= 24) {
+		if (nightServiceMorning) {
+			hours = hours % 24;
+		} else {
+			date.setDate(date.getDate() + 1);
+			hours = hours % 24;
+		}
+	} else if (nightServiceMorning && hours >= 22 && hours < 24) {
+		date.setDate(date.getDate() - 1);
+	} else if (currentHour >= 15 && hours < 6) {
+		date.setDate(date.getDate() + 1);
+	}
+
+	date.setHours(
+		hours,
+		Number.parseInt(minutes, 10),
+		seconds ? Number.parseInt(seconds, 10) : 0,
 	);
+
+	return date;
 }

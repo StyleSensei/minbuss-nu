@@ -19,7 +19,6 @@ interface IVehicleMarkersProps {
 	showCurrentTrips: boolean;
 	currentTrips: IDbData[];
 	lineShapes: { shape_id: string; points: IShapes[] }[];
-	mapZoom: number;
 }
 
 const VehicleMarkers = memo(function VehicleMarkers({
@@ -30,10 +29,7 @@ const VehicleMarkers = memo(function VehicleMarkers({
 }: IVehicleMarkersProps) {
 	const renderCountRef = useRef(0);
 	renderCountRef.current += 1;
-	if (
-		process.env.NODE_ENV !== "production" &&
-		renderCountRef.current % 20 === 0
-	) {
+	if (process.env.NODE_ENV !== "production" && renderCountRef.current % 20 === 0) {
 		console.debug("[vehicle-markers] render-count", renderCountRef.current);
 	}
 

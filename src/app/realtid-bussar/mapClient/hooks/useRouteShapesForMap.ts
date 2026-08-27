@@ -3,9 +3,7 @@ import type { IVehiclePosition } from "@shared/models/IVehiclePosition";
 import { useMemo, useRef } from "react";
 import type { ShapeGroup } from "../mapClientGeometry";
 
-type LineShapeInput =
-	| { shape_id: string; points?: IShapes[]; route_short_name?: string }[]
-	| undefined;
+type LineShapeInput = { shape_id: string; points?: IShapes[] }[] | undefined;
 
 export function useRouteShapesForMap(
 	filteredVehicleData: IVehiclePosition[],
@@ -14,15 +12,11 @@ export function useRouteShapesForMap(
 	const routeShapesCacheRef = useRef<Map<string, IShapes[]>>(new Map());
 
 	const routeShapes = useMemo(() => {
-		const byId = new Map<string, ShapeGroup>();
+		const byId = new Map<string, { shape_id: string; points: IShapes[] }>();
 
 		for (const ls of lineShapes ?? []) {
 			if (ls.points?.length) {
-				byId.set(ls.shape_id, {
-					shape_id: ls.shape_id,
-					points: ls.points,
-					route_short_name: ls.route_short_name,
-				});
+				byId.set(ls.shape_id, { shape_id: ls.shape_id, points: ls.points });
 			}
 		}
 
@@ -42,11 +36,7 @@ export function useRouteShapesForMap(
 					points[points.length - 1].shape_pt_lon;
 			const toUse = sameShape ? cached : points;
 			if (!sameShape) routeShapesCacheRef.current.set(id, points);
-			byId.set(id, {
-				shape_id: id,
-				points: toUse,
-				route_short_name: byId.get(id)?.route_short_name,
-			});
+			byId.set(id, { shape_id: id, points: toUse });
 		}
 
 		return Array.from(byId.values());

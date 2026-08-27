@@ -74,15 +74,3 @@ export function lineSearchUrl(
 	const qs = params.toString();
 	return qs ? `${base}?${qs}` : base;
 }
-
-export function searchUrlWithoutLine(
-	operator: string,
-	currentSearch: string | URLSearchParams,
-): string {
-	const params = new URLSearchParams(currentSearch.toString());
-	params.delete("linje");
-	params.delete("mapfit");
-	const base = searchPathForOperator(operator);
-	const qs = params.toString();
-	return qs ? `${base}?${qs}` : base;
-}
