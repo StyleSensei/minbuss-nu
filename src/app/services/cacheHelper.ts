@@ -20,12 +20,14 @@ import { redis } from "../utilities/redis";
 import { selectLatestFeedVersionTexts } from "./dataProcessors/latestFeedVersions";
 import type { IStopDepartureSchedule } from "./dataProcessors/selectFromDatabase";
 import {
+	selectActiveTripIdsForLineFromDatabase,
 	selectCurrentTripsFromDatabase,
 	selectDistinctShapeIdsForLineFromDatabase,
 	selectDistinctShapesForStopFromDatabase,
 	selectDistinctStopsForLineFromDatabase,
 	selectShapesForIdsFromDatabase,
 	selectShapesFromDatabase,
+	selectTripMarkerMetaForTripIdsFromDatabase,
 	selectTripStopsFromDatabase,
 	selectUpcomingDeparturesForStopFromDatabase,
 	selectUpcomingTripsFromDatabase,
@@ -277,6 +279,29 @@ export const getCachedDbData = cache(
 			]);
 			currentTrips = current;
 			lineStops = stops;
+
+			if (currentTrips.length === 0) {
+				const cachedVehiclePositions = await getCachedVehiclePositions(operator);
+				const activeTripIds = [
+					...new Set(
+						cachedVehiclePositions.data
+							.map((vehicle) => vehicle.trip?.tripId)
+							.filter((tripId): tripId is string => Boolean(tripId)),
+					),
+				];
+				const lineTripIds = await selectActiveTripIdsForLineFromDatabase(
+					busLine,
+					activeTripIds,
+					operator,
+				);
+				if (lineTripIds.length > 0) {
+					currentTrips = await selectTripMarkerMetaForTripIdsFromDatabase(
+						busLine,
+						lineTripIds,
+						operator,
+					);
+				}
+			}
 		}
 
 		const tripsForShapes = [...currentTrips, ...upcomingTrips];

@@ -50,21 +50,32 @@ export function useSearchBarTripDataCache({
 	const handleCachedDbData = useCallback(async () => {
 		const scheduleStopName = selectedStopName ?? userClosestStopName;
 		const lineAtStart = userInput.trim();
+		const lineFetchKey = lineAtStart
+			? `${lineAtStart}|${filteredVehiclesLength > 0 ? "active" : "idle"}`
+			: "";
 
-		if (lineAtStart && tripDataFetchedForLineRef.current !== lineAtStart) {
+		if (lineAtStart && tripDataFetchedForLineRef.current !== lineFetchKey) {
 			const genWhenFetchStarted = lineSelectionGenerationRef.current;
-			tripDataFetchedForLineRef.current = lineAtStart;
+			const fetchKeyAtStart = lineFetchKey;
+			tripDataFetchedForLineRef.current = lineFetchKey;
 			try {
 				const { currentTrips, lineStops, lineShapes } = await fetchDbData(
 					lineAtStart,
 					effectiveOperator,
 				);
 				if (genWhenFetchStarted !== lineSelectionGenerationRef.current) {
-					tripDataFetchedForLineRef.current = "";
+					if (tripDataFetchedForLineRef.current === fetchKeyAtStart) {
+						tripDataFetchedForLineRef.current = "";
+					}
 					return;
 				}
 				if (userInput.trim() !== lineAtStart) {
-					tripDataFetchedForLineRef.current = "";
+					if (tripDataFetchedForLineRef.current === fetchKeyAtStart) {
+						tripDataFetchedForLineRef.current = "";
+					}
+					return;
+				}
+				if (tripDataFetchedForLineRef.current !== fetchKeyAtStart) {
 					return;
 				}
 				setTripData((prev) => {
@@ -109,6 +120,7 @@ export function useSearchBarTripDataCache({
 		selectedStopName,
 		userClosestStopName,
 		userInput,
+		filteredVehiclesLength,
 		fetchDbData,
 		effectiveOperator,
 		setTripData,

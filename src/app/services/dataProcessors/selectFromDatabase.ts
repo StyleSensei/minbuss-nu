@@ -128,6 +128,77 @@ export const selectActiveTripIdsForLineFromDatabase = async (
 	}
 };
 
+/** Lightweight trip metadata for map markers when stop_times join returns no rows. */
+export const selectTripMarkerMetaForTripIdsFromDatabase = async (
+	busLine: string,
+	activeTripIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<IDbData[]> => {
+	const uniqueTripIds = [
+		...new Set(activeTripIds.filter((id): id is string => Boolean(id?.trim()))),
+	];
+	if (!busLine.trim() || uniqueTripIds.length === 0) return [];
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const data = await db
+			.select({
+				operator: trips.operator,
+				trip_id: trips.trip_id,
+				shape_id: trips.shape_id,
+				route_short_name: routes.route_short_name,
+				trip_headsign: trips.trip_headsign,
+				route_long_name: routes.route_long_name,
+				route_type: routes.route_type,
+				route_desc: routes.route_desc,
+				feed_version: trips.feed_version,
+			})
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(routes.route_short_name, busLine),
+					inArray(trips.trip_id, uniqueTripIds),
+				),
+			);
+
+		return data
+			.filter((row) => Boolean(row.trip_id))
+			.map((row) => ({
+				operator: row.operator ?? operator,
+				trip_id: row.trip_id ?? "",
+				shape_id: row.shape_id ?? "",
+				route_short_name: row.route_short_name ?? busLine,
+				route_long_name: row.route_long_name ?? null,
+				route_type: row.route_type ?? null,
+				route_desc: row.route_desc ?? null,
+				stop_headsign: row.trip_headsign ?? "",
+				stop_id: "",
+				departure_time: "",
+				stop_name: "",
+				stop_sequence: 0,
+				stop_lat: 0,
+				stop_lon: 0,
+				feed_version: String(row.feed_version ?? ""),
+			}));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
 export const selectCurrentTripsFromDatabase = async (
 	busLine: string,
 	operatorInput = getDefaultOperator(),
