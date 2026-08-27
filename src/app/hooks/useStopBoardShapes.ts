@@ -38,7 +38,7 @@ export function useStopBoardShapes(
 		const load = async () => {
 			try {
 				const url = appendOperatorToApiUrl(
-					`/api/stops/${encodeURIComponent(stopId)}/shapes?v=9`,
+					`/api/stops/${encodeURIComponent(stopId)}/shapes?v=10`,
 					operator,
 				);
 				const response = await fetch(url, {

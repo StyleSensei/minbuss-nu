@@ -10,9 +10,9 @@ export function stopBoardShapeRouteKey(shape: IStopBoardShapeRef): string {
 }
 
 /**
- * One polyline per line and direction. Short-turn variants lose to the
- * longest shape so a stop board (e.g. Brommaplan + 177) covers the same
- * stretch as a direct line search.
+ * One polyline per line and direction. Rank by caller-supplied score
+ * (trip occurrences at the stop) so short-turns lose without scanning
+ * the shapes table.
  */
 export function pickRepresentativeStopBoardShapeRefs<
 	T extends IStopBoardShapeRef,

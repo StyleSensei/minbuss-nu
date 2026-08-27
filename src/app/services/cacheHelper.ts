@@ -28,7 +28,6 @@ import {
 	selectDistinctShapeIdsForLineFromDatabase,
 	selectDistinctShapesForStopFromDatabase,
 	selectDistinctStopsForLineFromDatabase,
-	selectShapeLengthsFromDatabase,
 	selectShapesForIdsFromDatabase,
 	selectShapesFromDatabase,
 	selectTripMarkerMetaForTripIdsFromDatabase,
@@ -464,7 +463,7 @@ export async function getCachedStopShapes(
 ): Promise<IStopBoardShape[]> {
 	const operator = resolveOperator(operatorInput);
 	const feed = await selectLatestFeedVersionTexts(operator);
-	const cacheKey = `stop-shapes:v9:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
+	const cacheKey = `stop-shapes:v10:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
 	const cached = await redis.get(cacheKey);
 	if (cached) {
 		MetricsTracker.trackCacheHit();
@@ -476,10 +475,14 @@ export async function getCachedStopShapes(
 		stopId,
 		operator,
 	);
-	const lengthByShapeId = await selectShapeLengthsFromDatabase(
-		shapeRefs.map((shape) => shape.shape_id),
-		operator,
-	);
+	const lengthByShapeId = new Map<string, number>();
+	for (const shape of shapeRefs) {
+		lengthByShapeId.set(
+			shape.shape_id,
+			(lengthByShapeId.get(shape.shape_id) ?? 0) +
+				(shape.occurrenceCount ?? 0),
+		);
+	}
 	const representativeShapeRefs = pickRepresentativeStopBoardShapeRefs(
 		shapeRefs,
 		lengthByShapeId,

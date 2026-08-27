@@ -1479,6 +1479,7 @@ export interface IStopRouteShapeRef {
 	route_type: number | null;
 	shape_id: string;
 	direction_id: number | null;
+	occurrenceCount: number;
 }
 
 export const selectDistinctShapesForStopFromDatabase = async (
@@ -1501,6 +1502,7 @@ export const selectDistinctShapesForStopFromDatabase = async (
 				route_type: routes.route_type,
 				shape_id: trips.shape_id,
 				direction_id: trips.direction_id,
+				occurrenceCount: sql<number>`cast(count(*) as int)`,
 			})
 			.from(stop_times)
 			.innerJoin(
@@ -1545,6 +1547,7 @@ export const selectDistinctShapesForStopFromDatabase = async (
 					route_type: number | null;
 					shape_id: string;
 					direction_id: number | null;
+					occurrenceCount: number;
 				} => Boolean(row.route_short_name && row.shape_id),
 			)
 			.map((row) => ({
@@ -1552,48 +1555,11 @@ export const selectDistinctShapesForStopFromDatabase = async (
 				route_type: row.route_type,
 				shape_id: row.shape_id,
 				direction_id: row.direction_id,
+				occurrenceCount: Number(row.occurrenceCount) || 0,
 			}));
 	} catch (error) {
 		console.log(error);
 		return [];
-	}
-};
-
-export const selectShapeLengthsFromDatabase = async (
-	shapeIds: string[],
-	operatorInput = getDefaultOperator(),
-): Promise<Map<string, number>> => {
-	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
-	if (uniqueShapeIds.length === 0) return new Map();
-
-	const operator = resolveOperator(operatorInput);
-	MetricsTracker.trackDbQuery();
-	try {
-		// Skip feed_version so Postgres can use uq_shapes_operator_shape_seq.
-		const data = await db
-			.select({
-				shape_id: shapes.shape_id,
-				length: sql<number>`max(${shapes.shape_pt_sequence})`,
-			})
-			.from(shapes)
-			.where(
-				and(
-					eq(shapes.operator, operator),
-					inArray(shapes.shape_id, uniqueShapeIds),
-				),
-			)
-			.groupBy(shapes.shape_id);
-
-		return new Map(
-			data
-				.filter((row): row is { shape_id: string; length: number } =>
-					Boolean(row.shape_id),
-				)
-				.map((row) => [row.shape_id, Number(row.length) || 0]),
-		);
-	} catch (error) {
-		console.log(error);
-		return new Map();
 	}
 };
 
