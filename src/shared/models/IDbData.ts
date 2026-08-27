@@ -10,7 +10,6 @@ export interface IDbData {
 	stop_id: string;
 	departure_time: string;
 	stop_name: string;
-	platform_code?: string | null;
 	stop_sequence: number;
 	stop_lat: number;
 	stop_lon: number;
