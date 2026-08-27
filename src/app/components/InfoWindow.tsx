@@ -1,8 +1,8 @@
 "use client";
 
 import type { IDbData } from "@shared/models/IDbData";
-import { usePathname, useSearchParams } from "next/navigation";
 import { chevronsCollapse, chevronsExpand } from "public/icons";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
 	type HTMLAttributes,
 	useCallback,
@@ -29,7 +29,6 @@ import { parseOperatorFromRealtimePathname } from "../paths";
 import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
 import { gtfsRouteVehicleLabelSv } from "../utilities/gtfsRouteTypeLabel";
 import { normalizeTimeForDisplay } from "../utilities/normalizeTime";
-import { filterStopBoardByLines } from "../utilities/stopBoardLineFilter";
 import { Button } from "./Button";
 import { PanelCloseButton } from "./PanelCloseButton";
 
@@ -38,7 +37,6 @@ interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
 	tripId?: string;
 	googleMapRef?: React.MutableRefObject<google.maps.Map | null>;
 	onClose?: () => void;
-	onTripStopsLoaded?: (stops: IDbData[]) => void;
 }
 
 export const InfoWindow = ({
@@ -46,47 +44,11 @@ export const InfoWindow = ({
 	tripId,
 	googleMapRef,
 	onClose,
-	onTripStopsLoaded,
 	...rest
 }: IInfoWindowProps) => {
 	const { containerRef, isOverflowing, isScrolledToBottom, checkOverflow } =
 		useOverflow<HTMLTableElement>();
-	const {
-		filteredTripUpdates,
-		tripData,
-		filteredVehicles,
-		stopBoardData,
-		selectedStopLineFilter,
-		selectedStopPlatformFilter,
-		selectedStopModeFilter,
-		selectedStopForSchedule,
-		selectedStopRouteLines,
-	} = useDataContext();
-	const isPinnedStopMode =
-		selectedStopForSchedule !== null && selectedStopRouteLines !== null;
-	const filteredStopBoard = useMemo(
-		() =>
-			filterStopBoardByLines(
-				stopBoardData.departures,
-				stopBoardData.vehicles,
-				selectedStopLineFilter,
-				selectedStopPlatformFilter,
-				selectedStopModeFilter,
-			),
-		[
-			selectedStopLineFilter,
-			selectedStopModeFilter,
-			selectedStopPlatformFilter,
-			stopBoardData.departures,
-			stopBoardData.vehicles,
-		],
-	);
-	const realtimeVehicles = isPinnedStopMode
-		? filteredStopBoard.vehicles
-		: filteredVehicles.data;
-	const realtimeTripUpdates = isPinnedStopMode
-		? stopBoardData.tripUpdates
-		: filteredTripUpdates;
+	const { filteredTripUpdates, tripData, filteredVehicles } = useDataContext();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const operatorForFetch = useMemo(() => {
@@ -202,7 +164,6 @@ export const InfoWindow = ({
 	const syncTripStops = useCallback(
 		(newTripStops: IDbData[]) => {
 			if (newTripStops.length === 0) return;
-			onTripStopsLoaded?.(newTripStops);
 
 			if (prevTripStopsRef.current.length === 0) {
 				setTripStops(newTripStops);
@@ -242,7 +203,6 @@ export const InfoWindow = ({
 			isTableAnimating,
 			getVisibleStops,
 			completeAnimation,
-			onTripStopsLoaded,
 		],
 	);
 
@@ -260,14 +220,8 @@ export const InfoWindow = ({
 			.filter((stop) => stop.trip_id === tripId)
 			.sort((a, b) => a.stop_sequence - b.stop_sequence);
 
-		if (fromCurrentTrips.length > 1) {
+		if (fromCurrentTrips.length > 0) {
 			syncTripStops(fromCurrentTrips);
-			return;
-		}
-		if (
-			prevTripStopsRef.current.length > 1 &&
-			prevTripStopsRef.current[0]?.trip_id === tripId
-		) {
 			return;
 		}
 
@@ -300,7 +254,12 @@ export const InfoWindow = ({
 		return () => {
 			cancelled = true;
 		};
-	}, [tripId, tripData.currentTrips, operatorForFetch, syncTripStops]);
+	}, [
+		tripId,
+		tripData.currentTrips,
+		operatorForFetch,
+		syncTripStops,
+	]);
 
 	useEffect(() => {
 		if (isCollapsed && isMobile) {
@@ -318,8 +277,8 @@ export const InfoWindow = ({
 
 	const isInTraffic = useMemo(() => {
 		if (!tripId) return false;
-		return realtimeVehicles.some((v) => v.trip?.tripId === tripId);
-	}, [realtimeVehicles, tripId]);
+		return filteredVehicles.data.some((v) => v.trip.tripId === tripId);
+	}, [tripId, filteredVehicles.data]);
 
 	const vehicleLabel = gtfsRouteVehicleLabelSv(
 		effectiveStop?.route_type ?? tripStops[0]?.route_type,
@@ -386,7 +345,7 @@ export const InfoWindow = ({
 								const scheduledTime = normalizeTimeForDisplay(
 									stop.departure_time,
 								);
-								const updatedTime = realtimeTripUpdates
+								const updatedTime = filteredTripUpdates
 									.find((t) => t.trip.tripId === stop.trip_id)
 									?.stopTimeUpdate.find((s) => s.stopId === stop.stop_id)
 									?.departure?.time;

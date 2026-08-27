@@ -177,3 +177,15 @@
         transform: scale(1);
     }
 }
+
+@keyframes mapStopPreviewIn {
+    from {
+        // opacity: 0;
+        transform: translate(0%, calc(-50% + 12px));
+    }
+
+    to {
+        // opacity: 1;
+        transform: translate(0%, -50%);
+    }
+}

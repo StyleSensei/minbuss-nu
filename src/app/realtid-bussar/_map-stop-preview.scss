@@ -1,0 +1,169 @@
+@use 'sass:color';
+@use '../variables' as v;
+@use '../mixins' as m;
+@use '../keyframes' as k;
+
+.stop-marker-layer {
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	cursor: pointer;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+	pointer-events: auto;
+}
+
+.stop-marker-visibility-wrap {
+	opacity: 0;
+	transition: all 0.3s v.$bounce;
+	pointer-events: none;
+
+	&.--visible {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+.stop-marker-hit {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: v.$primary-color;
+	border: 1px solid v.$tertiary-color;
+	cursor: pointer;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+	pointer-events: auto;
+	transition: all 0.3s ease-in-out;
+
+	@include m.desktop {
+		&:hover {
+			background-color: color.adjust(v.$primary-color, $lightness: 10%);
+		}
+	}
+
+	&--active {
+		background-color: v.$active;
+		border-color: v.$primary-color;
+
+		@include m.desktop {
+			&:hover {
+				background-color: color.adjust(v.$active, $lightness: -6%);
+			}
+		}
+	}
+
+	&:active {
+		@include k.sizeBlink;
+	}
+
+	&--compact {
+		width: 8px;
+		height: 8px;
+		min-width: 8px;
+		min-height: 8px;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+		flex-shrink: 0;
+
+		@include m.desktop {
+			&:hover {
+				background-color: color.adjust(v.$primary-color, $lightness: 10%);
+			}
+		}
+
+		&:active {
+			@include k.sizeBlink;
+		}
+	}
+}
+
+.stop-marker-hit__icon {
+	display: block;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+.map-stop-preview {
+	pointer-events: auto;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 160px;
+	max-width: min(90vw, 280px);
+	padding: 1rem;
+	border-radius: 20px;
+	background: rgba(v.$primary-color, 0.95);
+	border: 1px solid v.$primary-color--muted;
+	color: v.$secondary-color;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+	@include m.backdropFilter;
+	animation: mapStopPreviewIn 0.3s v.$bounce both;
+
+	&__title {
+		font-size: 0.75rem;
+		font-weight: 700;
+		line-height: 1.2;
+		margin: 0;
+	}
+
+	&__routes {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+
+		&--loading {
+			gap: 6px;
+		}
+	}
+
+	&__title-skeleton {
+		height: 13px;
+		width: 70%;
+		max-width: 180px;
+		border-radius: 4px;
+		background: rgba(v.$tertiary-color, 0.45);
+		animation: loaderPulse 1.5s infinite ease-in-out;
+	}
+
+	&__route-chip-skeleton {
+		display: inline-block;
+		height: 26px;
+		width: 36px;
+		border-radius: 6px;
+		background: rgba(v.$tertiary-color, 0.35);
+		animation: loaderPulse 1.5s infinite ease-in-out;
+
+		&:nth-child(2) {
+			animation-delay: 0.12s;
+		}
+
+		&:nth-child(3) {
+			animation-delay: 0.24s;
+		}
+	}
+
+	&__route-btn {
+		touch-action: manipulation;
+		cursor: pointer;
+		border: 1px solid v.$accent-color;
+		background: transparent;
+		color: v.$accent-color;
+		font-weight: 700;
+		font-size: 0.8rem;
+		padding: 4px 8px;
+		border-radius: 6px;
+		transition: background 0.15s ease, color 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			background: v.$accent-color;
+			color: v.$primary-color;
+			outline: none;
+		}
+	}
+}

@@ -15,7 +15,6 @@ import {
 	type IStopPositionJson,
 	STOP_MARKERS_COMPACT_ZOOM,
 	STOP_MARKERS_DETAIL_ZOOM,
-	STOP_MARKERS_LABEL_ZOOM,
 	type StopsPositionsFile,
 	snapStopQueryBounds,
 } from "../../stopPositionsTypes";
@@ -34,8 +33,7 @@ export function useMapViewportAndStopsFetch(
 		east: number;
 		west: number;
 	},
-	focusedStationIds: string[] = [],
-	focusedStops: IStopPositionJson[] = [],
+	hideUserPositionForZoom: boolean,
 ) {
 	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
@@ -69,48 +67,27 @@ export function useMapViewportAndStopsFetch(
 		[],
 	);
 
-	const stopPositionsWithFocused = useMemo(() => {
-		if (focusedStops.length === 0) return allStopPositions;
-		const focusedParentIds = new Set(focusedStationIds);
-		const byId = new Map<string, IStopPositionJson>();
-		for (const stop of allStopPositions ?? []) {
-			if (
-				(stop.parent && focusedParentIds.has(stop.parent)) ||
-				(stop.isParent && focusedParentIds.has(stop.id))
-			) {
-				continue;
-			}
-			byId.set(stop.id, stop);
-		}
-		for (const stop of focusedStops) byId.set(stop.id, stop);
-		return [...byId.values()];
-	}, [allStopPositions, focusedStationIds, focusedStops]);
-
 	const visibleStopMarkers = useMemo(
 		() =>
 			filterStopsInViewport(
-				stopPositionsWithFocused,
+				allStopPositions,
 				viewportForStops?.zoom ?? 0,
 				viewportForStops?.bounds ?? null,
-				focusedStationIds,
 			),
-		[focusedStationIds, stopPositionsWithFocused, viewportForStops],
+		[allStopPositions, viewportForStops],
 	);
 
 	const stopsForStopLayer = useDeferredValue(visibleStopMarkers);
 
 	const zoomForStopUi = viewportForStops?.zoom ?? 0;
 	const stopMarkersVisible = useMemo(
-		() => zoomForStopUi >= STOP_MARKERS_COMPACT_ZOOM,
-		[zoomForStopUi],
+		() =>
+			zoomForStopUi >= STOP_MARKERS_COMPACT_ZOOM && !hideUserPositionForZoom,
+		[zoomForStopUi, hideUserPositionForZoom],
 	);
 	const stopMarkersDetail = useMemo(
-		() => zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM,
-		[zoomForStopUi],
-	);
-	const stopMarkersLabels = useMemo(
-		() => zoomForStopUi >= STOP_MARKERS_LABEL_ZOOM,
-		[zoomForStopUi],
+		() => zoomForStopUi >= STOP_MARKERS_DETAIL_ZOOM && !hideUserPositionForZoom,
+		[zoomForStopUi, hideUserPositionForZoom],
 	);
 
 	const stopFetchBoundsKey = viewportForStops?.bounds
@@ -153,6 +130,7 @@ export function useMapViewportAndStopsFetch(
 					);
 					const res = await fetch(url, {
 						signal: ctrl.signal,
+						cache: "force-cache",
 					});
 					if (!res.ok || cancelled) return;
 					const data = (await res.json()) as StopsPositionsFile;
@@ -172,7 +150,9 @@ export function useMapViewportAndStopsFetch(
 				} catch {
 					if (cancelled || ctrl.signal.aborted) return;
 					try {
-						const res = await fetch("/stops-positions.json", {});
+						const res = await fetch("/stops-positions.json", {
+							cache: "force-cache",
+						});
 						if (!res.ok || cancelled) return;
 						let data = (await res.json()) as StopsPositionsFile;
 						if (
@@ -239,6 +219,5 @@ export function useMapViewportAndStopsFetch(
 		stopsForStopLayer,
 		stopMarkersVisible,
 		stopMarkersDetail,
-		stopMarkersLabels,
 	};
 }
