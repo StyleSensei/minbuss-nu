@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRouteShapeColorMap } from "../routeShapeColors";
+import { createRouteShapeColorMap, colorForRoute } from "../routeShapeColors";
 
 describe("createRouteShapeColorMap", () => {
 	it("assigns one stable color per unique route", () => {
@@ -16,5 +16,22 @@ describe("createRouteShapeColorMap", () => {
 
 		expect(first.get("13")).toBe(second.get("13"));
 		expect(first.get("14")).toBe(second.get("14"));
+	});
+});
+
+describe("colorForRoute", () => {
+	it("returns the mapped color for a route short name", () => {
+		const colors = createRouteShapeColorMap(["4", "177"]);
+
+		expect(colorForRoute(colors, "4")).toBe(colors.get("4"));
+		expect(colorForRoute(colors, " 177 ")).toBe(colors.get("177"));
+	});
+
+	it("returns undefined without a color map or unknown route", () => {
+		const colors = createRouteShapeColorMap(["4"]);
+
+		expect(colorForRoute(undefined, "4")).toBeUndefined();
+		expect(colorForRoute(colors, "177")).toBeUndefined();
+		expect(colorForRoute(colors, "")).toBeUndefined();
 	});
 });

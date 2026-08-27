@@ -14,3 +14,12 @@ export function createRouteShapeColorMap(
 		]),
 	);
 }
+
+export function colorForRoute(
+	routeColors: Map<string, string> | undefined,
+	routeShortName: string | undefined,
+): string | undefined {
+	const name = routeShortName?.trim();
+	if (!routeColors || !name) return undefined;
+	return routeColors.get(name);
+}

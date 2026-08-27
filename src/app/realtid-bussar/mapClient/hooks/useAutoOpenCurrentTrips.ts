@@ -5,8 +5,10 @@ export function useAutoOpenCurrentTrips(
 	selectedStopForSchedule: IDbData | null,
 	setShowCurrentTrips: (v: boolean) => void,
 ) {
+	const pinnedStopId = selectedStopForSchedule?.stop_id ?? null;
+
 	useEffect(() => {
-		if (!selectedStopForSchedule) return;
+		if (!pinnedStopId) return;
 		setShowCurrentTrips(true);
-	}, [selectedStopForSchedule, setShowCurrentTrips]);
+	}, [pinnedStopId, setShowCurrentTrips]);
 }

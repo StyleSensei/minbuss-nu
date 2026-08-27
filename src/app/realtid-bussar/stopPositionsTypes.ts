@@ -33,9 +33,9 @@ function averageLatLon(points: { stop_lat: number; stop_lon: number }[]): {
 	};
 }
 
-function belongsToFocusedStation(
-	stop: IStopPositionJson,
-	focusedParentIds: Set<string>,
+export function belongsToFocusedStation(
+	stop: Pick<IStopPositionJson, "id" | "parent" | "isParent">,
+	focusedParentIds: ReadonlySet<string>,
 ): boolean {
 	if (focusedParentIds.size === 0) return false;
 	if (stop.parent && focusedParentIds.has(stop.parent)) return true;

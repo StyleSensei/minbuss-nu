@@ -124,6 +124,7 @@ export const CurrentTrips = ({
 		filteredTripUpdates,
 		userPosition,
 		isLoading,
+		selectedStopForSchedule,
 		selectedStopRouteLines,
 		stopBoardData,
 		selectedStopLineFilter,
@@ -149,7 +150,7 @@ export const CurrentTrips = ({
 		towardSig: null,
 		removalTarget: null,
 	});
-	const isPinnedStopMode = selectedStopRouteLines !== null;
+	const isPinnedStopMode = selectedStopForSchedule !== null;
 	const showCurrentTripsLoader =
 		!hasFilteredOnce ||
 		(isPinnedStopMode

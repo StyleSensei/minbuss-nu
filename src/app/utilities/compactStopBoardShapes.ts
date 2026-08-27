@@ -54,3 +54,37 @@ export function expandStopBoardShapes(
 		),
 	}));
 }
+
+export interface ICompactLineShape {
+	shape_id: string;
+	points: CompactPoint[];
+}
+
+export function compactLineShapes(
+	shapes: { shape_id: string; points: IShapes[] }[],
+	maxPoints = MAX_STOP_BOARD_SHAPE_POINTS,
+): ICompactLineShape[] {
+	return shapes.map((shape) => ({
+		shape_id: shape.shape_id,
+		points: downsampleShapePoints(shape.points, maxPoints).map((point) => [
+			Number(point.shape_pt_lat.toFixed(5)),
+			Number(point.shape_pt_lon.toFixed(5)),
+		]),
+	}));
+}
+
+export function expandLineShapes(
+	shapes: ICompactLineShape[],
+): { shape_id: string; points: IShapes[] }[] {
+	return shapes.map((shape) => ({
+		shape_id: shape.shape_id,
+		points: shape.points.map(
+			([lat, lng], index): IShapes => ({
+				shape_id: shape.shape_id,
+				shape_pt_lat: lat,
+				shape_pt_lon: lng,
+				shape_pt_sequence: index,
+			}),
+		),
+	}));
+}

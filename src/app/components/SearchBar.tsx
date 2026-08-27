@@ -106,12 +106,14 @@ async function fetchDbData(
   operator: string,
   stopName?: string,
   tripIds?: string[],
+  mode?: 'full' | 'meta' | 'shapes',
 ): Promise<ITripData> {
   const base = `/api/db-data/${encodeURIComponent(busLine)}`;
   const qs = new URLSearchParams();
   if (stopName) qs.set('stopName', stopName);
   if (operator.trim()) qs.set('operator', operator.trim());
   if (tripIds?.length) qs.set('tripIds', tripIds.join(','));
+  if (mode && mode !== 'full') qs.set('mode', mode);
   const path = qs.toString() ? `${base}?${qs.toString()}` : base;
   if (!busLine) {
     return {
@@ -121,7 +123,7 @@ async function fetchDbData(
       lineShapes: [],
     };
   }
-  return await fetchJsonOrThrow<ITripData>(path);
+  return await fetchJsonOrThrow<ITripData>(path, { cache: "no-store" });
 }
 
 function currentUrlLinjeUpper(): string {
@@ -174,6 +176,8 @@ export const SearchBar = ({
   }, []);
 
   const latestVehicleLineRef = useRef(userInput);
+  const searchParamsStringRef = useRef(searchParams.toString());
+  searchParamsStringRef.current = searchParams.toString();
 
   const {
     setFilteredVehicles,
@@ -184,6 +188,7 @@ export const SearchBar = ({
     isLoading,
     userPosition,
     isCurrentTripsOpen,
+    setIsCurrentTripsOpen,
     setSelectedStopForSchedule,
     selectedStopForSchedule,
     selectedStopRouteLines,
@@ -286,7 +291,6 @@ export const SearchBar = ({
     userInput,
     effectiveOperator,
     routeExists,
-    filteredVehiclesLength: filteredVehicles?.data.length ?? 0,
     vehicleTripIds,
     userClosestStopName: userPosition?.closestStop?.stop_name,
     selectedStopName: selectedStopForSchedule?.stop_name,
@@ -363,7 +367,7 @@ export const SearchBar = ({
     fetchVehicles,
     fetchTripUpdates,
     isPinnedStopMode:
-      selectedStopForSchedule !== null && selectedStopRouteLines !== null,
+      selectedStopForSchedule !== null && !linjeFromUrl,
   });
 
   const clearedLineForStopIdRef = useRef<string | null>(null);
@@ -384,14 +388,13 @@ export const SearchBar = ({
     setFilteredTripUpdates([]);
     resetTripDataToEmpty();
     router.replace(
-      searchUrlWithoutLine(effectiveOperator, searchParams.toString()),
+      searchUrlWithoutLine(effectiveOperator, searchParamsStringRef.current),
     );
   }, [
     effectiveOperator,
     resetGeneration,
     resetTripDataToEmpty,
     router,
-    searchParams,
     selectedStopForSchedule?.stop_id,
     setFilteredTripUpdates,
     setFilteredVehicles,
@@ -463,10 +466,11 @@ export const SearchBar = ({
     );
 
     setSelectedStopForSchedule(stop);
-    setSelectedStopRouteLines(sortedRoutes.length ? sortedRoutes : null);
+    setSelectedStopRouteLines(sortedRoutes);
     setSelectedStopLineFilter(null);
     setSelectedStopPlatformFilter(null);
     setSelectedStopModeFilter(null);
+    setIsCurrentTripsOpen(true);
     setShowError(false);
 
     clearSuggestions();
@@ -476,9 +480,12 @@ export const SearchBar = ({
   const handleSearchInputChange = (value: string) => {
     const trimmed = value.trim();
     const upper = trimmed.toUpperCase();
-    if (trimmed.length <= 6 && allRoutes.asObject[upper]) {
+    const isKnownLine = trimmed.length <= 6 && Boolean(allRoutes.asObject[upper]);
+    if (isKnownLine || (trimmed.length <= 6 && isLikelyLineNumberQuery(trimmed))) {
       setSelectedStopForSchedule(null);
       setSelectedStopRouteLines(null);
+    }
+    if (isKnownLine) {
       latestVehicleLineRef.current = upper;
       setUserInput(upper);
       runLineQuery(upper);

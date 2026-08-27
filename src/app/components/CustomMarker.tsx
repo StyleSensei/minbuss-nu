@@ -48,6 +48,7 @@ interface ICustomMarkerProps {
 	tripsByTripId: Map<string, IDbData[]>;
 	mapZoom: number;
 	zIndex?: number;
+	routeColor?: string;
 }
 
 export default function CustomMarker({
@@ -66,6 +67,7 @@ export default function CustomMarker({
 	tripsByTripId,
 	mapZoom,
 	zIndex = 100,
+	routeColor,
 }: ICustomMarkerProps) {
 	const [markerRef, marker] = useAdvancedMarkerRef();
 	const [closestStopState, setClosestStop] = useState<IDbData | null>(null);
@@ -468,6 +470,9 @@ export default function CustomMarker({
 					style={{
 						width: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
 						height: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
+						...(routeColor
+							? { ["--marker-route-color" as string]: routeColor }
+							: {}),
 					}}
 				/>
 				<div
@@ -479,7 +484,13 @@ export default function CustomMarker({
 					>
 						{currentLine ? (
 							<>
-								<span className="line-text__number">{currentLine}</span>,{" "}
+								<span
+									className="line-text__number"
+									style={routeColor ? { color: routeColor } : undefined}
+								>
+									{currentLine}
+								</span>
+								,{" "}
 							</>
 						) : (
 							""

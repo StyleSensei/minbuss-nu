@@ -62,8 +62,7 @@ export const InfoWindow = ({
 		selectedStopForSchedule,
 		selectedStopRouteLines,
 	} = useDataContext();
-	const isPinnedStopMode =
-		selectedStopForSchedule !== null && selectedStopRouteLines !== null;
+	const isPinnedStopMode = selectedStopForSchedule !== null;
 	const filteredStopBoard = useMemo(
 		() =>
 			filterStopBoardByLines(

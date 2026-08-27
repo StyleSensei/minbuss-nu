@@ -11,20 +11,24 @@ import type { IShapes } from "@/shared/models/IShapes";
 import type { IStopBoardShape } from "@/shared/models/IStopBoardShape";
 import type { ITripData } from "../context/DataContext";
 import {
+	compactLineShapes,
 	compactStopBoardShapes,
+	expandLineShapes,
 	expandStopBoardShapes,
+	type ICompactLineShape,
 	type ICompactStopBoardShape,
 } from "../utilities/compactStopBoardShapes";
 import { MetricsTracker } from "../utilities/MetricsTracker";
+import { pickRepresentativeStopBoardShapeRefs } from "../utilities/pickRepresentativeStopShapes";
 import { redis } from "../utilities/redis";
 import { selectLatestFeedVersionTexts } from "./dataProcessors/latestFeedVersions";
 import type { IStopDepartureSchedule } from "./dataProcessors/selectFromDatabase";
 import {
 	selectActiveTripIdsForLineFromDatabase,
-	selectCurrentTripsFromDatabase,
 	selectDistinctShapeIdsForLineFromDatabase,
 	selectDistinctShapesForStopFromDatabase,
 	selectDistinctStopsForLineFromDatabase,
+	selectShapeLengthsFromDatabase,
 	selectShapesForIdsFromDatabase,
 	selectShapesFromDatabase,
 	selectTripMarkerMetaForTripIdsFromDatabase,
@@ -63,6 +67,7 @@ const TRIP_UPDATES_LOCK_KEY = "trip-updates-lock";
 const REALTIME_TTL = 4;
 const STOP_DEPARTURES_TTL = 60;
 const STOP_SHAPES_TTL = 60 * 60 * 24;
+const LINE_SHAPES_TTL = STOP_SHAPES_TTL;
 const LOCK_TTL = 4;
 const LOCK_RETRY_DELAY = 100;
 const LOCK_MAX_RETRIES = 10;
@@ -230,6 +235,10 @@ async function waitForCachedTripUpdates(
 	return [];
 }
 
+function lineShapeCacheKey(operator: string, shapeId: string) {
+	return `line-shape:v2:${operator}:${shapeId}`;
+}
+
 async function getLineShapesForTrips(
 	trips: IDbData[],
 	operator: string,
@@ -242,13 +251,53 @@ async function getLineShapesForTrips(
 			shapeIds.push(t.shape_id);
 		}
 	}
-	const results = await Promise.all(
-		shapeIds.map(async (shape_id) => {
-			const points = await selectShapesFromDatabase(shape_id, operator);
-			return points.length ? { shape_id, points } : null;
-		}),
+	if (!shapeIds.length) return [];
+
+	const loaded: { shape_id: string; points: IShapes[] }[] = [];
+	const missing: string[] = [];
+	for (const shapeId of shapeIds) {
+		const cached = await redis.get(lineShapeCacheKey(operator, shapeId));
+		if (cached) {
+			MetricsTracker.trackCacheHit();
+			loaded.push(...expandLineShapes([cached as ICompactLineShape]));
+		} else {
+			missing.push(shapeId);
+		}
+	}
+	if (!missing.length) return loaded;
+
+	MetricsTracker.trackCacheMiss();
+	const feedVersions = [
+		...new Set(trips.map((trip) => trip.feed_version).filter(Boolean)),
+	];
+	let allPoints = await selectShapesForIdsFromDatabase(
+		missing,
+		operator,
+		feedVersions,
 	);
-	return results.filter((x): x is NonNullable<typeof x> => x !== null);
+	if (!allPoints.length && feedVersions.length) {
+		allPoints = await selectShapesForIdsFromDatabase(missing, operator);
+	}
+	const pointsByShapeId = new Map<string, IShapes[]>();
+	for (const point of allPoints) {
+		const existing = pointsByShapeId.get(point.shape_id);
+		if (existing) {
+			existing.push(point);
+		} else {
+			pointsByShapeId.set(point.shape_id, [point]);
+		}
+	}
+	for (const shapeId of missing) {
+		const points = pointsByShapeId.get(shapeId);
+		if (!points?.length) continue;
+		const compact = compactLineShapes([{ shape_id: shapeId, points }])[0];
+		await redis.set(lineShapeCacheKey(operator, shapeId), compact, {
+			ex: LINE_SHAPES_TTL,
+		});
+		MetricsTracker.trackRedisOperation();
+		loaded.push(...expandLineShapes([compact]));
+	}
+	return loaded;
 }
 
 async function resolveLineTripIdsForMarkerMeta(
@@ -318,6 +367,7 @@ export const getCachedDbData = cache(
 		busStopName?: string,
 		operatorInput = getDefaultOperator(),
 		clientTripIds?: string[],
+		mode: "full" | "meta" | "shapes" = "full",
 	) => {
 		const operator = resolveOperator(operatorInput);
 		let currentTrips: IDbData[] = [];
@@ -326,6 +376,8 @@ export const getCachedDbData = cache(
 
 		const trimmedStopName = busStopName?.trim() || undefined;
 		const tripIdsForLine = clientTripIds?.length ? clientTripIds : undefined;
+		const skipShapes = mode === "meta";
+		const skipStops = mode === "meta";
 
 		if (trimmedStopName) {
 			MetricsTracker.trackDbQuery();
@@ -336,41 +388,45 @@ export const getCachedDbData = cache(
 			);
 		} else {
 			MetricsTracker.trackDbQuery();
-			const [current, stops] = await Promise.all([
-				selectCurrentTripsFromDatabase(busLine, operator, tripIdsForLine),
-				selectDistinctStopsForLineFromDatabase(busLine, operator),
-			]);
 			currentTrips = await enrichCurrentTripsWithMarkerMeta(
 				busLine,
 				operator,
-				current,
+				[],
 				tripIdsForLine,
 			);
-			lineStops = stops;
+			if (!skipStops) {
+				lineStops = await selectDistinctStopsForLineFromDatabase(
+					busLine,
+					operator,
+				);
+			}
 		}
 
 		const tripsForShapes = [...currentTrips, ...upcomingTrips];
-		let lineShapes = await getLineShapesForTrips(tripsForShapes, operator);
-		if (!lineShapes.length && !trimmedStopName) {
-			const shapeIds = await selectDistinctShapeIdsForLineFromDatabase(
-				busLine,
-				operator,
-			);
-			const fallbackTrips = shapeIds.map((shape_id) => ({
-				operator,
-				trip_id: "",
-				shape_id,
-				route_short_name: busLine,
-				stop_headsign: "",
-				stop_id: "",
-				departure_time: "",
-				stop_name: "",
-				stop_sequence: 0,
-				stop_lat: 0,
-				stop_lon: 0,
-				feed_version: "",
-			}));
-			lineShapes = await getLineShapesForTrips(fallbackTrips, operator);
+		let lineShapes: { shape_id: string; points: IShapes[] }[] = [];
+		if (!skipShapes) {
+			lineShapes = await getLineShapesForTrips(tripsForShapes, operator);
+			if (!lineShapes.length && !trimmedStopName) {
+				const shapeIds = await selectDistinctShapeIdsForLineFromDatabase(
+					busLine,
+					operator,
+				);
+				const fallbackTrips = shapeIds.map((shape_id) => ({
+					operator,
+					trip_id: "",
+					shape_id,
+					route_short_name: busLine,
+					stop_headsign: "",
+					stop_id: "",
+					departure_time: "",
+					stop_name: "",
+					stop_sequence: 0,
+					stop_lat: 0,
+					stop_lon: 0,
+					feed_version: "",
+				}));
+				lineShapes = await getLineShapesForTrips(fallbackTrips, operator);
+			}
 		}
 
 		return { currentTrips, upcomingTrips, lineStops, lineShapes } as ITripData;
@@ -384,7 +440,7 @@ export const getCachedStopDepartures = cache(
 	): Promise<IStopDepartureSchedule> => {
 		const operator = resolveOperator(operatorInput);
 		const minuteBucket = Math.floor(Date.now() / 60000);
-		const cacheKey = `stop-departures:v9:${operator}:${stopId}:${minuteBucket}`;
+		const cacheKey = `stop-departures:v10:${operator}:${stopId}:${minuteBucket}`;
 		const cached = await redis.get(cacheKey);
 		if (cached) {
 			MetricsTracker.trackCacheHit();
@@ -408,7 +464,7 @@ export async function getCachedStopShapes(
 ): Promise<IStopBoardShape[]> {
 	const operator = resolveOperator(operatorInput);
 	const feed = await selectLatestFeedVersionTexts(operator);
-	const cacheKey = `stop-shapes:v8:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
+	const cacheKey = `stop-shapes:v9:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
 	const cached = await redis.get(cacheKey);
 	if (cached) {
 		MetricsTracker.trackCacheHit();
@@ -420,14 +476,14 @@ export async function getCachedStopShapes(
 		stopId,
 		operator,
 	);
-	const representativeShapeRefs = [
-		...new Map(
-			shapeRefs.map((shape) => [
-				`${shape.route_type ?? "unknown"}:${shape.route_short_name}`,
-				shape,
-			]),
-		).values(),
-	];
+	const lengthByShapeId = await selectShapeLengthsFromDatabase(
+		shapeRefs.map((shape) => shape.shape_id),
+		operator,
+	);
+	const representativeShapeRefs = pickRepresentativeStopBoardShapeRefs(
+		shapeRefs,
+		lengthByShapeId,
+	);
 	const allPoints = await selectShapesForIdsFromDatabase(
 		representativeShapeRefs.map((shape) => shape.shape_id),
 		operator,
@@ -443,7 +499,16 @@ export async function getCachedStopShapes(
 	}
 	const shapes: IStopBoardShape[] = representativeShapeRefs.flatMap((shape) => {
 		const points = pointsByShapeId.get(shape.shape_id);
-		return points?.length ? [{ ...shape, points }] : [];
+		return points?.length
+			? [
+					{
+						route_short_name: shape.route_short_name,
+						route_type: shape.route_type,
+						shape_id: shape.shape_id,
+						points,
+					},
+				]
+			: [];
 	});
 	const compactShapes = compactStopBoardShapes(shapes);
 	await redis.set(cacheKey, compactShapes, { ex: STOP_SHAPES_TTL });

@@ -5,6 +5,7 @@ import { busStop, subwayStop } from "public/icons";
 import { memo } from "react";
 import colors from "../colors";
 import { Icon } from "../components/Icon";
+import { isStopMarkerActive } from "./mapClient/mapClientStopUi";
 import type { IStopPositionJson } from "./stopPositionsTypes";
 
 type Props = {
@@ -16,8 +17,10 @@ type Props = {
 	detailMode: boolean;
 	/** Visa hållplatsnamn i samma container som ikonen. */
 	labelMode: boolean;
-	/** Gul markör när vald hållplats (endast i detailMode). */
+	/** Senast klickad hållplats (parent eller child). */
 	activeStopId?: string | null;
+	/** Parent-id:n för den öppna stationsgruppen — alla relaterade markörer blir aktiva. */
+	focusedStationIds?: readonly string[];
 };
 
 export const StopMarkersLayer = memo(function StopMarkersLayer({
@@ -28,7 +31,9 @@ export const StopMarkersLayer = memo(function StopMarkersLayer({
 	detailMode,
 	labelMode,
 	activeStopId,
+	focusedStationIds = [],
 }: Props) {
+	const focusedParentIds = new Set(focusedStationIds);
 	return (
 		<>
 			{stops.map((s) => {
@@ -37,11 +42,11 @@ export const StopMarkersLayer = memo(function StopMarkersLayer({
 				const stopIcon = s.locationType === 2 ? subwayStop : busStop;
 				const stopIconTitle =
 					s.locationType === 2 ? "Tunnelbanestation" : "Hållplats";
-				const isActive = Boolean(
-					!isPlatformLabel &&
-						(detailMode || isGroupStop) &&
-						activeStopId &&
-						s.id === activeStopId,
+				const isActive = isStopMarkerActive(
+					s,
+					activeStopId,
+					focusedParentIds,
+					detailMode,
 				);
 				const showIcon = !isPlatformLabel && (detailMode || isGroupStop);
 				const showLabel =

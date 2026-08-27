@@ -22,6 +22,9 @@ export async function GET(
 		.map((tripId) => tripId.trim())
 		.filter(Boolean)
 		.slice(0, 64);
+	const modeParam = searchParams.get("mode");
+	const mode =
+		modeParam === "meta" || modeParam === "shapes" ? modeParam : "full";
 
 	try {
 		const data = await getCachedDbData(
@@ -29,10 +32,14 @@ export async function GET(
 			stopName,
 			operator,
 			clientTripIds?.length ? clientTripIds : undefined,
+			mode,
 		);
 		return NextResponse.json(data, {
 			headers: {
-				"Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+
+				"Cache-Control": clientTripIds?.length
+					? "private, no-store"
+					: "public, s-maxage=300, stale-while-revalidate=600",
 			},
 		});
 	} catch (error) {

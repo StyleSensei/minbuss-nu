@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { IStopBoardShape } from "@shared/models/IStopBoardShape";
 import {
+	compactLineShapes,
 	compactStopBoardShapes,
 	downsampleShapePoints,
+	expandLineShapes,
 	expandStopBoardShapes,
 } from "../compactStopBoardShapes";
 
@@ -62,5 +64,23 @@ describe("compactStopBoardShapes", () => {
 		);
 
 		expect(compactBytes).toBeLessThan(rawBytes / 5);
+	});
+});
+
+describe("compactLineShapes", () => {
+	it("round-trips downsampled points for map polylines", () => {
+		const points = Array.from({ length: 400 }, (_, index) => ({
+			shape_id: "line-shape",
+			shape_pt_lat: 59 + index / 10000,
+			shape_pt_lon: 18 + index / 10000,
+			shape_pt_sequence: index,
+		}));
+		const expanded = expandLineShapes(
+			compactLineShapes([{ shape_id: "line-shape", points }], 12),
+		);
+
+		expect(expanded[0].shape_id).toBe("line-shape");
+		expect(expanded[0].points.length).toBeLessThanOrEqual(12);
+		expect(expanded[0].points[0].shape_pt_lat).toBeDefined();
 	});
 });

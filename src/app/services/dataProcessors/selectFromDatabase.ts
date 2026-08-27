@@ -20,7 +20,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
-import { createMinutesFilter, calculateTimeFilter } from "@/app/utilities/calculateTimeFilter";
+import { createMinutesFilter } from "@/app/utilities/calculateTimeFilter";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
@@ -36,10 +36,11 @@ import { getDb } from "./db";
 import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
-const UPCOMING_TRIPS_HOURS_AHEAD = 6;
-const UPCOMING_TRIPS_LIMIT = 100;
-/** Stop board covers every route at a station — keep the window modest for DB time. */
-const STOP_BOARD_HOURS_AHEAD = 6;
+const UPCOMING_TRIPS_HOURS_AHEAD = 12;
+/** Frequent lines can exceed ~100 departures in 12h; keep well below the old 1000 cap. */
+const UPCOMING_TRIPS_LIMIT = 200;
+/** Same horizon as line search; result count is still capped for busy stations. */
+const STOP_BOARD_HOURS_AHEAD = 12;
 const STOP_BOARD_DEPARTURES_LIMIT = 250;
 
 function createUpcomingServiceWindowFilter(
@@ -74,14 +75,9 @@ function createUpcomingServiceWindowFilter(
 	return or(...clauses) ?? sql`false`;
 }
 
-function getDateArray(isEarlyMorning = false) {
-	const dt = getGtfsDateTime();
-	const today = dt.toFormat("yyyy-MM-dd");
-	if (isEarlyMorning) {
-		const yesterday = dt.minus({ days: 1 }).toFormat("yyyy-MM-dd");
-		return [today, yesterday];
-	}
-	return [today];
+/** Chronological board order: service date, then GTFS minutes (not lex HH:MM). */
+function upcomingDepartureOrderBy(minutesFilter: SQL): SQL {
+	return sql`min(${calendarDates.date}), ${minutesFilter}`;
 }
 
 /** Active trip IDs on a line — trips+routes only (for realtime filtering). */
@@ -174,6 +170,28 @@ export const selectTripMarkerMetaForTripIdsFromDatabase = async (
 				),
 			);
 
+		const headsignRows = await db
+			.selectDistinctOn([stop_times.trip_id], {
+				trip_id: stop_times.trip_id,
+				stop_headsign: stop_times.stop_headsign,
+			})
+			.from(stop_times)
+			.where(
+				and(
+					eq(stop_times.operator, operator),
+					eq(stop_times.feed_version, feed.stopTimes),
+					inArray(stop_times.trip_id, uniqueTripIds),
+					isNotNull(stop_times.stop_headsign),
+					sql`BTRIM(${stop_times.stop_headsign}) <> ''`,
+				),
+			)
+			.orderBy(stop_times.trip_id, stop_times.stop_sequence);
+		const headsignByTripId = new Map(
+			headsignRows
+				.filter((row) => row.trip_id && row.stop_headsign)
+				.map((row) => [row.trip_id as string, row.stop_headsign as string]),
+		);
+
 		return data
 			.filter((row) => Boolean(row.trip_id))
 			.map((row) => ({
@@ -184,7 +202,10 @@ export const selectTripMarkerMetaForTripIdsFromDatabase = async (
 				route_long_name: row.route_long_name ?? null,
 				route_type: row.route_type ?? null,
 				route_desc: row.route_desc ?? null,
-				stop_headsign: row.trip_headsign ?? "",
+				stop_headsign:
+					row.trip_headsign?.trim() ||
+					headsignByTripId.get(row.trip_id ?? "") ||
+					"",
 				stop_id: "",
 				departure_time: "",
 				stop_name: "",
@@ -953,27 +974,11 @@ export const selectUpcomingTripsFromDatabase = async (
 	MetricsTracker.trackDbQuery();
 
 	const dt = getGtfsDateTime();
-	const currentHour = dt.hour;
-	const hoursAhead = UPCOMING_TRIPS_HOURS_AHEAD;
-	const isEarlyMorning = currentHour < 4;
-
 	const minutesFilter = createMinutesFilter(stop_times.departure_time);
-
-	const startTimeMinutes =
-		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
-	const endTimeMinutes =
-		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 +
-		dt.minute;
-
-	const timeFilter = calculateTimeFilter({
+	const serviceWindowFilter = createUpcomingServiceWindowFilter(
 		minutesFilter,
-		startTimeMinutes,
-		endTimeMinutes,
-		isEarlyMorning,
-	});
-
-	const dates = getDateArray(isEarlyMorning).map(
-		(dateStr) => new Date(dateStr),
+		dt,
+		UPCOMING_TRIPS_HOURS_AHEAD,
 	);
 
 	try {
@@ -1038,9 +1043,8 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(stops.feed_version, feed.stops),
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
-					inArray(calendarDates.date, dates),
 					eq(calendarDates.exception_type, 1),
-					timeFilter,
+					serviceWindowFilter,
 				),
 			)
 			.groupBy(
@@ -1060,7 +1064,7 @@ export const selectUpcomingTripsFromDatabase = async (
 				trips.feed_version,
 				trips.shape_id,
 			)
-			.orderBy(stop_times.departure_time)
+			.orderBy(upcomingDepartureOrderBy(minutesFilter))
 			.limit(UPCOMING_TRIPS_LIMIT);
 		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 		return parsed;
@@ -1452,7 +1456,7 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 				trips.feed_version,
 				trips.shape_id,
 			)
-			.orderBy(stop_times.departure_time)
+			.orderBy(upcomingDepartureOrderBy(minutesFilter))
 			.limit(STOP_BOARD_DEPARTURES_LIMIT);
 
 		return {
@@ -1474,6 +1478,7 @@ export interface IStopRouteShapeRef {
 	route_short_name: string;
 	route_type: number | null;
 	shape_id: string;
+	direction_id: number | null;
 }
 
 export const selectDistinctShapesForStopFromDatabase = async (
@@ -1495,6 +1500,7 @@ export const selectDistinctShapesForStopFromDatabase = async (
 				route_short_name: routes.route_short_name,
 				route_type: routes.route_type,
 				shape_id: trips.shape_id,
+				direction_id: trips.direction_id,
 			})
 			.from(stop_times)
 			.innerJoin(
@@ -1523,7 +1529,12 @@ export const selectDistinctShapesForStopFromDatabase = async (
 					isNotNull(trips.shape_id),
 				),
 			)
-			.groupBy(routes.route_short_name, routes.route_type, trips.shape_id);
+			.groupBy(
+				routes.route_short_name,
+				routes.route_type,
+				trips.shape_id,
+				trips.direction_id,
+			);
 
 		return data
 			.filter(
@@ -1533,12 +1544,14 @@ export const selectDistinctShapesForStopFromDatabase = async (
 					route_short_name: string;
 					route_type: number | null;
 					shape_id: string;
+					direction_id: number | null;
 				} => Boolean(row.route_short_name && row.shape_id),
 			)
 			.map((row) => ({
 				route_short_name: row.route_short_name,
 				route_type: row.route_type,
 				shape_id: row.shape_id,
+				direction_id: row.direction_id,
 			}));
 	} catch (error) {
 		console.log(error);
@@ -1546,14 +1559,56 @@ export const selectDistinctShapesForStopFromDatabase = async (
 	}
 };
 
+export const selectShapeLengthsFromDatabase = async (
+	shapeIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<Map<string, number>> => {
+	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
+	if (uniqueShapeIds.length === 0) return new Map();
+
+	const operator = resolveOperator(operatorInput);
+	MetricsTracker.trackDbQuery();
+	try {
+		// Skip feed_version so Postgres can use uq_shapes_operator_shape_seq.
+		const data = await db
+			.select({
+				shape_id: shapes.shape_id,
+				length: sql<number>`max(${shapes.shape_pt_sequence})`,
+			})
+			.from(shapes)
+			.where(
+				and(
+					eq(shapes.operator, operator),
+					inArray(shapes.shape_id, uniqueShapeIds),
+				),
+			)
+			.groupBy(shapes.shape_id);
+
+		return new Map(
+			data
+				.filter((row): row is { shape_id: string; length: number } =>
+					Boolean(row.shape_id),
+				)
+				.map((row) => [row.shape_id, Number(row.length) || 0]),
+		);
+	} catch (error) {
+		console.log(error);
+		return new Map();
+	}
+};
+
 export const selectShapesForIdsFromDatabase = async (
 	shapeIds: string[],
 	operatorInput = getDefaultOperator(),
+	feedVersions?: string[],
 ): Promise<IShapes[]> => {
 	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
 	if (uniqueShapeIds.length === 0) return [];
 
 	const operator = resolveOperator(operatorInput);
+	const uniqueFeedVersions = [
+		...new Set((feedVersions ?? []).map((v) => v.trim()).filter(Boolean)),
+	];
 	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
 	try {
@@ -1569,7 +1624,9 @@ export const selectShapesForIdsFromDatabase = async (
 			.where(
 				and(
 					eq(shapes.operator, operator),
-					eq(shapes.feed_version, feed.shapes),
+					uniqueFeedVersions.length
+						? inArray(shapes.feed_version, uniqueFeedVersions)
+						: eq(shapes.feed_version, feed.shapes),
 					inArray(shapes.shape_id, uniqueShapeIds),
 				),
 			)
