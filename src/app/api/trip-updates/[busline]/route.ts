@@ -3,6 +3,7 @@ import {
 	getCachedDbData,
 	getCachedTripUpdates,
 } from "@/app/services/cacheHelper";
+import { selectActiveTripIdsForLineFromDatabase } from "@/app/services/dataProcessors/selectFromDatabase";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 20;
@@ -24,12 +25,31 @@ export async function GET(
 
 	try {
 		const cachedTripUpdates = await getCachedTripUpdates(operator);
-		const cachedDbData = await getCachedDbData(busline, undefined, operator);
-		const tripIdsForLine = new Set(
-			cachedDbData.currentTrips
-				.map((trip) => trip?.trip_id)
-				.filter((id): id is string => Boolean(id)),
+		const activeTripIds = [
+			...new Set(
+				cachedTripUpdates
+					.map((update) => update.trip?.tripId)
+					.filter((tripId): tripId is string => Boolean(tripId)),
+			),
+		];
+
+		let tripIdsForLine = new Set(
+			await selectActiveTripIdsForLineFromDatabase(
+				busline,
+				activeTripIds,
+				operator,
+			),
 		);
+
+		if (tripIdsForLine.size === 0 && activeTripIds.length > 0) {
+			const cachedDbData = await getCachedDbData(busline, undefined, operator);
+			tripIdsForLine = new Set(
+				cachedDbData.currentTrips
+					.map((trip) => trip?.trip_id)
+					.filter((id): id is string => Boolean(id)),
+			);
+		}
+
 		const filteredData = cachedTripUpdates.filter((u) =>
 			tripIdsForLine.has(u?.trip?.tripId ?? ""),
 		);

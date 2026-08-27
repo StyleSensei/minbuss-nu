@@ -32,6 +32,7 @@ export function useSearchBarTripDataCache({
 	const lineSelectionGenerationRef = useRef(0);
 	const tripDataFetchedForLineRef = useRef("");
 	const stopSpecificTripDataKeyRef = useRef("");
+	const prevNormalizedLineRef = useRef<string | null>(null);
 
 	const resetGeneration = useCallback(() => {
 		lineSelectionGenerationRef.current += 1;
@@ -40,6 +41,9 @@ export function useSearchBarTripDataCache({
 	}, []);
 
 	useEffect(() => {
+		const normalized = userInput.trim().toUpperCase();
+		if (normalized === prevNormalizedLineRef.current) return;
+		prevNormalizedLineRef.current = normalized;
 		resetGeneration();
 	}, [userInput, resetGeneration]);
 

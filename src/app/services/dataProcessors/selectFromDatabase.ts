@@ -20,7 +20,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
-import { createMinutesFilter } from "@/app/utilities/calculateTimeFilter";
+import { createMinutesFilter, calculateTimeFilter } from "@/app/utilities/calculateTimeFilter";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
@@ -74,6 +74,60 @@ function createUpcomingServiceWindowFilter(
 	return or(...clauses) ?? sql`false`;
 }
 
+function getDateArray(isEarlyMorning = false) {
+	const dt = getGtfsDateTime();
+	const today = dt.toFormat("yyyy-MM-dd");
+	if (isEarlyMorning) {
+		const yesterday = dt.minus({ days: 1 }).toFormat("yyyy-MM-dd");
+		return [today, yesterday];
+	}
+	return [today];
+}
+
+/** Active trip IDs on a line — trips+routes only (for realtime filtering). */
+export const selectActiveTripIdsForLineFromDatabase = async (
+	busLine: string,
+	activeTripIds: string[],
+	operatorInput = getDefaultOperator(),
+): Promise<string[]> => {
+	const uniqueTripIds = [
+		...new Set(activeTripIds.filter((id): id is string => Boolean(id?.trim()))),
+	];
+	if (!busLine.trim() || uniqueTripIds.length === 0) return [];
+
+	const operator = resolveOperator(operatorInput);
+	const feed = latestFeedVersionsByOperator(operator);
+	MetricsTracker.trackDbQuery();
+	try {
+		const rows = await db
+			.select({ trip_id: trips.trip_id })
+			.from(trips)
+			.innerJoin(
+				routes,
+				and(
+					eq(trips.route_id, routes.route_id),
+					eq(trips.operator, routes.operator),
+				),
+			)
+			.where(
+				and(
+					eq(trips.operator, operator),
+					eq(routes.operator, operator),
+					eq(trips.feed_version, feed.trips),
+					eq(routes.feed_version, feed.routes),
+					eq(routes.route_short_name, busLine),
+					inArray(trips.trip_id, uniqueTripIds),
+				),
+			);
+		return rows
+			.map((row) => row.trip_id)
+			.filter((id): id is string => Boolean(id));
+	} catch (error) {
+		console.log(error);
+		return [];
+	}
+};
+
 export const selectCurrentTripsFromDatabase = async (
 	busLine: string,
 	operatorInput = getDefaultOperator(),
@@ -86,25 +140,32 @@ export const selectCurrentTripsFromDatabase = async (
 		.map((vehicle) => vehicle?.trip?.tripId)
 		.filter((tripId): tripId is string => typeof tripId === "string");
 
-	try {
-		const data = await db
-			.select({
-				operator: trips.operator,
-				trip_id: trips.trip_id,
-				shape_id: trips.shape_id,
-				route_short_name: routes.route_short_name,
-				stop_headsign: stop_times.stop_headsign,
-				departure_time: stop_times.departure_time,
-				stop_name: stops.stop_name,
-				stop_sequence: stop_times.stop_sequence,
-				stop_id: stops.stop_id,
-				stop_lat: stops.stop_lat,
-				stop_lon: stops.stop_lon,
-				route_long_name: routes.route_long_name,
-				route_type: routes.route_type,
-				route_desc: routes.route_desc,
-				feed_version: trips.feed_version,
-			})
+	if (!filteredTripIds.length) return [];
+
+	const selectFields = {
+		operator: trips.operator,
+		trip_id: trips.trip_id,
+		shape_id: trips.shape_id,
+		route_short_name: routes.route_short_name,
+		stop_headsign: stop_times.stop_headsign,
+		departure_time: stop_times.departure_time,
+		stop_name: stops.stop_name,
+		stop_sequence: stop_times.stop_sequence,
+		stop_id: stops.stop_id,
+		stop_lat: stops.stop_lat,
+		stop_lon: stops.stop_lon,
+		route_long_name: routes.route_long_name,
+		route_type: routes.route_type,
+		route_desc: routes.route_desc,
+		feed_version: trips.feed_version,
+	};
+
+	const runCurrentTripsQuery = async (
+		stopTimesFeed: typeof feed.stopTimes,
+		stopsFeed: typeof feed.stops,
+	) =>
+		db
+			.select(selectFields)
 			.from(trips)
 			.innerJoin(
 				routes,
@@ -135,17 +196,22 @@ export const selectCurrentTripsFromDatabase = async (
 					eq(stops.operator, operator),
 					eq(trips.feed_version, feed.trips),
 					eq(routes.feed_version, feed.routes),
-					eq(stop_times.feed_version, feed.stopTimes),
-					eq(stops.feed_version, feed.stops),
+					eq(stop_times.feed_version, stopTimesFeed),
+					eq(stops.feed_version, stopsFeed),
 					eq(routes.route_short_name, busLine),
 					inArray(trips.trip_id, filteredTripIds),
 				),
 			)
 			.orderBy(trips.trip_id, stop_times.departure_time)
 			.limit(1000);
-		const parsed = z.array(selectAllSchema).parse(data) as IDbData[];
 
-		return parsed;
+	try {
+		let data = await runCurrentTripsQuery(feed.stopTimes, feed.stops);
+		if (data.length === 0) {
+			/** Fallback when stop_times/stops lag trips feed — matches pre-220909f behavior. */
+			data = await runCurrentTripsQuery(feed.trips, feed.trips);
+		}
+		return z.array(selectAllSchema).parse(data) as IDbData[];
 	} catch (error) {
 		console.log(error);
 		return [];
@@ -802,12 +868,27 @@ export const selectUpcomingTripsFromDatabase = async (
 	MetricsTracker.trackDbQuery();
 
 	const dt = getGtfsDateTime();
+	const currentHour = dt.hour;
 	const hoursAhead = UPCOMING_TRIPS_HOURS_AHEAD;
+	const isEarlyMorning = currentHour < 4;
+
 	const minutesFilter = createMinutesFilter(stop_times.departure_time);
-	const serviceWindowFilter = createUpcomingServiceWindowFilter(
+
+	const startTimeMinutes =
+		dt.minus({ minutes: 15 }).hour * 60 + dt.minus({ minutes: 15 }).minute;
+	const endTimeMinutes =
+		(isEarlyMorning ? dt.hour + hoursAhead + 24 : dt.hour + hoursAhead) * 60 +
+		dt.minute;
+
+	const timeFilter = calculateTimeFilter({
 		minutesFilter,
-		dt,
-		hoursAhead,
+		startTimeMinutes,
+		endTimeMinutes,
+		isEarlyMorning,
+	});
+
+	const dates = getDateArray(isEarlyMorning).map(
+		(dateStr) => new Date(dateStr),
 	);
 
 	try {
@@ -851,13 +932,12 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(stop_times.operator, stops.operator),
 				),
 			)
-			.innerJoin(
+			.leftJoin(
 				calendarDates,
 				and(
 					eq(trips.service_id, calendarDates.service_id),
 					eq(trips.operator, calendarDates.operator),
 					eq(calendarDates.feed_version, feed.calendarDates),
-					eq(calendarDates.operator, operator),
 				),
 			)
 			.where(
@@ -866,14 +946,16 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
+					eq(calendarDates.operator, operator),
 					eq(trips.feed_version, feed.trips),
 					eq(routes.feed_version, feed.routes),
 					eq(stop_times.feed_version, feed.stopTimes),
 					eq(stops.feed_version, feed.stops),
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
+					inArray(calendarDates.date, dates),
 					eq(calendarDates.exception_type, 1),
-					serviceWindowFilter,
+					timeFilter,
 				),
 			)
 			.groupBy(

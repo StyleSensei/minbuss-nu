@@ -4,6 +4,7 @@ import {
 	getCachedDbData,
 	getCachedVehiclePositions,
 } from "@/app/services/cacheHelper";
+import { selectActiveTripIdsForLineFromDatabase } from "@/app/services/dataProcessors/selectFromDatabase";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 2;
@@ -43,16 +44,39 @@ export async function GET(
 			);
 		}
 
-		const cachedDbData = (await getCachedDbData(busline, undefined, operator)) as ITripData;
-		const tripById = new Map(
-			cachedDbData.currentTrips
-				.filter((trip) => trip?.trip_id)
-				.map((trip) => [trip.trip_id, trip] as const),
+		const activeTripIds = [
+			...new Set(
+				cachedVehiclePositions.data
+					.map((vehicle) => vehicle.trip?.tripId)
+					.filter((tripId): tripId is string => Boolean(tripId)),
+			),
+		];
+
+		let tripIdsForLine = new Set(
+			await selectActiveTripIdsForLineFromDatabase(
+				busline,
+				activeTripIds,
+				operator,
+			),
 		);
+
+		/** Fallback when trips/routes feed differs from stop_times (full currentTrips join). */
+		if (tripIdsForLine.size === 0) {
+			const cachedDbData = (await getCachedDbData(
+				busline,
+				undefined,
+				operator,
+			)) as ITripData;
+			tripIdsForLine = new Set(
+				cachedDbData.currentTrips
+					.map((trip) => trip?.trip_id)
+					.filter((id): id is string => Boolean(id)),
+			);
+		}
 
 		const filteredData = cachedVehiclePositions.data.filter((vehicle) => {
 			if (!vehicle?.trip?.tripId) return false;
-			return tripById.has(vehicle.trip.tripId);
+			return tripIdsForLine.has(vehicle.trip.tripId);
 		});
 
 		return NextResponse.json(
