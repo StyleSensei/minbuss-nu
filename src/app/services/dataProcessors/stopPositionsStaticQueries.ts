@@ -114,38 +114,30 @@ async function selectStopPositionsFromDatabaseWithWhere(
 			),
 	);
 
-	const stopSelect = {
-		stop_id: stops.stop_id,
-		stop_name: stops.stop_name,
-		stop_lat: stops.stop_lat,
-		stop_lon: stops.stop_lon,
-		location_type: stops.location_type,
-		parent_station: stops.parent_station,
-		platform_code: stops.platform_code,
-	};
-
-	/**
-	 * Split parents/entrances from served platforms.
-	 * A single `OR (location_type IN (1,2) OR EXISTS(...))` prevents Postgres from
-	 * using the bbox index and can hang `/api/stops/positions` under load.
-	 */
-	const [stationRows, servedRows] = await Promise.all([
-		db
-			.select(stopSelect)
-			.from(stops)
-			.where(
-				and(
-					whereClause,
-					or(eq(stops.location_type, 1), eq(stops.location_type, 2)),
+	/** Parents, entrances/exits (location_type=2), and served platforms. */
+	const data = await db
+		.select({
+			stop_id: stops.stop_id,
+			stop_name: stops.stop_name,
+			stop_lat: stops.stop_lat,
+			stop_lon: stops.stop_lon,
+			location_type: stops.location_type,
+			parent_station: stops.parent_station,
+			platform_code: stops.platform_code,
+		})
+		.from(stops)
+		.where(
+			and(
+				whereClause,
+				or(
+					eq(stops.location_type, 1),
+					eq(stops.location_type, 2),
+					hasServingTrip,
 				),
 			),
-		db
-			.select(stopSelect)
-			.from(stops)
-			.where(and(whereClause, hasServingTrip)),
-	]);
+		);
 
-	return dedupeStopPositionRows([...stationRows, ...servedRows]);
+	return dedupeStopPositionRows(data);
 }
 
 export const selectAllStopPositionsFromDatabase = async (
