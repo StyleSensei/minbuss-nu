@@ -153,6 +153,7 @@ export function useMapViewportAndStopsFetch(
 					);
 					const res = await fetch(url, {
 						signal: ctrl.signal,
+						cache: "force-cache",
 					});
 					if (!res.ok || cancelled) return;
 					const data = (await res.json()) as StopsPositionsFile;
@@ -170,36 +171,8 @@ export function useMapViewportAndStopsFetch(
 						});
 					}
 				} catch {
+					// Keep last good markers; never fall back to unbounded /api/stops/positions.
 					if (cancelled || ctrl.signal.aborted) return;
-					try {
-						const res = await fetch("/stops-positions.json", {});
-						if (!res.ok || cancelled) return;
-						let data = (await res.json()) as StopsPositionsFile;
-						if (
-							!cancelled &&
-							Array.isArray(data.stops) &&
-							data.stops.length === 0
-						) {
-							const resApi = await fetch(
-								appendOperatorToApiUrl(
-									"/api/stops/positions",
-									mapOperatorForView,
-								),
-							);
-							if (resApi.ok) {
-								data = (await resApi.json()) as StopsPositionsFile;
-							}
-						}
-						if (
-							!cancelled &&
-							Array.isArray(data.stops) &&
-							data.stops.length > 0
-						) {
-							setAllStopPositions(data.stops);
-						}
-					} catch {
-						// ignore
-					}
 				}
 			})();
 		}, MAP_STOPS_POSITIONS_FETCH_DEBOUNCE_MS);

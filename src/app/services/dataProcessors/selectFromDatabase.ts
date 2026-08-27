@@ -36,8 +36,11 @@ import { getDb } from "./db";
 import { latestFeedVersionsByOperator } from "./latestFeedVersions";
 
 const db = getDb();
-const UPCOMING_TRIPS_HOURS_AHEAD = 12;
-const UPCOMING_TRIPS_LIMIT = 1000;
+const UPCOMING_TRIPS_HOURS_AHEAD = 6;
+const UPCOMING_TRIPS_LIMIT = 100;
+/** Stop board covers every route at a station — keep the window modest for DB time. */
+const STOP_BOARD_HOURS_AHEAD = 6;
+const STOP_BOARD_DEPARTURES_LIMIT = 250;
 
 function createUpcomingServiceWindowFilter(
 	minutesFilter: SQL,
@@ -848,11 +851,13 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(stop_times.operator, stops.operator),
 				),
 			)
-			.leftJoin(
+			.innerJoin(
 				calendarDates,
 				and(
 					eq(trips.service_id, calendarDates.service_id),
 					eq(trips.operator, calendarDates.operator),
+					eq(calendarDates.feed_version, feed.calendarDates),
+					eq(calendarDates.operator, operator),
 				),
 			)
 			.where(
@@ -861,12 +866,10 @@ export const selectUpcomingTripsFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
-					eq(calendarDates.operator, operator),
 					eq(trips.feed_version, feed.trips),
 					eq(routes.feed_version, feed.routes),
 					eq(stop_times.feed_version, feed.stopTimes),
 					eq(stops.feed_version, feed.stops),
-					eq(calendarDates.feed_version, feed.calendarDates),
 					eq(routes.route_short_name, busLine),
 					eq(stops.stop_name, stop_name),
 					eq(calendarDates.exception_type, 1),
@@ -913,6 +916,9 @@ export interface IResolvedStopBoardIds {
 }
 
 const STOP_BOARD_GROUP_MAX_DISTANCE_METERS = 750;
+/** ~750 m in latitude degrees; longitude scaled by cos(lat) below. */
+const STOP_BOARD_GROUP_LAT_DELTA =
+	STOP_BOARD_GROUP_MAX_DISTANCE_METERS / 111_320;
 
 export const resolveStopBoardStopIdsFromDatabase = async (
 	stopId: string,
@@ -965,19 +971,31 @@ export const resolveStopBoardStopIdsFromDatabase = async (
 			parentId,
 			selectedStop.platform_code,
 		);
-		const directPlatformRows = shouldExpandToStationPlatforms
-			? await db
-					.select({ stop_name: stops.stop_name })
-					.from(stops)
-					.where(
-						and(
-							eq(stops.operator, operator),
-							eq(stops.feed_version, feed.stops),
-							eq(stops.location_type, 0),
-							eq(stops.parent_station, stationStopId),
-						),
-					)
-			: [];
+		if (!shouldExpandToStationPlatforms) {
+			return {
+				stationStopId,
+				stationStopIds: [stationStopId],
+				boardStopIds: [selectedStop.stop_id],
+			};
+		}
+
+		const directPlatformRows = await db
+			.select({
+				stop_id: stops.stop_id,
+				parent_station: stops.parent_station,
+				stop_name: stops.stop_name,
+				stop_lat: stops.stop_lat,
+				stop_lon: stops.stop_lon,
+			})
+			.from(stops)
+			.where(
+				and(
+					eq(stops.operator, operator),
+					eq(stops.feed_version, feed.stops),
+					eq(stops.location_type, 0),
+					eq(stops.parent_station, stationStopId),
+				),
+			);
 		const groupStopNames = [
 			...new Set(
 				[
@@ -988,30 +1006,56 @@ export const resolveStopBoardStopIdsFromDatabase = async (
 					.filter((name): name is string => Boolean(name)),
 			),
 		];
-		const platformRows = shouldExpandToStationPlatforms
-			? await db
-					.select({
-						stop_id: stops.stop_id,
-						parent_station: stops.parent_station,
-						stop_lat: stops.stop_lat,
-						stop_lon: stops.stop_lon,
-					})
-					.from(stops)
-					.where(
-						and(
-							eq(stops.operator, operator),
-							eq(stops.feed_version, feed.stops),
-							eq(stops.location_type, 0),
-							or(
-								eq(stops.parent_station, stationStopId),
-								...groupStopNames.map(
-									(name) => sql`lower(${stops.stop_name}) = lower(${name})`,
-								),
-							),
-						),
-					)
-			: [];
+
+		/** Sibling platforms under other parents with the same display name (nearby only). */
+		let nameMatchedRows: {
+			stop_id: string | null;
+			parent_station: string | null;
+			stop_lat: unknown;
+			stop_lon: unknown;
+		}[] = [];
+		if (
+			groupStopNames.length > 0 &&
+			selectedStop.stop_lat != null &&
+			selectedStop.stop_lon != null
+		) {
+			const lat = Number(selectedStop.stop_lat);
+			const lon = Number(selectedStop.stop_lon);
+			const cosLat = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+			const lonDelta = STOP_BOARD_GROUP_LAT_DELTA / cosLat;
+			const nameMatch =
+				or(
+					...groupStopNames.map(
+						(name) => sql`lower(${stops.stop_name}) = lower(${name})`,
+					),
+				) ?? sql`false`;
+			nameMatchedRows = await db
+				.select({
+					stop_id: stops.stop_id,
+					parent_station: stops.parent_station,
+					stop_lat: stops.stop_lat,
+					stop_lon: stops.stop_lon,
+				})
+				.from(stops)
+				.where(
+					and(
+						eq(stops.operator, operator),
+						eq(stops.feed_version, feed.stops),
+						eq(stops.location_type, 0),
+						nameMatch,
+						gte(stops.stop_lat, lat - STOP_BOARD_GROUP_LAT_DELTA),
+						lte(stops.stop_lat, lat + STOP_BOARD_GROUP_LAT_DELTA),
+						gte(stops.stop_lon, lon - lonDelta),
+						lte(stops.stop_lon, lon + lonDelta),
+					),
+				);
+		}
+
+		const platformRows = [...directPlatformRows, ...nameMatchedRows];
+		const seenPlatformIds = new Set<string>();
 		const groupedPlatformRows = platformRows.filter((row) => {
+			if (!row.stop_id || seenPlatformIds.has(row.stop_id)) return false;
+			seenPlatformIds.add(row.stop_id);
 			if (row.parent_station === stationStopId) return true;
 			if (
 				selectedStop.stop_lat == null ||
@@ -1042,13 +1086,15 @@ export const resolveStopBoardStopIdsFromDatabase = async (
 			]),
 		];
 
+		/** Cap board size so departure queries stay within statement time budgets. */
+		const MAX_BOARD_STOP_IDS = 80;
+		const cappedBoardStopIds =
+			platformStopIds.length > 0 ? platformStopIds : [selectedStop.stop_id];
+
 		return {
 			stationStopId,
 			stationStopIds,
-			boardStopIds:
-				shouldExpandToStationPlatforms && platformStopIds.length > 0
-					? platformStopIds
-					: [selectedStop.stop_id],
+			boardStopIds: cappedBoardStopIds.slice(0, MAX_BOARD_STOP_IDS),
 		};
 	} catch (error) {
 		console.log(error);
@@ -1148,7 +1194,7 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 		}
 
 		const dt = getGtfsDateTime();
-		const hoursAhead = UPCOMING_TRIPS_HOURS_AHEAD;
+		const hoursAhead = STOP_BOARD_HOURS_AHEAD;
 		const minutesFilter = createMinutesFilter(stop_times.departure_time);
 		const serviceWindowFilter = createUpcomingServiceWindowFilter(
 			minutesFilter,
@@ -1197,11 +1243,13 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 					eq(stop_times.operator, stops.operator),
 				),
 			)
-			.leftJoin(
+			.innerJoin(
 				calendarDates,
 				and(
 					eq(trips.service_id, calendarDates.service_id),
 					eq(trips.operator, calendarDates.operator),
+					eq(calendarDates.feed_version, feed.calendarDates),
+					eq(calendarDates.operator, operator),
 				),
 			)
 			.where(
@@ -1210,12 +1258,10 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 					eq(routes.operator, operator),
 					eq(stop_times.operator, operator),
 					eq(stops.operator, operator),
-					eq(calendarDates.operator, operator),
 					eq(trips.feed_version, feed.trips),
 					eq(routes.feed_version, feed.routes),
 					eq(stop_times.feed_version, feed.stopTimes),
 					eq(stops.feed_version, feed.stops),
-					eq(calendarDates.feed_version, feed.calendarDates),
 					inArray(stop_times.stop_id, boardStopIds),
 					eq(calendarDates.exception_type, 1),
 					serviceWindowFilter,
@@ -1240,7 +1286,7 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 				trips.shape_id,
 			)
 			.orderBy(stop_times.departure_time)
-			.limit(UPCOMING_TRIPS_LIMIT);
+			.limit(STOP_BOARD_DEPARTURES_LIMIT);
 
 		return {
 			stationStopId,
