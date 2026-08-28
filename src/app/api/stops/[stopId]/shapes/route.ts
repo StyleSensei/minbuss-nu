@@ -3,6 +3,7 @@ import { getCachedStopShapes } from "@/app/services/cacheHelper";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
 export const revalidate = 86400;
+export const maxDuration = 60;
 
 export async function GET(
 	request: NextRequest,

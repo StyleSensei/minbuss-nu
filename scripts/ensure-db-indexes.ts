@@ -21,6 +21,7 @@ const INDEX_STATEMENTS = [
 	`CREATE UNIQUE INDEX IF NOT EXISTS uq_calendar_dates_operator_service_date ON calendar_dates (operator, service_id, date)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS uq_stop_times_operator_trip_seq_stop ON stop_times (operator, trip_id, stop_sequence, stop_id)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS uq_shapes_operator_shape_seq ON shapes (operator, shape_id, shape_pt_sequence)`,
+	`CREATE INDEX IF NOT EXISTS idx_shapes_operator_feed ON shapes (operator, feed_version)`,
 ];
 
 async function main() {

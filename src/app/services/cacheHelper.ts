@@ -490,6 +490,7 @@ export async function getCachedStopShapes(
 	const allPoints = await selectShapesForIdsFromDatabase(
 		representativeShapeRefs.map((shape) => shape.shape_id),
 		operator,
+		feed.shapes ? [feed.shapes] : undefined,
 	);
 	const pointsByShapeId = new Map<string, IShapes[]>();
 	for (const point of allPoints) {
