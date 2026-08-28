@@ -9,8 +9,10 @@ import {
 	useState,
 } from "react";
 import type { IVehiclePosition } from "@/shared/models/IVehiclePosition";
-import { arrow } from "../../../public/icons";
+import { arrow, chevronsCollapse, chevronsExpand } from "../../../public/icons";
+import colors from "../colors";
 import { useDataContext } from "../context/DataContext";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { useOverflow } from "../hooks/useOverflow";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
 import { getClosest } from "../utilities/getClosest";
@@ -24,6 +26,7 @@ import {
 	toggleStopBoardLine,
 } from "../utilities/stopBoardLineFilter";
 import { hasDisplayablePlatformCode } from "../utilities/stopBoardStopResolution";
+import { Button } from "./Button";
 import { CurrentTripsLoader } from "./CurrentTripsLoader";
 import { Icon } from "./Icon";
 import { PanelCloseButton } from "./PanelCloseButton";
@@ -118,6 +121,9 @@ export const CurrentTrips = ({
 }: ICurrentTripsProps) => {
 	const { containerRef, isOverflowing, checkOverflow, isScrolledToBottom } =
 		useOverflow();
+	const isMobile = useIsMobile();
+	const [isCollapsed, setIsCollapsed] = useState(false);
+	const showOverflowChrome = !isMobile || !isCollapsed;
 	const {
 		filteredVehicles,
 		tripData,
@@ -671,17 +677,54 @@ export const CurrentTrips = ({
 		tripData.upcomingTrips.length,
 		listBoardStop?.stop_id,
 		selectedStopRouteLines?.join("|") ?? "",
+		isCollapsed,
+		isMobile,
 	]);
 
+	useEffect(() => {
+		if (isCollapsed && isMobile) {
+			containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+		}
+	}, [isCollapsed, isMobile, containerRef]);
+
+	const collapseToggle = (
+		<div className="current-trips__collapse-toggle">
+			<Button
+				title={isCollapsed ? "Expandera vy" : "Minska vy"}
+				className="--collapsible"
+				path={!isCollapsed ? chevronsCollapse.path : chevronsExpand.path}
+				color={colors.secondary}
+				viewBox={
+					!isCollapsed ? chevronsCollapse.viewBox : chevronsExpand.viewBox
+				}
+				iconSize={18}
+				fill={!isCollapsed ? chevronsCollapse.fill : chevronsExpand.fill}
+				onClick={() => {
+					setIsCollapsed(!isCollapsed);
+				}}
+			/>
+		</div>
+	);
+
 	if (showCurrentTripsLoader) {
-		return <CurrentTripsLoader />;
+		return (
+			<div className="current-trips">
+				{onClose ? <PanelCloseButton onClose={onClose} /> : null}
+				<div
+					className={`table-container ${isCollapsed && isMobile ? "--collapsed" : ""}`}
+				>
+					<CurrentTripsLoader />
+				</div>
+				{collapseToggle}
+			</div>
+		);
 	}
 
 	return (
 		<div className="current-trips">
 			{onClose ? <PanelCloseButton onClose={onClose} /> : null}
 			<div
-				className={`table-container ${isOverflowing ? "--overflowing" : ""} ${isScrolledToBottom ? "--at-bottom" : ""}`}
+				className={`table-container ${isOverflowing && showOverflowChrome ? "--overflowing" : ""} ${isScrolledToBottom && showOverflowChrome ? "--at-bottom" : ""} ${isCollapsed && isMobile ? "--collapsed" : ""}`}
 				aria-live="polite"
 				ref={containerRef}
 				onScroll={checkOverflow}
@@ -1024,6 +1067,7 @@ export const CurrentTrips = ({
 					</p>
 				)}
 			</div>
+			{collapseToggle}
 		</div>
 	);
 };

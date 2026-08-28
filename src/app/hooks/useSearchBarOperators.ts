@@ -7,7 +7,12 @@ import {
 import { getOperatorDisplayLabel } from "@shared/config/gtfsOperators";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { parseOperatorFromRealtimePathname, searchPathForOperator } from "../paths";
+import {
+	LINE_SEARCH_QUERY,
+	parseOperatorFromRealtimePathname,
+	searchPathForOperator,
+	STOP_SEARCH_QUERY,
+} from "../paths";
 import { isLikelyLineNumberQuery } from "../utilities/searchBarHelpers";
 
 export interface RegionOption {
@@ -117,8 +122,9 @@ export function useSearchBarOperators({
 			onOperatorSwitchReset();
 			const p = new URLSearchParams(searchParams.toString());
 			p.delete("operator");
-			p.delete("linje");
+			p.delete(LINE_SEARCH_QUERY);
 			p.delete("mapfit");
+			p.delete(STOP_SEARCH_QUERY);
 			const qs = p.toString();
 			const base = searchPathForOperator(next);
 			router.replace(qs ? `${base}?${qs}` : base);

@@ -1,37 +1,42 @@
 'use client';
+import type { IDbData } from '@shared/models/IDbData';
 import type { IVehicleFilterResult } from '@shared/models/IVehiclePosition';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { createPortal } from 'react-dom';
 import {
   Suspense,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
+import { getOperatorMapView } from '@/shared/config/gtfsOperators';
 import type { ITripUpdate } from '@/shared/models/ITripUpdate';
+import { close } from '../../../public/icons';
 import type { ITripData } from '../context/DataContext';
 import { useDataContext } from '../context/DataContext';
 import { useSearchBarOperators } from '../hooks/useSearchBarOperators';
 import { useSearchBarRealtimeData } from '../hooks/useSearchBarRealtimeData';
 import { useSearchBarTripDataCache } from '../hooks/useSearchBarTripDataCache';
 import { useSearchBarUi } from '../hooks/useSearchBarUi';
-import { getOperatorMapView } from '@/shared/config/gtfsOperators';
 import {
+  LINE_SEARCH_QUERY,
   lineSearchUrl,
   searchPathForOperator,
-  searchUrlWithoutLine,
+  searchUrlWithoutStop,
+  STOP_SEARCH_QUERY,
+  stopSearchUrl,
 } from '../paths';
 import type { IError } from '../services/cacheHelper';
 import { appendOperatorToApiUrl } from '../utilities/appendOperatorToApiUrl';
 import {
   isLikelyLineNumberQuery,
   mergeDuplicateStopsByName,
-  stopRowToDbData,
   type StopWithRoutesRow,
+  stopRowToDbData,
 } from '../utilities/searchBarHelpers';
+import { Icon } from './Icon';
 import { RegionSelect } from './RegionSelect';
 import SearchError from './SearchError';
 import { SearchInputRow } from './SearchInputRow';
@@ -130,9 +135,35 @@ function currentUrlLinjeUpper(): string {
   if (typeof window === 'undefined') return '';
   return (
     new URLSearchParams(window.location.search)
-      .get('linje')
+      .get(LINE_SEARCH_QUERY)
       ?.trim()
       .toUpperCase() ?? ''
+  );
+}
+
+function ActiveSearchTag({
+  label,
+  title,
+  onClear,
+}: {
+  label: string;
+  title: string;
+  onClear: () => void;
+}) {
+  return (
+    <button
+      type='button'
+      className='search-bar__stop-tag'
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={onClear}
+      title={title}
+      aria-label={title}
+    >
+      <span className='search-bar__stop-tag-name'>{label}</span>
+      <span className='search-bar__stop-tag-close' aria-hidden>
+        <Icon path={close} fill='currentColor' iconSize='12' title='' />
+      </span>
+    </button>
   );
 }
 
@@ -158,10 +189,10 @@ export const SearchBar = ({
   path2,
 }: SearchBarProps) => {
   const searchParams = useSearchParams();
-  const linjeFromUrl = searchParams.get('linje');
-  const [userInput, setUserInput] = useState<string>(
-    () => linjeFromUrl?.toUpperCase() ?? '',
-  );
+  const linjeFromUrl = searchParams.get(LINE_SEARCH_QUERY);
+  const hallplatsFromUrl = searchParams.get(STOP_SEARCH_QUERY)?.trim() ?? '';
+  const activeLine = linjeFromUrl?.trim().toUpperCase() ?? '';
+  const [userInput, setUserInput] = useState('');
   const [showError, setShowError] = useState(true);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputContainerRef = useRef<HTMLDivElement | null>(null);
@@ -236,6 +267,9 @@ export const SearchBar = ({
       latestVehicleLineRef.current = '';
       setUserInput('');
       setShowError(false);
+      setSelectedStopForSchedule(null);
+      setSelectedStopRouteLines(null);
+      setIsCurrentTripsOpen(false);
     },
     fetchJsonOrThrow,
     fetchAllRoutes,
@@ -287,10 +321,13 @@ export const SearchBar = ({
     [filteredVehicles?.data],
   );
 
+  const committedLineExists =
+    routesLoaded && Boolean(activeLine) && Boolean(allRoutes.asObject[activeLine]);
+
   const { resetGeneration } = useSearchBarTripDataCache({
-    userInput,
+    userInput: activeLine,
     effectiveOperator,
-    routeExists,
+    routeExists: committedLineExists,
     vehicleTripIds,
     userClosestStopName: userPosition?.closestStop?.stop_name,
     selectedStopName: selectedStopForSchedule?.stop_name,
@@ -350,10 +387,10 @@ export const SearchBar = ({
   });
 
   const { runLineQuery } = useSearchBarRealtimeData({
-    userInput,
+    userInput: activeLine,
     effectiveOperator,
     routesLoaded,
-    routeExists,
+    routeExists: committedLineExists,
     allRoutesAsObject: allRoutes.asObject,
     filteredVehiclesLength: filteredVehicles?.data.length ?? 0,
     setIsLoading,
@@ -370,26 +407,47 @@ export const SearchBar = ({
       selectedStopForSchedule !== null && !linjeFromUrl,
   });
 
+  const selectedStopIdRef = useRef(selectedStopForSchedule?.stop_id ?? null);
+  selectedStopIdRef.current = selectedStopForSchedule?.stop_id ?? null;
+  const prevSelectedStopIdRef = useRef<string | null>(null);
+
   const clearedLineForStopIdRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!effectiveOperator) return;
     const stopId = selectedStopForSchedule?.stop_id ?? null;
+    const previousStopId = prevSelectedStopIdRef.current;
+    prevSelectedStopIdRef.current = stopId;
+
     if (!stopId) {
       clearedLineForStopIdRef.current = null;
+      if (!previousStopId) return;
+      const params = new URLSearchParams(searchParamsStringRef.current);
+      if (params.get(STOP_SEARCH_QUERY) !== previousStopId) return;
+      router.replace(
+        searchUrlWithoutStop(effectiveOperator, searchParamsStringRef.current),
+      );
       return;
     }
-    if (clearedLineForStopIdRef.current === stopId) return;
-    clearedLineForStopIdRef.current = stopId;
 
-    latestVehicleLineRef.current = '';
-    setUserInput('');
-    setShowError(false);
-    resetGeneration();
-    setFilteredVehicles({ data: [], error: undefined });
-    setFilteredTripUpdates([]);
-    resetTripDataToEmpty();
-    router.replace(
-      searchUrlWithoutLine(effectiveOperator, searchParamsStringRef.current),
-    );
+    if (clearedLineForStopIdRef.current !== stopId) {
+      clearedLineForStopIdRef.current = stopId;
+      latestVehicleLineRef.current = '';
+      setUserInput('');
+      setShowError(false);
+      resetGeneration();
+      setFilteredVehicles({ data: [], error: undefined });
+      setFilteredTripUpdates([]);
+      resetTripDataToEmpty();
+    }
+
+    const params = new URLSearchParams(searchParamsStringRef.current);
+    if (
+      params.get(STOP_SEARCH_QUERY) === stopId &&
+      !params.get(LINE_SEARCH_QUERY)
+    ) {
+      return;
+    }
+    router.replace(stopSearchUrl(stopId, effectiveOperator));
   }, [
     effectiveOperator,
     resetGeneration,
@@ -401,21 +459,107 @@ export const SearchBar = ({
   ]);
 
   useEffect(() => {
+    if (!effectiveOperator || !hallplatsFromUrl) return;
+    if (activeLine) {
+      router.replace(
+        searchUrlWithoutStop(effectiveOperator, searchParamsStringRef.current),
+      );
+      return;
+    }
+    if (selectedStopIdRef.current === hallplatsFromUrl) return;
+
+    let cancelled = false;
+    const abort = new AbortController();
+    void (async () => {
+      try {
+        const res = await fetch(
+          appendOperatorToApiUrl(
+            `/api/stops/${encodeURIComponent(hallplatsFromUrl)}/routes`,
+            effectiveOperator,
+          ),
+          { signal: abort.signal },
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          if (res.status === 404) {
+            router.replace(
+              searchUrlWithoutStop(
+                effectiveOperator,
+                searchParamsStringRef.current,
+              ),
+            );
+          }
+          return;
+        }
+        const data = (await res.json()) as {
+          stop_id: string;
+          stop_name: string;
+          platform_code?: string | null;
+          stop_lat: number;
+          stop_lon: number;
+          feed_version?: string;
+          routes: string[];
+        };
+        if (cancelled) return;
+        const stopDb: IDbData = {
+          trip_id: '',
+          shape_id: '',
+          route_short_name: '',
+          stop_headsign: '',
+          stop_id: data.stop_id,
+          departure_time: '',
+          stop_name: data.stop_name,
+          platform_code: data.platform_code,
+          stop_sequence: 0,
+          stop_lat: data.stop_lat,
+          stop_lon: data.stop_lon,
+          feed_version: data.feed_version ?? '',
+        };
+        setSelectedStopForSchedule(stopDb);
+        setSelectedStopRouteLines(
+          [...data.routes].sort((a, b) => a.localeCompare(b, 'sv')),
+        );
+        setSelectedStopLineFilter(null);
+        setSelectedStopPlatformFilter(null);
+        setSelectedStopModeFilter(null);
+        setIsCurrentTripsOpen(true);
+      } catch (error) {
+        if (cancelled || abort.signal.aborted) return;
+        console.error(error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      abort.abort();
+    };
+  }, [
+    activeLine,
+    effectiveOperator,
+    hallplatsFromUrl,
+    router,
+    setIsCurrentTripsOpen,
+    setSelectedStopForSchedule,
+    setSelectedStopLineFilter,
+    setSelectedStopModeFilter,
+    setSelectedStopPlatformFilter,
+    setSelectedStopRouteLines,
+  ]);
+
+  useEffect(() => {
     latestVehicleLineRef.current = userInput;
   }, [userInput]);
 
-  useLayoutEffect(() => {
-    if (!linjeFromUrl) return;
-    const next = linjeFromUrl.toUpperCase();
-    setUserInput(next);
-    latestVehicleLineRef.current = next;
-    setStopSearchList([]);
-    setNearbyStopsList([]);
-  }, [linjeFromUrl]);
+  useEffect(() => {
+    if (!activeLine) return;
+    setUserInput((current) =>
+      current.trim().toUpperCase() === activeLine ? '' : current,
+    );
+  }, [activeLine, userInput]);
 
   useEffect(() => {
     if (!routesLoaded) return;
-    const line = userInput.trim();
+    const line = activeLine;
     const isValid = !!allRoutes.asObject[line];
     if (isValid) {
       if (
@@ -438,7 +582,7 @@ export const SearchBar = ({
       prevValidLineRef.current = null;
     }
   }, [
-    userInput,
+    activeLine,
     routesLoaded,
     allRoutes.asObject,
     selectedStopForSchedule,
@@ -449,15 +593,13 @@ export const SearchBar = ({
 
   useEffect(() => {
     if (!routesLoaded) return;
-    if (!linjeFromUrl) return;
-    const normalizedUrl = linjeFromUrl.toUpperCase();
-    if (normalizedUrl !== userInput.trim().toUpperCase()) return;
+    if (!activeLine) return;
     try {
-      runLineQuery(linjeFromUrl);
+      runLineQuery(activeLine);
     } catch (error) {
       console.error('Error handling URL query:', error);
     }
-  }, [linjeFromUrl, userInput, routesLoaded, runLineQuery]);
+  }, [activeLine, routesLoaded, runLineQuery]);
 
   const handleStopPick = (row: StopWithRoutesRow) => {
     const stop = stopRowToDbData(row);
@@ -503,6 +645,32 @@ export const SearchBar = ({
     setSelectedStopForSchedule(null);
     setSelectedStopRouteLines(null);
     router.push(searchPathForOperator(effectiveOperator));
+    handleBlur();
+  };
+
+  const handleClearSelectedStop = () => {
+    setSelectedStopForSchedule(null);
+    setSelectedStopRouteLines(null);
+    setIsCurrentTripsOpen(false);
+  };
+
+  const handleClearLineSearch = () => {
+    latestVehicleLineRef.current = '';
+    setUserInput('');
+    clearSuggestions();
+    setShowError(false);
+    if (!selectedStopForSchedule) {
+      resetGeneration();
+      setFilteredVehicles({ data: [], error: undefined });
+      setFilteredTripUpdates([]);
+      resetTripDataToEmpty();
+      setIsCurrentTripsOpen(false);
+      router.push(searchPathForOperator(effectiveOperator));
+    } else {
+      router.push(
+        stopSearchUrl(selectedStopForSchedule.stop_id, effectiveOperator),
+      );
+    }
     handleBlur();
   };
 
@@ -586,13 +754,16 @@ export const SearchBar = ({
 
   const showRegionPicker =
     Boolean(operatorsMeta) && (operatorsMeta?.operators.length ?? 0) > 1;
+  const hasActiveTag =
+    selectedStopForSchedule !== null || Boolean(activeLine);
   const regionCompactLayout =
-    showRegionPicker && !isActive && !userInput.trim();
+    showRegionPicker && !isActive && (!userInput.trim() || Boolean(activeLine));
+  const selectedStopName = selectedStopForSchedule?.stop_name?.trim() ?? '';
 
   return (
     <>
       <div
-        className={`search-bar__layout${showRegionPicker ? ' search-bar__layout--with-region' : ''}${regionCompactLayout ? ' search-bar__layout--region-compact' : ''}`}
+        className={`search-bar__layout${showRegionPicker ? ' search-bar__layout--with-region' : ''}${regionCompactLayout ? ' search-bar__layout--region-compact' : ''}${hasActiveTag ? ' search-bar__layout--with-stop-tag' : ''}`}
       >
         <div
           ref={inputContainerRef}
@@ -632,6 +803,24 @@ export const SearchBar = ({
             </Suspense>
           ) : null}
         </div>
+        {hasActiveTag ? (
+          <div className='search-bar__active-tags'>
+            {selectedStopForSchedule ? (
+              <ActiveSearchTag
+                label={selectedStopName || 'Vald hållplats'}
+                title={`Avaktivera ${selectedStopName || 'hållplats'}`}
+                onClear={handleClearSelectedStop}
+              />
+            ) : null}
+            {activeLine ? (
+              <ActiveSearchTag
+                label={`Linje ${activeLine}`}
+                title={`Avaktivera linje ${activeLine}`}
+                onClear={handleClearLineSearch}
+              />
+            ) : null}
+          </div>
+        ) : null}
         {showRegionPicker ? (
           <div className='search-bar__region-slot'>
             <RegionSelect

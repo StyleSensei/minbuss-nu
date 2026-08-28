@@ -2,6 +2,8 @@
 @use '../mixins' as m;
 @use '../keyframes' as k;
 
+$max-height-collapsed: 148px;
+
 .current-trips {
     position: absolute;
     top: 10vh;
@@ -12,13 +14,15 @@
     height: auto;
     max-height: 80dvh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     color: v.$secondary-color;
     padding: 0;
     background-color: v.$primary-color;
     border: solid 5px v.$border-color;
     border-radius: v.$border-radius-standard;
     transition: all .5s ease;
-    z-index: 0;
+    z-index: 2;
 
     @media (min-width: m.$desktop) {
         width: 500px;
@@ -34,6 +38,20 @@
         .row-slide-#{$i} {
             $delay: $i * 0.1s;
             animation: fadeInDeparturesRow 0.8s ease-out $delay forwards;
+        }
+    }
+
+    &__collapse-toggle {
+        display: flex;
+        flex-shrink: 0;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+        padding: 0.15rem 0 0.4rem;
+        transition: opacity 0.25s ease-in-out;
+
+        @include m.desktop {
+            display: none;
         }
     }
 }
@@ -113,14 +131,26 @@
 
 .table-container {
     position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
     padding-top: 1.75rem;
     padding-right: calc(v.$padding-textBox + 1.25rem);
     overflow-y: auto;
-    max-height: 70dvh;
+    max-height: calc(70dvh - 3rem);
     padding: v.$padding-textBox;
-    transition: all .5s ease;
+    transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
     scrollbar-width: none;
     scroll-behavior: smooth;
+
+    &.--collapsed {
+        max-height: $max-height-collapsed;
+        overflow-y: hidden;
+    }
+
+    @include m.desktop {
+        max-height: 70dvh !important;
+        overflow-y: auto;
+    }
 
     &::-webkit-scrollbar {
         display: none;

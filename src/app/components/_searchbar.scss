@@ -14,7 +14,8 @@ $containerWidth: 278px;
     z-index: 5;
 }
 
-.search-bar__layout--with-region {
+.search-bar__layout--with-region,
+.search-bar__layout--with-stop-tag {
     flex-direction: row;
     flex-wrap: nowrap;
     justify-content: center;
@@ -104,17 +105,28 @@ $containerWidth: 278px;
 }
 
 .search-bar__layout--with-region:has(.search-bar__container.--with-stops) {
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+
+    .search-bar__active-tags {
+        order: 1;
+        flex: 1 1 auto;
+        align-self: center;
+        max-width: min(52vw, 260px);
+    }
+
     .search-bar__region-slot {
-        order: -1;
-        align-self: flex-end;
+        order: 2;
+        align-self: center;
         margin-left: 0;
     }
-    
+
     .search-bar__container {
+        order: 3;
+        flex: 1 0 100%;
         max-width: none;
         width: 100%;
         max-width: min(92vw, $containerWidth + 48px);
@@ -127,6 +139,115 @@ $containerWidth: 278px;
     flex: 0 0 auto;
     margin-left: auto;
     align-self: flex-start;
+}
+
+.search-bar__layout--with-stop-tag {
+    .search-bar__region-slot {
+        margin-left: 0;
+        align-self: center;
+    }
+
+    .region-select {
+        min-width: 0;
+    }
+}
+
+.search-bar__layout.search-bar__layout--with-stop-tag:not(:has(.search-bar__container.--active)):not(:has(.search-bar__container.--with-stops)) {
+    .search-bar__container {
+        flex: 0 0 auto;
+        max-width: none;
+        width: auto;
+    }
+
+    .search-bar__container form {
+        position: relative;
+        width: auto;
+        justify-content: center;
+    }
+
+    .search-bar__container form input {
+        position: absolute;
+        width: 1px !important;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .search-bar__container form .text-mode,
+    .search-bar__container form button[type="reset"] {
+        display: none !important;
+    }
+}
+
+.search-bar__active-tags {
+    pointer-events: all;
+    position: relative;
+    z-index: 6;
+    flex: 1 1 auto;
+    min-width: 7.5rem;
+    max-width: min(52vw, 260px);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.search-bar__stop-tag {
+    pointer-events: all;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+    border: none;
+    border-radius: 999px;
+    background: v.$active;
+    color: v.$primary-color;
+    box-shadow: 0 4px 20px 10px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    font-family: "Roboto", sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    transition: filter 0.2s ease, transform 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        filter: brightness(1.08);
+        outline: none;
+    }
+
+    &:focus-visible {
+        box-shadow: 0 0 0 2px v.$secondary-color, 0 4px 20px 10px rgba(0, 0, 0, 0.25);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
+}
+
+.search-bar__stop-tag-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-bar__stop-tag-close {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    background: rgba(v.$primary-color, 0.18);
 }
 
 .search-bar__operator-pills-track {

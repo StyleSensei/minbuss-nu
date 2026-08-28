@@ -116,6 +116,10 @@ $buttonHeightDesktop: 6vh;
     &.--table {
         @extend .--follow;
         margin-bottom: unset;
+
+        &.--active {
+            background-color: v.$active;
+        }
     }
 
     &.--collapsible {
@@ -153,6 +157,27 @@ $buttonHeightDesktop: 6vh;
     flex-direction: column;
     align-items: center;
     gap: .4rem;
+
+    &[role="button"],
+    &:is(button) {
+        cursor: pointer;
+        pointer-events: auto;
+        background: transparent;
+        padding: 0;
+        width: auto;
+        max-width: none;
+        max-height: none;
+        border: none;
+
+        .button {
+            pointer-events: none;
+        }
+    }
+
+    &.--pressed .label {
+        color: v.$active;
+        font-weight: 700;
+    }
 }
 
 .label {

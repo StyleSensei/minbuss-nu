@@ -1,15 +1,15 @@
-import { useEffect, type MutableRefObject } from "react";
-import { Button } from "./Button";
+import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
+import { type MutableRefObject, useEffect } from "react";
 import {
+	follow,
+	myPosition,
 	table,
 	zoomInIcon,
 	zoomOutIcon,
-	follow,
-	myPosition,
 } from "../../../public/icons";
 import colors from "../colors";
-import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
 import { useDataContext } from "../context/DataContext";
+import { Button } from "./Button";
 
 interface MapControlButtonsProps {
 	googleMapRef: MutableRefObject<google.maps.Map | null>;
@@ -38,12 +38,13 @@ export const MapControlButtons = ({
 	mapReady,
 	onMyPositionClick,
 }: MapControlButtonsProps) => {
-	const { userPosition, tripData } = useDataContext();
+	const { userPosition, tripData, selectedStopForSchedule } = useDataContext();
 	const canShowTripsButton =
-		Boolean(userPosition) &&
-		(filteredVehicles?.data.length > 0 ||
-			tripData.upcomingTrips.length > 0 ||
-			tripData.lineStops.length > 0);
+		selectedStopForSchedule !== null ||
+		(Boolean(userPosition) &&
+			(filteredVehicles?.data.length > 0 ||
+				tripData.upcomingTrips.length > 0 ||
+				tripData.lineStops.length > 0));
 
 	useEffect(() => {
 		const inputContainer = document.getElementById("searchbar");
@@ -99,16 +100,31 @@ export const MapControlButtons = ({
 			</div>
 
 			{canShowTripsButton && (
-				<div className="map-control-button-container">
-					<p className="label table-label">Tabell</p>
-					<Button
-						title="Visa pågående resor"
-						path={table.path}
-						fill={showCurrentTrips ? colors.primary : colors.secondary}
-						className={showCurrentTrips ? "--table --active" : "--table"}
-						onClick={handleOnClick}
-					/>
-				</div>
+				<button
+					type="button"
+					className={`map-control-button-container${showCurrentTrips ? " --pressed" : ""}`}
+					onPointerDown={(event) => event.stopPropagation()}
+					onClick={handleOnClick}
+					aria-pressed={showCurrentTrips}
+					title={showCurrentTrips ? "Dölj avgångstabell" : "Visa avgångstabell"}
+				>
+					<span className="label table-label">Tabell</span>
+					<span
+						className={`button --table${showCurrentTrips ? " --active" : ""}`}
+						aria-hidden
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width={18}
+							height={18}
+							fill={showCurrentTrips ? colors.primary : colors.secondary}
+							viewBox="0 0 16 16"
+						>
+							<title>Tabell</title>
+							<path d={table.path} />
+						</svg>
+					</span>
+				</button>
 			)}
 			{filteredVehicles?.data.length > 0 && activeMarker && (
 				<div className="map-control-button-container">

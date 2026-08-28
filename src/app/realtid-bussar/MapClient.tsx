@@ -24,7 +24,7 @@ import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useStopBoardShapes } from "../hooks/useStopBoardShapes";
 import { useStopDepartures } from "../hooks/useStopDepartures";
-import { parseOperatorFromRealtimePathname } from "../paths";
+import { parseOperatorFromRealtimePathname, STOP_SEARCH_QUERY } from "../paths";
 import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
 import { createRouteShapeColorMap } from "../utilities/routeShapeColors";
 import {
@@ -116,6 +116,8 @@ export default function MapClient() {
 		string | null
 	>(null);
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
+	const hallplatsParam = searchParams.get(STOP_SEARCH_QUERY)?.trim() ?? "";
+	const urlSearchTarget = linjeParam || hallplatsParam;
 	const isPinnedStopMode =
 		selectedStopForSchedule !== null && !linjeParam;
 	const filteredStopBoard = useMemo(
@@ -368,7 +370,7 @@ export default function MapClient() {
 		mapRef,
 		mapOperatorForView,
 		operatorMapView.defaultCenter,
-		linjeParam,
+		urlSearchTarget,
 		userPosition,
 		focusUserParam,
 		centerMapOnUser,
@@ -441,7 +443,7 @@ export default function MapClient() {
 	const { mapMountReady, mapInitialCenter } = useMapInitialCenter(
 		userPosition,
 		operatorMapView.defaultCenter,
-		linjeParam,
+		urlSearchTarget,
 		centerMapOnUser,
 	);
 	const canMountMap =
@@ -660,9 +662,13 @@ export default function MapClient() {
 				setShowCurrentTrips(true);
 				return;
 			}
+			if (selectedStopForSchedule) {
+				setShowCurrentTrips(false);
+				return;
+			}
 			handleCloseCurrentTrips();
 		},
-		[handleCloseCurrentTrips],
+		[handleCloseCurrentTrips, selectedStopForSchedule],
 	);
 
 	const handleCloseInfoWindow = useCallback(() => {
@@ -818,24 +824,26 @@ export default function MapClient() {
 									activeStopMarkerId,
 									selectedStopPlatformFilter,
 									selectedStopForSchedule?.stop_id,
-									showCurrentTrips,
+									showCurrentTrips || selectedStopForSchedule !== null,
 								)}
 								focusedStationIds={focusedStationIds}
 							/>
 						)}
-						{showCurrentTrips && hasRouteData && userPosition && (
-							<CurrentTrips
-								onTripSelect={handleTripSelect}
-								onClose={handleCloseCurrentTrips}
-								mapRef={mapRef}
-								followedTripId={followedTripId ?? fallbackFollowed.tripId}
-								closestStop={
-									selectedStopForSchedule ??
-									userPosition?.closestStop ??
-									undefined
-								}
-							/>
-						)}
+						{showCurrentTrips &&
+							hasRouteData &&
+							(userPosition || selectedStopForSchedule) && (
+								<CurrentTrips
+									onTripSelect={handleTripSelect}
+									onClose={handleCloseCurrentTrips}
+									mapRef={mapRef}
+									followedTripId={followedTripId ?? fallbackFollowed.tripId}
+									closestStop={
+										selectedStopForSchedule ??
+										userPosition?.closestStop ??
+										undefined
+									}
+								/>
+							)}
 						{userPosition && mapRef.current && (
 							<AdvancedMarker
 								title={"Min position"}
