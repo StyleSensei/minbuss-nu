@@ -20,7 +20,14 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
-import { createMinutesFilter } from "@/app/utilities/calculateTimeFilter";
+import {
+	createMinutesFilter,
+	TimeThresholds,
+} from "@/app/utilities/calculateTimeFilter";
+import {
+	buildUpcomingServiceDayWindows,
+	isGtfsEarlyMorning,
+} from "@/app/utilities/upcomingDepartureWindow";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
 import { MetricsTracker } from "@/app/utilities/MetricsTracker";
@@ -48,36 +55,51 @@ function createUpcomingServiceWindowFilter(
 	dt: ReturnType<typeof getGtfsDateTime>,
 	hoursAhead: number,
 ): SQL {
-	const windowStart = dt.minus({ minutes: 15 });
-	const windowEnd = dt.plus({ hours: hoursAhead });
-	const serviceDays = [
-		dt.minus({ days: 1 }).startOf("day"),
-		dt.startOf("day"),
-		dt.plus({ days: 1 }).startOf("day"),
-	];
-	const clauses = serviceDays.flatMap((serviceDay) => {
-		const minMinutes = Math.max(
-			0,
-			Math.floor(windowStart.diff(serviceDay, "minutes").minutes),
-		);
-		const maxMinutes = Math.ceil(windowEnd.diff(serviceDay, "minutes").minutes);
-		if (maxMinutes < minMinutes) return [];
+	if (isGtfsEarlyMorning(dt.hour)) {
+		const yesterday = dt.minus({ days: 1 }).startOf("day");
+		const today = dt.startOf("day");
+		const endTimeMinutes =
+			(dt.hour + hoursAhead + 24) * 60 + dt.minute;
 
-		return [
+		return (
+			or(
+				and(
+					eq(
+						calendarDates.date,
+						new Date(yesterday.toFormat("yyyy-MM-dd")),
+					),
+					gte(minutesFilter, TimeThresholds.THIRTY_MIN_BEFORE_MIDNIGHT),
+				),
+				and(
+					eq(calendarDates.date, new Date(today.toFormat("yyyy-MM-dd"))),
+					or(
+						gte(minutesFilter, TimeThresholds.THIRTY_MIN_BEFORE_MIDNIGHT),
+						and(
+							gte(minutesFilter, TimeThresholds.MIDNIGHT),
+							lte(minutesFilter, endTimeMinutes),
+						),
+					),
+				),
+			) ?? sql`false`
+		);
+	}
+
+	const clauses = buildUpcomingServiceDayWindows(dt, hoursAhead).flatMap(
+		({ serviceDate, minMinutes, maxMinutes }) => [
 			and(
-				eq(calendarDates.date, new Date(serviceDay.toFormat("yyyy-MM-dd"))),
+				eq(calendarDates.date, new Date(serviceDate)),
 				gte(minutesFilter, minMinutes),
 				lte(minutesFilter, maxMinutes),
 			),
-		];
-	});
+		],
+	);
 
 	return or(...clauses) ?? sql`false`;
 }
 
-/** Chronological board order: service date, then GTFS minutes (not lex HH:MM). */
+/** Chronological board order: calendar date + GTFS minutes (handles 25:30 etc.). */
 function upcomingDepartureOrderBy(minutesFilter: SQL): SQL {
-	return sql`min(${calendarDates.date}), ${minutesFilter}`;
+	return sql`min(${calendarDates.date}) + (${minutesFilter} * interval '1 minute')`;
 }
 
 /** Active trip IDs on a line — trips+routes only (for realtime filtering). */
