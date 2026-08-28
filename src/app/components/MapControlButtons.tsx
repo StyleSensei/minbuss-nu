@@ -132,6 +132,10 @@ export const MapControlButtons = ({
 						fill={followBus ? colors.primary : colors.secondary}
 						className={followBus ? "--follow --active" : "--follow"}
 						onClick={() => {
+							if (!followBus && mapReady && googleMapRef.current) {
+								googleMapRef.current.setTilt(0);
+								googleMapRef.current.setHeading(0);
+							}
 							setFollowBus(!followBus);
 						}}
 					/>

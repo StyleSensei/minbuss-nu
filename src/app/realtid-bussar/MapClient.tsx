@@ -726,8 +726,6 @@ export default function MapClient() {
 						onCameraChanged={handleCameraChanged}
 						disableDefaultUI={true}
 						rotateControl={false}
-						tiltInteractionEnabled={false}
-						headingInteractionEnabled={false}
 						mapTypeControl={false}
 						streetViewControl={false}
 						fullscreenControl={false}
