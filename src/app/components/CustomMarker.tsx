@@ -320,6 +320,11 @@ export default function CustomMarker({
 		}
 
 		const map = googleMapRef.current;
+		let disposed = false;
+		// Följ-läge använder CSS translate på kartans innersta lager — det krockar med 3D-lutning/rotation.
+		map.setTilt(0);
+		map.setHeading(0);
+
 		const mapDiv = map.getDiv();
 		const innerDiv = mapDiv.querySelector(
 			".gm-style > div:first-child",
@@ -352,6 +357,12 @@ export default function CustomMarker({
 		google.maps.event.trigger(map, "resize");
 
 		onPositionWriteRef.current = (lat: number, lng: number) => {
+			if (disposed || googleMapRef.current !== map) return;
+			if (map.getTilt() !== 0 || map.getHeading() !== 0) {
+				map.setTilt(0);
+				map.setHeading(0);
+			}
+
 			const proj = map.getProjection();
 			const zoom = map.getZoom();
 			if (!proj || zoom == null) return;
@@ -383,12 +394,15 @@ export default function CustomMarker({
 		};
 
 		return () => {
+			disposed = true;
 			onPositionWriteRef.current = null;
 			innerDiv.style.transform = "";
 			mapDiv.removeAttribute("data-follow-expand");
 			styleEl.remove();
 			if (parentEl) parentEl.style.overflow = savedParentOverflow;
-			google.maps.event.trigger(map, "resize");
+			if (googleMapRef.current === map) {
+				google.maps.event.trigger(map, "resize");
+			}
 		};
 	}, [marker, isActive, followBus, googleMapRef]);
 

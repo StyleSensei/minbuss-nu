@@ -48,13 +48,10 @@ export const MapControlButtons = ({
 
 	useEffect(() => {
 		const inputContainer = document.getElementById("searchbar");
-		inputContainer?.addEventListener("focus", () => {
-			setFollowBus(false);
-		});
+		const endFollowOnSearchFocus = () => setFollowBus(false);
+		inputContainer?.addEventListener("focus", endFollowOnSearchFocus);
 		return () => {
-			inputContainer?.removeEventListener("focus", () => {
-				setFollowBus(false);
-			});
+			inputContainer?.removeEventListener("focus", endFollowOnSearchFocus);
 		};
 	}, [setFollowBus]);
 
