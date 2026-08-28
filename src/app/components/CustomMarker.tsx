@@ -47,6 +47,7 @@ interface ICustomMarkerProps {
 	onActivateMarker: (id: string | null) => void;
 	tripsByTripId: Map<string, IDbData[]>;
 	mapZoom: number;
+	mapHeading?: number;
 	zIndex?: number;
 	routeColor?: string;
 }
@@ -66,6 +67,7 @@ export default function CustomMarker({
 	onActivateMarker,
 	tripsByTripId,
 	mapZoom,
+	mapHeading = 0,
 	zIndex = 100,
 	routeColor,
 }: ICustomMarkerProps) {
@@ -454,6 +456,10 @@ export default function CustomMarker({
 		? `${tripForMarker.route_short_name || "Okänd linje"},${tripForMarker.stop_headsign || "Okänd destination"}`
 		: "Fordon";
 
+	const vehicleBearing = currentVehicle.position.bearing;
+	const markerRotationDeg =
+		vehicleBearing == null ? null : vehicleBearing - mapHeading;
+
 	return (
 		<>
 			<AdvancedMarker
@@ -466,10 +472,13 @@ export default function CustomMarker({
 				zIndex={zIndex}
 			>
 				<div
-					className={`custom-marker ${isActive ? "--active" : ""}`}
+					className={`custom-marker ${isActive ? "--active" : ""} ${markerRotationDeg != null ? "--directional" : ""}`}
 					style={{
 						width: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
 						height: Math.min(42, Math.max(18, 18 + (mapZoom - 10) * 4)),
+						...(markerRotationDeg != null
+							? { transform: `translate(-50%, -50%) rotate(${markerRotationDeg}deg)` }
+							: {}),
 						...(routeColor
 							? { ["--marker-route-color" as string]: routeColor }
 							: {}),

@@ -40,6 +40,7 @@ import { useHideUserMarkerDuringZoom } from "./mapClient/hooks/useHideUserMarker
 import { useInitialRegionFromGeo } from "./mapClient/hooks/useInitialRegionFromGeo";
 import { useLandingChromeHide } from "./mapClient/hooks/useLandingChromeHide";
 import { useLineShapeFitBounds } from "./mapClient/hooks/useLineShapeFitBounds";
+import { useMap3DCamera } from "./mapClient/hooks/useMap3DCamera";
 import { useMapBootRecoveryAndOnline } from "./mapClient/hooks/useMapBootRecoveryAndOnline";
 import {
 	useInitialLinjeFromDocumentRef,
@@ -329,6 +330,11 @@ export default function MapClient() {
 		operatorMapView.restriction,
 		focusedStationIds,
 		focusedStationStops,
+	);
+
+	const { is3DViewEnabled, toggle3DView, resetMapHeading } = useMap3DCamera(
+		mapReady,
+		mapRef,
 	);
 
 	const { clearVectorPaintIdleWatchers, beginVectorMapAttach } =
@@ -720,6 +726,8 @@ export default function MapClient() {
 						onCameraChanged={handleCameraChanged}
 						disableDefaultUI={true}
 						rotateControl={false}
+						tiltInteractionEnabled={true}
+						headingInteractionEnabled={true}
 						mapTypeControl={false}
 						streetViewControl={false}
 						fullscreenControl={false}
@@ -747,6 +755,9 @@ export default function MapClient() {
 								activeMarker={activeMarkerId !== null}
 								mapReady={mapReady}
 								onMyPositionClick={handleMyPositionClick}
+								is3DViewEnabled={is3DViewEnabled}
+								onToggle3DView={toggle3DView}
+								onResetMapHeading={resetMapHeading}
 							/>
 						</MapControl>
 						<VehicleMarkers
@@ -757,6 +768,7 @@ export default function MapClient() {
 							currentTrips={markerTripRows}
 							lineShapes={activeLineShapes}
 							mapZoom={mapViewport?.zoom ?? zoomRef.current}
+							mapHeading={mapViewport?.heading ?? 0}
 							routeColors={
 								isPinnedStopMode ? stopRouteShapeColors : undefined
 							}

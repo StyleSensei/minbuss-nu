@@ -40,6 +40,7 @@ export function useMapViewportAndStopsFetch(
 	const [mapViewport, setMapViewport] = useState<{
 		zoom: number;
 		bounds: google.maps.LatLngBoundsLiteral;
+		heading: number;
 	} | null>(null);
 	const [allStopPositions, setAllStopPositions] = useState<
 		IStopPositionJson[] | null
@@ -54,7 +55,11 @@ export function useMapViewportAndStopsFetch(
 	viewportForStopsRef.current = viewportForStops;
 
 	const queueMapViewport = useCallback(
-		(zoom: number, bounds: google.maps.LatLngBoundsLiteral) => {
+		(
+			zoom: number,
+			bounds: google.maps.LatLngBoundsLiteral,
+			heading: number,
+		) => {
 			if (mapViewportDebounceRef.current) {
 				clearTimeout(mapViewportDebounceRef.current);
 				mapViewportDebounceRef.current = null;
@@ -62,7 +67,7 @@ export function useMapViewportAndStopsFetch(
 			mapViewportDebounceRef.current = setTimeout(() => {
 				mapViewportDebounceRef.current = null;
 				startTransition(() => {
-					setMapViewport({ zoom, bounds });
+					setMapViewport({ zoom, bounds, heading });
 				});
 			}, MAP_VIEWPORT_DEBOUNCE_MS);
 		},
@@ -196,7 +201,7 @@ export function useMapViewportAndStopsFetch(
 	const handleCameraChanged = useCallback(
 		(e: MapCameraChangedEvent) => {
 			const d = e.detail;
-			queueMapViewport(d.zoom, d.bounds);
+			queueMapViewport(d.zoom, d.bounds, d.heading);
 		},
 		[queueMapViewport],
 	);

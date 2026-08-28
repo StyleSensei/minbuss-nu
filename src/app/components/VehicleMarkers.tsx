@@ -21,6 +21,7 @@ interface IVehicleMarkersProps {
 	currentTrips: IDbData[];
 	lineShapes: { shape_id: string; points: IShapes[] }[];
 	mapZoom: number;
+	mapHeading?: number;
 	routeColors?: Map<string, string>;
 }
 

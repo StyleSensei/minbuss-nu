@@ -48,6 +48,19 @@ $userColor: rgb(0, 149, 255);
         background: v.$primary-color;
         animation: markerPulse 0.7s ease-out infinite;
     }
+
+    &.--directional::before {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-bottom: 7px solid rgb(0, 0, 0);
+    }
 }
 
 .line-destination-container {

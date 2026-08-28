@@ -13,6 +13,7 @@ export function useMapBootRecoveryAndOnline(
 		v: {
 			zoom: number;
 			bounds: google.maps.LatLngBoundsLiteral;
+			heading: number;
 		} | null,
 	) => void,
 ) {

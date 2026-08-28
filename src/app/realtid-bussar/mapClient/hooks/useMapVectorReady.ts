@@ -24,6 +24,7 @@ export function useMapVectorReady(
 		v: {
 			zoom: number;
 			bounds: google.maps.LatLngBoundsLiteral;
+			heading: number;
 		} | null,
 	) => void,
 ) {
@@ -124,7 +125,11 @@ export function useMapVectorReady(
 				}
 				zoomRef.current = z;
 				startTransition(() => {
-					setMapViewport({ zoom: z, bounds: boundsJson });
+					setMapViewport({
+						zoom: z,
+						bounds: boundsJson,
+						heading: map.getHeading() ?? 0,
+					});
 				});
 			}
 

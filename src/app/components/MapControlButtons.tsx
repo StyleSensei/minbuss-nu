@@ -6,6 +6,8 @@ import {
 	zoomOutIcon,
 	follow,
 	myPosition,
+	map3d,
+	compass,
 } from "../../../public/icons";
 import colors from "../colors";
 import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
@@ -23,6 +25,9 @@ interface MapControlButtonsProps {
 	activeMarker: boolean;
 	mapReady: boolean;
 	onMyPositionClick: () => void;
+	is3DViewEnabled: boolean;
+	onToggle3DView: () => void;
+	onResetMapHeading: () => void;
 }
 
 export const MapControlButtons = ({
@@ -37,6 +42,9 @@ export const MapControlButtons = ({
 	activeMarker,
 	mapReady,
 	onMyPositionClick,
+	is3DViewEnabled,
+	onToggle3DView,
+	onResetMapHeading,
 }: MapControlButtonsProps) => {
 	const { userPosition, tripData } = useDataContext();
 	const canShowTripsButton =
@@ -134,6 +142,36 @@ export const MapControlButtons = ({
 					className={`--my-position ${!userPosition ? "--disabled" : ""}`}
 					disabled={!userPosition}
 					onClick={onMyPositionClick}
+				/>
+			</div>
+			<div className="map-control-button-container">
+				<p className="label map-3d-label">3D-vy</p>
+				<Button
+					aria-label={is3DViewEnabled ? "Stäng 3D-vy" : "Visa 3D-vy"}
+					title={is3DViewEnabled ? "Stäng 3D-vy" : "Visa 3D-vy"}
+					path={map3d.pathD}
+					pathFillRule1={map3d.pathFillRuleD1}
+					pathFillRule2={map3d.pathFillRuleD2}
+					fill={is3DViewEnabled ? colors.primary : colors.secondary}
+					className={is3DViewEnabled ? "--map-3d --active" : "--map-3d"}
+					onClick={() => {
+						if (mapReady) onToggle3DView();
+					}}
+				/>
+			</div>
+			<div className="map-control-button-container">
+				<p className="label map-north-label sr-only">Norr</p>
+				<Button
+					aria-label="Rikta kartan mot norr"
+					title="Rikta kartan mot norr"
+					path={compass.pathD}
+					pathFillRule1={compass.pathFillRuleD1}
+					pathFillRule2={compass.pathFillRuleD2}
+					fill={colors.secondary}
+					className="--map-north"
+					onClick={() => {
+						if (mapReady) onResetMapHeading();
+					}}
 				/>
 			</div>
 		</div>

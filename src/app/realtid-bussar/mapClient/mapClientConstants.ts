@@ -34,3 +34,9 @@ export const MAP_GEO_REGION_AUTO_REDIRECT_DONE_KEY =
 
 export const LINE_SHAPE_FIT_PADDING = 56;
 export const LINE_SHAPE_FIT_MAX_ZOOM = 16;
+
+/** Kartlutning i grader när 3D-vy är aktiv (3D-byggnader syns vid hög zoom). */
+export const MAP_3D_TILT_DEGREES = 45;
+/** Zooma minst hit vid aktivering av 3D så att byggnader hinner renderas. */
+export const MAP_3D_MIN_ZOOM = 15;
+export const MAP_3D_VIEW_ENABLED_KEY = "map3DViewEnabled";
