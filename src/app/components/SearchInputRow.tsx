@@ -1,9 +1,9 @@
 "use client";
 
+import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { alphabet } from "../../../public/icons";
 import colors from "../colors";
 import { Icon } from "./Icon";
-import type { FormEvent, KeyboardEvent, RefObject } from "react";
 
 interface SearchInputRowProps {
 	iconSize: string;
@@ -47,11 +47,7 @@ export function SearchInputRow({
 	onReset,
 }: SearchInputRowProps) {
 	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (
-			event.key === "Escape" ||
-			event.key === "Cancel" ||
-			event.key === "Enter"
-		) {
+		if (event.key === "Escape" || event.key === "Cancel") {
 			onBlur();
 		}
 	};
@@ -68,12 +64,13 @@ export function SearchInputRow({
 				<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
 			</button>
 			<label htmlFor="searchbar" className="sr-only">
-				Sök busslinje
+				Sök busslinje eller hållplats
 			</label>
 			<input
 				id="searchbar"
 				name="searchbar"
-				inputMode={isTextMode ? "text" : "numeric"}
+				inputMode={isTextMode ? "search" : "numeric"}
+				enterKeyHint="search"
 				ref={inputRef}
 				type="search"
 				maxLength={80}
@@ -81,6 +78,8 @@ export function SearchInputRow({
 				placeholder="Sök linje / hållplats..."
 				className={`search-bar__input ${isLoading ? "loading" : ""}`}
 				autoComplete="off"
+				autoCorrect="off"
+				spellCheck={false}
 				onChange={(e) => onChangeInput(e.target.value)}
 				value={userInput}
 				onKeyDown={handleKeyDown}
@@ -93,7 +92,9 @@ export function SearchInputRow({
 			{isKeyboardLikelyOpen && (
 				<button
 					type="button"
-					className={isTextMode ? "button text-mode --active" : "button text-mode"}
+					className={
+						isTextMode ? "button text-mode --active" : "button text-mode"
+					}
 					onMouseDown={(e) => {
 						e.preventDefault();
 					}}

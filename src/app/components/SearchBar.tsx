@@ -398,6 +398,10 @@ export const SearchBar = ({
     setFilteredTripUpdates,
     setErrorMessage,
     navigateToValidLineIfUrlDiffers,
+    onLineActivated: () => {
+      handleBlur();
+      inputRef.current?.blur();
+    },
     setSelectedStopForSchedule,
     setSelectedStopRouteLines,
     resetTripDataToEmpty,
@@ -601,6 +605,13 @@ export const SearchBar = ({
     }
   }, [activeLine, routesLoaded, runLineQuery]);
 
+  useEffect(() => {
+    if (!routesLoaded) return;
+    const line = userInput.trim().toUpperCase();
+    if (!line || !allRoutes.asObject[line]) return;
+    runLineQuery(line);
+  }, [userInput, routesLoaded, allRoutes.asObject, runLineQuery]);
+
   const handleStopPick = (row: StopWithRoutesRow) => {
     const stop = stopRowToDbData(row);
     const sortedRoutes = [...row.routes].sort((a, b) =>
@@ -683,6 +694,7 @@ export const SearchBar = ({
     if (allRoutes.asObject[routeCandidate]) {
       setSelectedStopForSchedule(null);
       setSelectedStopRouteLines(null);
+      handleBlur();
       router.push(
         lineSearchUrl(routeCandidate, effectiveOperator, { mapFit: true }),
       );

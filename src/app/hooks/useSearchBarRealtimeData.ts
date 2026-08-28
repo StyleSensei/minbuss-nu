@@ -27,6 +27,7 @@ interface UseSearchBarRealtimeDataParams {
 		routeCandidate: string,
 		opts?: { mapFit?: boolean },
 	) => void;
+	onLineActivated?: () => void;
 	setSelectedStopForSchedule: (value: null) => void;
 	setSelectedStopRouteLines: (value: null) => void;
 	resetTripDataToEmpty: () => void;
@@ -53,6 +54,7 @@ export function useSearchBarRealtimeData({
 	setFilteredTripUpdates,
 	setErrorMessage,
 	navigateToValidLineIfUrlDiffers,
+	onLineActivated,
 	setSelectedStopForSchedule,
 	setSelectedStopRouteLines,
 	resetTripDataToEmpty,
@@ -62,6 +64,9 @@ export function useSearchBarRealtimeData({
 }: UseSearchBarRealtimeDataParams) {
 	const VEHICLE_POLL_INTERVAL_MS = 5000;
 	const latestVehicleLineRef = useRef(userInput);
+	const latestRequestedLineRef = useRef("");
+	const onLineActivatedRef = useRef(onLineActivated);
+	onLineActivatedRef.current = onLineActivated;
 	const handleOnChangeRef = useRef<((query: string) => void) | null>(null);
 
 	useEffect(() => {
@@ -71,23 +76,25 @@ export function useSearchBarRealtimeData({
 	useEffect(() => {
 		if (!routesLoaded) return;
 		handleOnChangeRef.current = debounce(async (query: string) => {
+			const line = query.trim().toUpperCase();
 			try {
 				setIsLoading(true);
-				const exists = !!allRoutesAsObject[query.trim().toUpperCase()];
+				const exists = !!allRoutesAsObject[line];
 				if (!exists) {
 					setIsLoading(false);
 					return;
 				}
+				if (line !== latestRequestedLineRef.current) return;
 
-				const result = await fetchVehicles(query, effectiveOperator);
-				if (query !== latestVehicleLineRef.current) return;
+				const result = await fetchVehicles(line, effectiveOperator);
+				if (line !== latestRequestedLineRef.current) return;
 
 				setFilteredVehicles({ data: result.data, error: result.error });
 				setErrorMessage(result.error?.message ?? null);
-				navigateToValidLineIfUrlDiffers(query.trim().toUpperCase(), {
+				navigateToValidLineIfUrlDiffers(line, {
 					mapFit: true,
 				});
-
+				onLineActivatedRef.current?.();
 			} catch {
 				// keep previous behavior: only stop loading + show error state
 			} finally {
@@ -106,6 +113,7 @@ export function useSearchBarRealtimeData({
 	]);
 
 	const runLineQuery = useCallback((query: string) => {
+		latestRequestedLineRef.current = query.trim().toUpperCase();
 		handleOnChangeRef.current?.(query);
 	}, []);
 
