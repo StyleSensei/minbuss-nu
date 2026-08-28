@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	pickRepresentativeStopBoardShapeRefs,
+	sortStopBoardShapeRefsByOccurrence,
 	stopBoardShapeRouteKey,
 } from "../pickRepresentativeStopShapes";
 
@@ -117,6 +118,37 @@ describe("pickRepresentativeStopBoardShapeRefs", () => {
 		expect(picked.map((shape) => shape.shape_id).sort()).toEqual([
 			"bus",
 			"metro",
+		]);
+	});
+});
+
+describe("sortStopBoardShapeRefsByOccurrence", () => {
+	it("puts the busiest lines first", () => {
+		const sorted = sortStopBoardShapeRefsByOccurrence([
+			{
+				route_short_name: "396",
+				route_type: 700,
+				shape_id: "night",
+				occurrenceCount: 4,
+			},
+			{
+				route_short_name: "17",
+				route_type: 401,
+				shape_id: "metro",
+				occurrenceCount: 80,
+			},
+			{
+				route_short_name: "177",
+				route_type: 700,
+				shape_id: "bus",
+				occurrenceCount: 20,
+			},
+		]);
+
+		expect(sorted.map((shape) => shape.shape_id)).toEqual([
+			"metro",
+			"bus",
+			"night",
 		]);
 	});
 });

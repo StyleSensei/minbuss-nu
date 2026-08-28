@@ -1589,6 +1589,7 @@ export const selectShapesForIdsFromDatabase = async (
 	shapeIds: string[],
 	operatorInput = getDefaultOperator(),
 	feedVersions?: string[],
+	maxPoints?: number,
 ): Promise<IShapes[]> => {
 	const uniqueShapeIds = [...new Set(shapeIds.filter(Boolean))];
 	if (uniqueShapeIds.length === 0) return [];
@@ -1599,42 +1600,106 @@ export const selectShapesForIdsFromDatabase = async (
 	];
 	const feed = latestFeedVersionsByOperator(operator);
 	MetricsTracker.trackDbQuery();
+	const feedFilter = uniqueFeedVersions.length
+		? inArray(shapes.feed_version, uniqueFeedVersions)
+		: eq(shapes.feed_version, feed.shapes);
 	try {
-		const data = await db
+		const shouldDownsample = maxPoints != null && maxPoints >= 2;
+		if (!shouldDownsample) {
+			const data = await db
+				.select({
+					shape_id: shapes.shape_id,
+					shape_pt_lat: shapes.shape_pt_lat,
+					shape_pt_lon: shapes.shape_pt_lon,
+					shape_pt_sequence: shapes.shape_pt_sequence,
+					shape_dist_traveled: shapes.shape_dist_traveled,
+				})
+				.from(shapes)
+				.where(
+					and(
+						eq(shapes.operator, operator),
+						feedFilter,
+						inArray(shapes.shape_id, uniqueShapeIds),
+					),
+				)
+				.orderBy(shapes.shape_id, shapes.shape_pt_sequence);
+
+			return data.map(mapShapePointRow);
+		}
+
+		const sampled = db
 			.select({
 				shape_id: shapes.shape_id,
 				shape_pt_lat: shapes.shape_pt_lat,
 				shape_pt_lon: shapes.shape_pt_lon,
 				shape_pt_sequence: shapes.shape_pt_sequence,
 				shape_dist_traveled: shapes.shape_dist_traveled,
+				rn: sql<number>`row_number() over (partition by ${shapes.shape_id} order by ${shapes.shape_pt_sequence})`.as(
+					"rn",
+				),
+				cnt: sql<number>`count(*) over (partition by ${shapes.shape_id})`.as(
+					"cnt",
+				),
 			})
 			.from(shapes)
 			.where(
 				and(
 					eq(shapes.operator, operator),
-					uniqueFeedVersions.length
-						? inArray(shapes.feed_version, uniqueFeedVersions)
-						: eq(shapes.feed_version, feed.shapes),
+					feedFilter,
 					inArray(shapes.shape_id, uniqueShapeIds),
 				),
 			)
-			.orderBy(shapes.shape_id, shapes.shape_pt_sequence);
+			.as("shape_pts");
 
-		return data.map((point) => ({
-			shape_id: point.shape_id,
-			shape_pt_lat: Number(point.shape_pt_lat),
-			shape_pt_lon: Number(point.shape_pt_lon),
-			shape_pt_sequence: point.shape_pt_sequence,
-			shape_dist_traveled:
-				point.shape_dist_traveled != null
-					? Number(point.shape_dist_traveled)
-					: undefined,
-		}));
+		const data = await db
+			.select({
+				shape_id: sampled.shape_id,
+				shape_pt_lat: sampled.shape_pt_lat,
+				shape_pt_lon: sampled.shape_pt_lon,
+				shape_pt_sequence: sampled.shape_pt_sequence,
+				shape_dist_traveled: sampled.shape_dist_traveled,
+			})
+			.from(sampled)
+			.where(
+				or(
+					lte(sampled.cnt, maxPoints),
+					eq(sampled.rn, 1),
+					sql`${sampled.rn} = ${sampled.cnt}`,
+					sql`${sampled.rn} in (
+						select 1 + round(
+							gs.i * (${sampled.cnt} - 1)::numeric / ${maxPoints - 1}
+						)::int
+						from generate_series(0, ${maxPoints - 1}) as gs(i)
+					)`,
+				),
+			)
+			.orderBy(sampled.shape_id, sampled.shape_pt_sequence);
+
+		return data.map(mapShapePointRow);
 	} catch (error) {
 		console.log(error);
 		return [];
 	}
 };
+
+function mapShapePointRow(point: {
+	shape_id: string | null;
+	shape_pt_lat: string | number | null;
+	shape_pt_lon: string | number | null;
+	shape_pt_sequence: number | null;
+	shape_dist_traveled: string | number | null;
+}): IShapes {
+	return {
+		shape_id: point.shape_id ?? "",
+		shape_pt_lat: Number(point.shape_pt_lat),
+		shape_pt_lon: Number(point.shape_pt_lon),
+		shape_pt_sequence: point.shape_pt_sequence ?? 0,
+		shape_dist_traveled:
+			point.shape_dist_traveled != null
+				? Number(point.shape_dist_traveled)
+				: undefined,
+	};
+}
 
 export const selectShapesFromDatabase = async (
 	shapeId: string,

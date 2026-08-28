@@ -17,10 +17,15 @@ import {
 	expandStopBoardShapes,
 	type ICompactLineShape,
 	type ICompactStopBoardShape,
+	MAX_STOP_BOARD_SHAPE_POINTS,
 } from "../utilities/compactStopBoardShapes";
 import { MetricsTracker } from "../utilities/MetricsTracker";
-import { pickRepresentativeStopBoardShapeRefs } from "../utilities/pickRepresentativeStopShapes";
+import {
+	pickRepresentativeStopBoardShapeRefs,
+	sortStopBoardShapeRefsByOccurrence,
+} from "../utilities/pickRepresentativeStopShapes";
 import { redis } from "../utilities/redis";
+import type { StopBoardShapeStreamEvent } from "../utilities/stopBoardShapeStream";
 import { selectLatestFeedVersionTexts } from "./dataProcessors/latestFeedVersions";
 import type { IStopDepartureSchedule } from "./dataProcessors/selectFromDatabase";
 import {
@@ -67,6 +72,7 @@ const REALTIME_TTL = 4;
 const STOP_DEPARTURES_TTL = 60;
 const STOP_SHAPES_TTL = 60 * 60 * 24;
 const LINE_SHAPES_TTL = STOP_SHAPES_TTL;
+const STOP_SHAPE_STREAM_BATCH_SIZE = 8;
 const LOCK_TTL = 4;
 const LOCK_RETRY_DELAY = 100;
 const LOCK_MAX_RETRIES = 10;
@@ -273,9 +279,15 @@ async function getLineShapesForTrips(
 		missing,
 		operator,
 		feedVersions,
+		MAX_STOP_BOARD_SHAPE_POINTS,
 	);
 	if (!allPoints.length && feedVersions.length) {
-		allPoints = await selectShapesForIdsFromDatabase(missing, operator);
+		allPoints = await selectShapesForIdsFromDatabase(
+			missing,
+			operator,
+			undefined,
+			MAX_STOP_BOARD_SHAPE_POINTS,
+		);
 	}
 	const pointsByShapeId = new Map<string, IShapes[]>();
 	for (const point of allPoints) {
@@ -346,7 +358,9 @@ async function enrichCurrentTripsWithMarkerMeta(
 	const coveredTripIds = new Set(
 		currentTrips.map((trip) => trip.trip_id).filter(Boolean),
 	);
-	const missingTripIds = lineTripIds.filter((tripId) => !coveredTripIds.has(tripId));
+	const missingTripIds = lineTripIds.filter(
+		(tripId) => !coveredTripIds.has(tripId),
+	);
 	if (!missingTripIds.length) return currentTrips;
 
 	const markerMeta = await selectTripMarkerMetaForTripIdsFromDatabase(
@@ -457,20 +471,53 @@ export const getCachedStopDepartures = cache(
 	},
 );
 
-export async function getCachedStopShapes(
+export async function peekCachedStopShapes(
 	stopId: string,
 	operatorInput = getDefaultOperator(),
-): Promise<IStopBoardShape[]> {
+): Promise<IStopBoardShape[] | null> {
 	const operator = resolveOperator(operatorInput);
 	const feed = await selectLatestFeedVersionTexts(operator);
-	const cacheKey = `stop-shapes:v10:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
+	const cacheKey = stopShapesCacheKey(operator, stopId, feed);
 	const cached = await redis.get(cacheKey);
-	if (cached) {
-		MetricsTracker.trackCacheHit();
-		return expandStopBoardShapes(cached as ICompactStopBoardShape[]);
-	}
+	if (!cached) return null;
+	MetricsTracker.trackCacheHit();
+	return expandStopBoardShapes(cached as ICompactStopBoardShape[]);
+}
 
+function stopShapesCacheKey(
+	operator: string,
+	stopId: string,
+	feed: { trips: string; shapes: string },
+) {
+	return `stop-shapes:v10:${operator}:${stopId}:${feed.trips}:${feed.shapes}`;
+}
+
+function compactFromLineCache(
+	ref: {
+		route_short_name: string;
+		route_type: number | null;
+		shape_id: string;
+	},
+	cached: ICompactLineShape,
+): ICompactStopBoardShape {
+	return {
+		route_short_name: ref.route_short_name,
+		route_type: ref.route_type,
+		shape_id: ref.shape_id,
+		points: cached.points,
+	};
+}
+
+export async function streamUncachedStopBoardShapes(
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+	onEvent: (event: StopBoardShapeStreamEvent) => void | Promise<void>,
+): Promise<void> {
+	const operator = resolveOperator(operatorInput);
+	const feed = await selectLatestFeedVersionTexts(operator);
+	const cacheKey = stopShapesCacheKey(operator, stopId, feed);
 	MetricsTracker.trackCacheMiss();
+
 	const shapeRefs = await selectDistinctShapesForStopFromDatabase(
 		stopId,
 		operator,
@@ -479,44 +526,113 @@ export async function getCachedStopShapes(
 	for (const shape of shapeRefs) {
 		lengthByShapeId.set(
 			shape.shape_id,
-			(lengthByShapeId.get(shape.shape_id) ?? 0) +
-				(shape.occurrenceCount ?? 0),
+			(lengthByShapeId.get(shape.shape_id) ?? 0) + (shape.occurrenceCount ?? 0),
 		);
 	}
-	const representativeShapeRefs = pickRepresentativeStopBoardShapeRefs(
-		shapeRefs,
-		lengthByShapeId,
+	const representativeShapeRefs = sortStopBoardShapeRefsByOccurrence(
+		pickRepresentativeStopBoardShapeRefs(shapeRefs, lengthByShapeId),
 	);
-	const allPoints = await selectShapesForIdsFromDatabase(
-		representativeShapeRefs.map((shape) => shape.shape_id),
-		operator,
-		feed.shapes ? [feed.shapes] : undefined,
-	);
-	const pointsByShapeId = new Map<string, IShapes[]>();
-	for (const point of allPoints) {
-		const existing = pointsByShapeId.get(point.shape_id);
-		if (existing) {
-			existing.push(point);
-		} else {
-			pointsByShapeId.set(point.shape_id, [point]);
+
+	await onEvent({
+		type: "refs",
+		refs: representativeShapeRefs.map((ref) => ({
+			route_short_name: ref.route_short_name,
+			route_type: ref.route_type,
+			shape_id: ref.shape_id,
+		})),
+	});
+
+	const collected: ICompactStopBoardShape[] = [];
+	const feedVersions = feed.shapes ? [feed.shapes] : undefined;
+
+	for (
+		let offset = 0;
+		offset < representativeShapeRefs.length;
+		offset += STOP_SHAPE_STREAM_BATCH_SIZE
+	) {
+		const batch = representativeShapeRefs.slice(
+			offset,
+			offset + STOP_SHAPE_STREAM_BATCH_SIZE,
+		);
+		const cachedRows = await Promise.all(
+			batch.map(async (ref) => {
+				const cached = await redis.get(
+					lineShapeCacheKey(operator, ref.shape_id),
+				);
+				return { ref, cached: cached as ICompactLineShape | null };
+			}),
+		);
+		const missing: typeof batch = [];
+		for (const { ref, cached } of cachedRows) {
+			if (cached?.points?.length) {
+				MetricsTracker.trackCacheHit();
+				const compact = compactFromLineCache(ref, cached);
+				collected.push(compact);
+				await onEvent({ type: "shape", shape: compact });
+			} else {
+				missing.push(ref);
+			}
+		}
+		if (missing.length === 0) continue;
+
+		MetricsTracker.trackCacheMiss();
+		const allPoints = await selectShapesForIdsFromDatabase(
+			missing.map((ref) => ref.shape_id),
+			operator,
+			feedVersions,
+			MAX_STOP_BOARD_SHAPE_POINTS,
+		);
+		const pointsByShapeId = new Map<string, IShapes[]>();
+		for (const point of allPoints) {
+			const existing = pointsByShapeId.get(point.shape_id);
+			if (existing) {
+				existing.push(point);
+			} else {
+				pointsByShapeId.set(point.shape_id, [point]);
+			}
+		}
+		for (const ref of missing) {
+			const points = pointsByShapeId.get(ref.shape_id);
+			if (!points?.length) continue;
+			const [compact] = compactStopBoardShapes([
+				{
+					route_short_name: ref.route_short_name,
+					route_type: ref.route_type,
+					shape_id: ref.shape_id,
+					points,
+				},
+			]);
+			if (!compact) continue;
+			await redis.set(
+				lineShapeCacheKey(operator, ref.shape_id),
+				{
+					shape_id: compact.shape_id,
+					points: compact.points,
+				} satisfies ICompactLineShape,
+				{ ex: LINE_SHAPES_TTL },
+			);
+			MetricsTracker.trackRedisOperation();
+			collected.push(compact);
+			await onEvent({ type: "shape", shape: compact });
 		}
 	}
-	const shapes: IStopBoardShape[] = representativeShapeRefs.flatMap((shape) => {
-		const points = pointsByShapeId.get(shape.shape_id);
-		return points?.length
-			? [
-					{
-						route_short_name: shape.route_short_name,
-						route_type: shape.route_type,
-						shape_id: shape.shape_id,
-						points,
-					},
-				]
-			: [];
-	});
-	const compactShapes = compactStopBoardShapes(shapes);
-	await redis.set(cacheKey, compactShapes, { ex: STOP_SHAPES_TTL });
+
+	await redis.set(cacheKey, collected, { ex: STOP_SHAPES_TTL });
 	MetricsTracker.trackRedisOperation();
+	await onEvent({ type: "done" });
+}
+
+export async function getCachedStopShapes(
+	stopId: string,
+	operatorInput = getDefaultOperator(),
+): Promise<IStopBoardShape[]> {
+	const cached = await peekCachedStopShapes(stopId, operatorInput);
+	if (cached) return cached;
+
+	const compactShapes: ICompactStopBoardShape[] = [];
+	await streamUncachedStopBoardShapes(stopId, operatorInput, (event) => {
+		if (event.type === "shape") compactShapes.push(event.shape);
+	});
 	return expandStopBoardShapes(compactShapes);
 }
 

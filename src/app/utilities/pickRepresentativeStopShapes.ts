@@ -3,6 +3,7 @@ export interface IStopBoardShapeRef {
 	route_type: number | null;
 	shape_id: string;
 	direction_id?: number | null;
+	occurrenceCount?: number;
 }
 
 export function stopBoardShapeRouteKey(shape: IStopBoardShapeRef): string {
@@ -27,4 +28,13 @@ export function pickRepresentativeStopBoardShapeRefs<
 		}
 	}
 	return [...best.values()].map((entry) => entry.ref);
+}
+
+/** Busiest lines first so knutpunkter can paint metro/trunk routes before outer lines. */
+export function sortStopBoardShapeRefsByOccurrence<
+	T extends { occurrenceCount?: number },
+>(refs: T[]): T[] {
+	return [...refs].sort(
+		(a, b) => (b.occurrenceCount ?? 0) - (a.occurrenceCount ?? 0),
+	);
 }

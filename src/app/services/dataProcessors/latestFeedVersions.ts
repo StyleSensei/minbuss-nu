@@ -26,7 +26,8 @@ export function latestFeedVersionsByOperator(operator: string) {
 	};
 }
 
-const FEED_VERSION_TTL_SEC = 10 * 60;
+/** Same horizon as stop-shapes Redis blobs so peek does not re-scan MAX(shapes). */
+const FEED_VERSION_TTL_SEC = 24 * 60 * 60;
 const FEED_VERSION_TTL_MS = FEED_VERSION_TTL_SEC * 1000;
 const feedVersionMemory = new Map<
 	string,

@@ -190,4 +190,27 @@ describe("filterStopBoardShapes", () => {
 			filterStopBoardShapes(shapes, null, 401).map((shape) => shape.shape_id),
 		).toEqual(["shape-3", "shape-1"]);
 	});
+
+	it("keeps refs with empty points so route colors can appear before geometry", () => {
+		const refsOnly = [
+			{
+				route_short_name: "17",
+				route_type: 401,
+				shape_id: "metro-17",
+				points: [],
+			},
+			{
+				route_short_name: "177",
+				route_type: 700,
+				shape_id: "bus-177",
+				points: [],
+			},
+		];
+
+		expect(
+			filterStopBoardShapes(refsOnly, ["17", "177"]).map(
+				(shape) => shape.shape_id,
+			),
+		).toEqual(["metro-17", "bus-177"]);
+	});
 });
