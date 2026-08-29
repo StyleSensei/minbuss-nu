@@ -1,3 +1,4 @@
+import type { IDbData } from "@shared/models/IDbData";
 import {
 	type Dispatch,
 	type SetStateAction,
@@ -6,7 +7,11 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { IDbData } from "@shared/models/IDbData";
+import {
+	ensureDeviceCompassListening,
+	needsDeviceOrientationPermission,
+	subscribeDeviceCompass,
+} from "../utilities/deviceCompassHeading";
 import { getBearingFromLatLon } from "../utilities/getBearingFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
@@ -25,6 +30,8 @@ export interface IUser {
 const COORD_EPS = 0.000025;
 /** Minst så här långt måste användaren ha förflyttat sig för att vi ska räkna ut riktning. */
 const MIN_MOVEMENT_FOR_BEARING_METERS = 3;
+/** Över denna hastighet prioriteras GPS-riktning framför kompassen. */
+const GPS_HEADING_PREFERRED_SPEED_MPS = 1;
 
 export function useGeolocation(
 	lineStops: IDbData[],
@@ -33,6 +40,9 @@ export function useGeolocation(
 	const [position, setPosition] = useState<IUser | null>(null);
 	const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 	const lastHeadingRef = useRef<number | null>(null);
+	const gpsHeadingRef = useRef<number | null>(null);
+	const compassHeadingRef = useRef<number | null>(null);
+	const lastSpeedRef = useRef<number | null>(null);
 	const lineStopsRef = useRef(lineStops);
 	const currentTripsRef = useRef(currentTrips);
 	lineStopsRef.current = lineStops;
@@ -104,6 +114,67 @@ export function useGeolocation(
 		[],
 	);
 
+	const resolveHeading = useCallback((): number | null => {
+		const gpsHeading = gpsHeadingRef.current;
+		const compassHeading = compassHeadingRef.current;
+		const speed = lastSpeedRef.current;
+		const moving =
+			speed != null &&
+			Number.isFinite(speed) &&
+			speed >= GPS_HEADING_PREFERRED_SPEED_MPS;
+
+		if (moving && gpsHeading != null) return gpsHeading;
+		if (compassHeading != null) return compassHeading;
+		return gpsHeading ?? lastHeadingRef.current;
+	}, []);
+
+	const applyHeadingRef = useRef<
+		(
+			heading: number | null,
+			options?: { lat?: number; lng?: number; epsilon?: number },
+		) => void
+	>(() => {});
+
+	useEffect(() => {
+		applyHeadingRef.current = (
+			heading: number | null,
+			options?: { lat?: number; lng?: number; epsilon?: number },
+		) => {
+			if (heading == null) return;
+
+			const fromGps = options?.lat != null && options?.lng != null;
+			const smoothed = smoothHeading(
+				lastHeadingRef.current,
+				heading,
+				fromGps ? 0.35 : 0.55,
+				options?.epsilon ?? (fromGps ? 5 : 2),
+			);
+			lastHeadingRef.current = smoothed;
+
+			if (fromGps) {
+				computeUserPosition(
+					options.lat as number,
+					options.lng as number,
+					smoothed,
+				);
+				return;
+			}
+
+			setPosition((prev) => {
+				if (!prev) return prev;
+				const epsilon = options?.epsilon ?? 2;
+				if (
+					prev.heading === smoothed ||
+					(prev.heading != null &&
+						Math.abs(shortestAngleDelta(prev.heading, smoothed)) < epsilon)
+				) {
+					return prev;
+				}
+				return { ...prev, heading: smoothed };
+			});
+		};
+	}, [computeUserPosition]);
+
 	/** Primitiv nyckel — undvik [lineStops, currentTrips] (nya []-referenser varje render → effect-storm). */
 	const geoDataKey = `${lineStops.length}|${currentTrips.length}|${lineStops[0]?.stop_id ?? ""}|${currentTrips[0]?.trip_id ?? ""}`;
 
@@ -121,12 +192,14 @@ export function useGeolocation(
 		}
 
 		const updateUserPosition = (pos: GeolocationPosition) => {
-			const { latitude, longitude, heading: rawHeading } = pos.coords;
-			let heading =
+			const { latitude, longitude, heading: rawHeading, speed } = pos.coords;
+			lastSpeedRef.current = speed;
+
+			let gpsHeading =
 				rawHeading != null && !Number.isNaN(rawHeading) ? rawHeading : null;
 
 			const last = lastCoordsRef.current;
-			if (heading === null && last) {
+			if (gpsHeading === null && last) {
 				const movedMeters = getDistanceFromLatLon(
 					last.lat,
 					last.lng,
@@ -134,7 +207,7 @@ export function useGeolocation(
 					longitude,
 				);
 				if (movedMeters >= MIN_MOVEMENT_FOR_BEARING_METERS) {
-					heading = getBearingFromLatLon(
+					gpsHeading = getBearingFromLatLon(
 						last.lat,
 						last.lng,
 						latitude,
@@ -143,16 +216,11 @@ export function useGeolocation(
 				}
 			}
 
-			const resolvedHeading = heading ?? lastHeadingRef.current;
-			const smoothedHeading =
-				resolvedHeading != null
-					? smoothHeading(lastHeadingRef.current, resolvedHeading)
-					: null;
-			if (smoothedHeading != null) {
-				lastHeadingRef.current = smoothedHeading;
-			}
-
-			computeUserPosition(latitude, longitude, smoothedHeading);
+			gpsHeadingRef.current = gpsHeading;
+			applyHeadingRef.current(resolveHeading(), {
+				lat: latitude,
+				lng: longitude,
+			});
 		};
 
 		const errorHandler = (error: GeolocationPositionError) => {
@@ -170,7 +238,42 @@ export function useGeolocation(
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);
-	}, [computeUserPosition]);
+	}, [resolveHeading]);
+
+	useEffect(() => {
+		const onCompassHeading = (heading: number) => {
+			compassHeadingRef.current = heading;
+			applyHeadingRef.current(resolveHeading());
+		};
+
+		const unsubscribe = subscribeDeviceCompass(onCompassHeading);
+
+		if (!needsDeviceOrientationPermission()) {
+			void ensureDeviceCompassListening();
+			return unsubscribe;
+		}
+
+		const enableOnGesture = () => {
+			void ensureDeviceCompassListening();
+		};
+
+		window.addEventListener("click", enableOnGesture, {
+			once: true,
+			capture: true,
+		});
+		window.addEventListener("touchstart", enableOnGesture, {
+			once: true,
+			capture: true,
+		});
+
+		return () => {
+			unsubscribe();
+			window.removeEventListener("click", enableOnGesture, { capture: true });
+			window.removeEventListener("touchstart", enableOnGesture, {
+				capture: true,
+			});
+		};
+	}, [resolveHeading]);
 
 	return [position, setPosition];
 }

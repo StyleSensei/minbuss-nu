@@ -1,6 +1,6 @@
 "use client";
 
-import type { IDbData } from "@shared/models/IDbData";
+import { ensureDeviceCompassListening } from "../utilities/deviceCompassHeading";
 import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
@@ -118,8 +118,7 @@ export default function MapClient() {
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const hallplatsParam = searchParams.get(STOP_SEARCH_QUERY)?.trim() ?? "";
 	const urlSearchTarget = linjeParam || hallplatsParam;
-	const isPinnedStopMode =
-		selectedStopForSchedule !== null && !linjeParam;
+	const isPinnedStopMode = selectedStopForSchedule !== null && !linjeParam;
 	const filteredStopBoard = useMemo(
 		() =>
 			filterStopBoardByLines(
@@ -268,8 +267,7 @@ export default function MapClient() {
 	);
 	const availableStopRouteNames = useMemo(
 		() =>
-			selectedStopRouteLines ??
-			[
+			selectedStopRouteLines ?? [
 				...new Set(
 					availableStopRouteShapes.map((shape) => shape.route_short_name),
 				),
@@ -432,7 +430,6 @@ export default function MapClient() {
 		setFollowBus,
 	);
 
-
 	const regionResolved = useInitialRegionFromGeo(
 		userPosition,
 		operatorsMeta,
@@ -544,6 +541,7 @@ export default function MapClient() {
 	}, []);
 
 	const handleMyPositionClick = useCallback(() => {
+		void ensureDeviceCompassListening();
 		if (!mapReady || !userPosition || !mapRef.current) return;
 		setMyPositionErrorMessage(null);
 
@@ -763,9 +761,7 @@ export default function MapClient() {
 							currentTrips={markerTripRows}
 							lineShapes={activeLineShapes}
 							mapZoom={mapViewport?.zoom ?? zoomRef.current}
-							routeColors={
-								isPinnedStopMode ? stopRouteShapeColors : undefined
-							}
+							routeColors={isPinnedStopMode ? stopRouteShapeColors : undefined}
 							setInfoWindowActiveExternal={setInfoWindowActive}
 							infoWindowActiveExternal={infoWindowActive}
 							followBus={followBus}
@@ -806,7 +802,8 @@ export default function MapClient() {
 											hasActiveVehicle={visibleVehicles.length > 0}
 											onClick={
 												isPinnedStopMode && s.route_short_name
-													? () => handleRouteShapeClick(s.route_short_name ?? "")
+													? () =>
+															handleRouteShapeClick(s.route_short_name ?? "")
 													: undefined
 											}
 										/>
