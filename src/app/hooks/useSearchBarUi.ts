@@ -2,6 +2,7 @@
 
 import type { OperatorMapBounds } from "@shared/config/operatorsRegistry";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { syncIosInputCaret } from "../utilities/syncIosInputCaret";
 
 function isLatLngInsideBounds(
 	lat: number,
@@ -94,11 +95,26 @@ export function useSearchBarUi({
 	}, []);
 
 	useEffect(() => {
+		if (typeof window === "undefined") return;
+		initialHeight.current = window.innerHeight;
+	}, []);
+
+	useEffect(() => {
 		if (typeof window === "undefined" || !window.visualViewport) return;
 		const vv = window.visualViewport;
 		vv.addEventListener("resize", handleVisualViewPortResize);
 		return () => vv.removeEventListener("resize", handleVisualViewPortResize);
 	}, [handleVisualViewPortResize]);
+
+	useEffect(() => {
+		if (!isActive) return;
+		syncIosInputCaret(inputRef.current);
+		const afterTransition = window.setTimeout(
+			() => syncIosInputCaret(inputRef.current),
+			550,
+		);
+		return () => window.clearTimeout(afterTransition);
+	}, [isActive, nearbyStopsLoading, inputRef]);
 
 	const handleBlur = useCallback(() => {
 		nearbyAbortRef.current?.abort();
@@ -113,14 +129,15 @@ export function useSearchBarUi({
 
 	const handleFocus = useCallback(() => {
 		setIsActive(true);
+		setNearbyStopsLoading(true);
 		const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 		if (isMobile) setIsKeyboardLikelyOpen(true);
+		syncIosInputCaret(inputRef.current);
 
 		void (async () => {
 			nearbyAbortRef.current?.abort();
 			const ac = new AbortController();
 			nearbyAbortRef.current = ac;
-			setNearbyStopsLoading(true);
 			let pos: Coordinates | null =
 				userPosition != null
 					? { lat: userPosition.lat, lng: userPosition.lng }
@@ -159,6 +176,7 @@ export function useSearchBarUi({
 		userPosition,
 		nearbyFallbackCenter,
 		nearbyRegionBounds,
+		inputRef,
 	]);
 
 	const handleToggleTextMode = useCallback(() => {

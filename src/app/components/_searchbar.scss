@@ -507,8 +507,9 @@ $containerWidth: 278px;
         width: fit-content;
         max-width: min(92vw, $containerWidth + 48px);
     }
-    transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.5s ease, border-radius 0.35s ease;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.5s ease, margin-top 0.5s ease, border-radius 0.35s ease;
     transform: translateY(0) scale(1);
+    margin-top: 0;
     will-change: transform;
     @include m.backdropFilter;
 
@@ -521,16 +522,18 @@ $containerWidth: 278px;
             transform: translateY(calc(32vh - 50% - 1.5rem)) scale(1.2);
         }
 
-        // Undvik visuell "inzoomning" på telefon (scale upplevs som sidzoom)
+        // translateY via transform flyttar caret fel i iOS Safari — använd margin på mobil
         @media screen and (max-width: 1199.98px) {
-            transform: translateY(calc(32dvh - 50% - 1.5rem)) scale(1);
+            transform: none;
+            margin-top: calc(32dvh - 50% - 1.5rem);
 
             @supports not (height: 100dvh) {
-                transform: translateY(calc(32vh - 50% - 1.5rem)) scale(1);
+                margin-top: calc(32vh - 50% - 1.5rem);
             }
         }
 
         @include m.desktop {
+            margin-top: 0;
             transform: translateY(calc(50dvh - 50% - 4rem)) scale(1.5);
 
             @supports not (height: 100dvh) {
@@ -542,6 +545,7 @@ $containerWidth: 278px;
     &.--active.search-bar__container--with-region:not(.--with-stops) {
         max-width: min(88vw, 380px);
         transform: none;
+        margin-top: 0;
 
         @include m.desktop {
             max-width: min(82vw, 420px);
@@ -556,6 +560,7 @@ $containerWidth: 278px;
         box-shadow: 0 0 0 1px rgba(v.$accent-color, 0.18), 0 12px 40px rgba(0, 0, 0, 0.32);
         width: min(92vw, $containerWidth + 48px);
         transform: none;
+        margin-top: 0;
 
         form {
             border-radius: 20px 20px 0 0;
