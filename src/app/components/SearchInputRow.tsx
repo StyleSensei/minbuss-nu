@@ -19,6 +19,7 @@ interface SearchInputRowProps {
 	isKeyboardLikelyOpen: boolean;
 	routeExists: boolean;
 	onFocus: () => void;
+	onActivateFromGesture: () => void;
 	onBlur: () => void;
 	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 	onChangeInput: (value: string) => void;
@@ -40,6 +41,7 @@ export function SearchInputRow({
 	isKeyboardLikelyOpen,
 	routeExists,
 	onFocus,
+	onActivateFromGesture,
 	onBlur,
 	onSubmit,
 	onChangeInput,
@@ -56,10 +58,7 @@ export function SearchInputRow({
 		<form onSubmit={onSubmit}>
 			<button
 				type="button"
-				onClick={() => {
-					inputRef.current?.focus();
-					onFocus();
-				}}
+				onClick={onActivateFromGesture}
 			>
 				<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
 			</button>

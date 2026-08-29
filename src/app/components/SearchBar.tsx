@@ -367,6 +367,7 @@ export const SearchBar = ({
     nearbyStopsLoading,
     stopSearchLoading,
     handleFocus,
+    handleActivateFromGesture,
     handleBlur,
     handleToggleTextMode,
     clearSuggestions,
@@ -795,6 +796,7 @@ export const SearchBar = ({
             isKeyboardLikelyOpen={isKeyboardLikelyOpen}
             routeExists={routeExists}
             onFocus={handleFocus}
+            onActivateFromGesture={handleActivateFromGesture}
             onBlur={handleBlur}
             onSubmit={handleSubmit}
             onChangeInput={handleSearchInputChange}
