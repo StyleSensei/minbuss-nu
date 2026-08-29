@@ -1,4 +1,4 @@
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { MAP_BOOT_HARD_RELOAD_COUNT_KEY } from "../mapClientConstants";
 
 export function useMapBootRecoveryAndOnline(
@@ -7,7 +7,7 @@ export function useMapBootRecoveryAndOnline(
 	mapReady: boolean,
 	mapMountKey: number,
 	setMapMountKey: (fn: (prev: number) => number) => void,
-	mapRef: MutableRefObject<google.maps.Map | null>,
+	mapRef: RefObject<google.maps.Map | null>,
 	setMapReady: (v: boolean) => void,
 	setMapViewport: (
 		v: {

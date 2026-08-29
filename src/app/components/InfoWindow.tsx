@@ -36,7 +36,7 @@ import { PanelCloseButton } from "./PanelCloseButton";
 interface IInfoWindowProps extends HTMLAttributes<HTMLDivElement> {
 	closestStopState: IDbData | null;
 	tripId?: string;
-	googleMapRef?: React.MutableRefObject<google.maps.Map | null>;
+	googleMapRef?: React.RefObject<google.maps.Map | null>;
 	onClose?: () => void;
 	onTripStopsLoaded?: (stops: IDbData[]) => void;
 }

@@ -1,5 +1,5 @@
 import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
-import { type MutableRefObject, useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 import {
 	follow,
 	myPosition,
@@ -12,7 +12,7 @@ import { useDataContext } from "../context/DataContext";
 import { Button } from "./Button";
 
 interface MapControlButtonsProps {
-	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	googleMapRef: RefObject<google.maps.Map | null>;
 	zoomIn: (GoogleMap: google.maps.Map) => void;
 	zoomOut: (GoogleMap: google.maps.Map) => void;
 	setShowCurrentTrips: (showCurrentTrips: boolean) => void;

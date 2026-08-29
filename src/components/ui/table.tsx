@@ -1,13 +1,8 @@
 "use client";
 
-import { forwardRef } from "react";
-
 import { cn } from "@/lib/utils";
 
-const Table = forwardRef<
-	HTMLTableElement,
-	React.ComponentProps<"table">
->(({ className, ...props }, ref) => {
+function Table({ className, ref, ...props }: React.ComponentProps<"table">) {
 	return (
 		<div
 			data-slot="table-container"
@@ -21,8 +16,7 @@ const Table = forwardRef<
 			/>
 		</div>
 	);
-});
-Table.displayName = "Table";
+}
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
 	return (

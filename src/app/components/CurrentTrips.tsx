@@ -34,7 +34,7 @@ import { PanelCloseButton } from "./PanelCloseButton";
 interface ICurrentTripsProps {
 	onTripSelect?: (tripId: string, boardRow?: IDbData) => void;
 	onClose?: () => void;
-	mapRef?: React.MutableRefObject<google.maps.Map | null>;
+	mapRef?: React.RefObject<google.maps.Map | null>;
 	closestStop?: IDbData;
 	followedTripId?: string | null;
 }

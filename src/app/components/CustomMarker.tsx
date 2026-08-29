@@ -10,7 +10,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import gsap from "gsap";
 import {
-	type MutableRefObject,
+	type RefObject,
 	useCallback,
 	useEffect,
 	useLayoutEffect,
@@ -35,7 +35,7 @@ const VEHICLE_MARKER_ANIMATION_SECONDS = 5.2;
 interface ICustomMarkerProps {
 	position: { lat: number; lng: number };
 	currentVehicle: IVehiclePosition;
-	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	googleMapRef: RefObject<google.maps.Map | null>;
 	clickedOutside: boolean;
 	setClickedOutside: (value: boolean) => void;
 	infoWindowActiveExternal: boolean;

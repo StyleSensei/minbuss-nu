@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { searchPathForOperator } from "../../../paths";
 import {
 	LINE_SHAPE_FIT_MAX_ZOOM,
@@ -12,15 +12,15 @@ import {
 
 export function useLineShapeFitBounds(
 	mapReady: boolean,
-	mapRef: MutableRefObject<google.maps.Map | null>,
+	mapRef: RefObject<google.maps.Map | null>,
 	shapeScopeKey: string,
 	lineShapesForFit: ShapeGroup[],
 	routeShapes: ShapeGroup[],
 	mapFitParam: boolean,
 	fitOnShapeScopeChange: boolean,
 	mapOperatorForView: string,
-	initialLinjeFromDocumentRef: MutableRefObject<string | null>,
-	lastLineShapeFitKeyRef: MutableRefObject<string>,
+	initialLinjeFromDocumentRef: RefObject<string | null>,
+	lastLineShapeFitKeyRef: RefObject<string>,
 	setFollowBus: (v: boolean) => void,
 ) {
 	const router = useRouter();
@@ -36,8 +36,7 @@ export function useLineShapeFitBounds(
 			!hasDoneInitialDocumentLinjeFitRef.current &&
 			Boolean(initialLinje) &&
 			shapeScopeKey === initialLinje;
-		const shapeScopeChanged =
-			lastLineShapeFitKeyRef.current !== shapeScopeKey;
+		const shapeScopeChanged = lastLineShapeFitKeyRef.current !== shapeScopeKey;
 
 		const shouldFit =
 			mapFitParam ||

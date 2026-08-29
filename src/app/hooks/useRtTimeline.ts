@@ -9,13 +9,13 @@ interface Props {
   shapePoints: IShapes[];
   duration?: number;
   /** Synka med initial snap så att vi inte startar från segment 0 och flyttar markören fel. */
-  initialLastIndexRef?: React.MutableRefObject<number | null>;
+  initialLastIndexRef?: React.RefObject<number | null>;
   /** When true, skip all marker.position writes to reduce DOM mutations during follow mode. */
-  skipWritesRef?: React.MutableRefObject<boolean>;
+  skipWritesRef?: React.RefObject<boolean>;
   /** Called synchronously right after marker.position is written — used to sync camera. */
-  onPositionWriteRef?: React.MutableRefObject<((lat: number, lng: number) => void) | null>;
+  onPositionWriteRef?: React.RefObject<((lat: number, lng: number) => void) | null>;
   /** True while GSAP timeline / tweens from this hook are running — coasting should pause. */
-  timelineBusyRef?: React.MutableRefObject<boolean>;
+  timelineBusyRef?: React.RefObject<boolean>;
 }
 export function useRtTimeline({
   marker,

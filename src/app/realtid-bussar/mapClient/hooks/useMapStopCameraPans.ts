@@ -1,10 +1,10 @@
 import type { IDbData } from "@shared/models/IDbData";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import type { IStopPositionJson } from "../../stopPositionsTypes";
 
 export function useMapStopCameraPans(
 	mapReady: boolean,
-	mapRef: MutableRefObject<google.maps.Map | null>,
+	mapRef: RefObject<google.maps.Map | null>,
 	selectedStopForSchedule: IDbData | null,
 	focusedStationStops: IStopPositionJson[] = [],
 ) {

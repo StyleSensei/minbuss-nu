@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { IError } from "@/app/services/cacheHelper";
 
 export interface ResponseWithData<T, E = IError> {
@@ -20,12 +20,15 @@ export function usePolling<T>(
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const queryRef = useRef<string>("");
 	const intervalMsRef = useRef(intervalMs);
-	const onErrorRef = useRef(options?.onError);
-	const onVisibilityResumeRef = useRef(options?.onVisibilityResume);
 
 	intervalMsRef.current = intervalMs;
-	onErrorRef.current = options?.onError;
-	onVisibilityResumeRef.current = options?.onVisibilityResume;
+
+	const onError = useEffectEvent((error: unknown) => {
+		options?.onError?.(error);
+	});
+	const onVisibilityResume = useEffectEvent(() => {
+		options?.onVisibilityResume?.();
+	});
 
 	const executeFetch = useCallback(async () => {
 		if (!queryRef.current) return;
@@ -46,7 +49,7 @@ export function usePolling<T>(
 			if (error instanceof Error && error.name === "AbortError") {
 				return;
 			}
-			onErrorRef.current?.(error);
+			onError(error);
 		}
 	}, [fetchFn, onData]);
 
@@ -108,9 +111,12 @@ export function usePolling<T>(
 				abortControllerRef.current?.abort();
 				return;
 			}
-			onVisibilityResumeRef.current?.();
+			onVisibilityResume();
 			void executeFetch();
-			const catchupDelay = Math.min(1200, Math.max(500, Math.floor(intervalMsRef.current * 0.4)));
+			const catchupDelay = Math.min(
+				1200,
+				Math.max(500, Math.floor(intervalMsRef.current * 0.4)),
+			);
 			resumeCatchupTimeoutRef.current = setTimeout(() => {
 				void executeFetch();
 			}, catchupDelay);

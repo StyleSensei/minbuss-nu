@@ -1,8 +1,8 @@
-import { type MutableRefObject, useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 
 export function useEndFollowOnUserGesture(
 	mapReady: boolean,
-	mapRef: MutableRefObject<google.maps.Map | null>,
+	mapRef: RefObject<google.maps.Map | null>,
 	setFollowBus: (v: boolean) => void,
 ) {
 	useEffect(() => {

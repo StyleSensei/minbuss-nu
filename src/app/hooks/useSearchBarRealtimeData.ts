@@ -2,7 +2,7 @@
 
 import type { ITripUpdate } from "@/shared/models/ITripUpdate";
 import type { IVehicleFilterResult } from "@shared/models/IVehiclePosition";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { IError } from "../services/cacheHelper";
 import { appendOperatorToApiUrl } from "../utilities/appendOperatorToApiUrl";
 import { debounce } from "../utilities/debounce";
@@ -65,8 +65,9 @@ export function useSearchBarRealtimeData({
 	const VEHICLE_POLL_INTERVAL_MS = 5000;
 	const latestVehicleLineRef = useRef(userInput);
 	const latestRequestedLineRef = useRef("");
-	const onLineActivatedRef = useRef(onLineActivated);
-	onLineActivatedRef.current = onLineActivated;
+	const onLineActivatedEvent = useEffectEvent(() => {
+		onLineActivated?.();
+	});
 	const handleOnChangeRef = useRef<((query: string) => void) | null>(null);
 
 	useEffect(() => {
@@ -94,7 +95,7 @@ export function useSearchBarRealtimeData({
 				navigateToValidLineIfUrlDiffers(line, {
 					mapFit: true,
 				});
-				onLineActivatedRef.current?.();
+				onLineActivatedEvent();
 			} catch {
 				// keep previous behavior: only stop loading + show error state
 			} finally {
@@ -154,19 +155,21 @@ export function useSearchBarRealtimeData({
 		[setFilteredVehicles, setErrorMessage],
 	);
 
-	const { startPolling: pollVehiclePositions, stopPolling: stopVehiclePolling } =
-		usePolling<IVehicleFilterResult>(
-			fetchVehiclesForPolling,
-			onVehiclePollData,
-			VEHICLE_POLL_INTERVAL_MS,
-			{
-				onError: () =>
-					setFilteredVehicles({
-						data: [],
-						error: { type: "OTHER", message: "Polling failed" },
-					}),
-			},
-		);
+	const {
+		startPolling: pollVehiclePositions,
+		stopPolling: stopVehiclePolling,
+	} = usePolling<IVehicleFilterResult>(
+		fetchVehiclesForPolling,
+		onVehiclePollData,
+		VEHICLE_POLL_INTERVAL_MS,
+		{
+			onError: () =>
+				setFilteredVehicles({
+					data: [],
+					error: { type: "OTHER", message: "Polling failed" },
+				}),
+		},
+	);
 
 	const { startPolling: pollTripUpdates, stopPolling: stopPollingUpdates } =
 		usePolling<ResponseWithData<ITripUpdate, IError>>(
@@ -219,7 +222,10 @@ export function useSearchBarRealtimeData({
 				isTripUpdatesPollingActive.current = true;
 				void (async () => {
 					try {
-						const response = await fetchTripUpdates(userInput, effectiveOperator);
+						const response = await fetchTripUpdates(
+							userInput,
+							effectiveOperator,
+						);
 						if (response?.data) setFilteredTripUpdates(response.data);
 					} catch {
 						// ignore, polling loop continues

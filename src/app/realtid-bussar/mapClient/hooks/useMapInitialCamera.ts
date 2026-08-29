@@ -1,5 +1,5 @@
 import { useRouter, useSearchParams } from "next/navigation";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { searchPathForOperator } from "../../../paths";
 import {
 	MAP_BOOTSTRAP_ZOOM,
@@ -24,7 +24,7 @@ export function useInitialLinjeFromDocumentRef() {
 
 export function useMapInitialCamera(
 	mapReady: boolean,
-	mapRef: MutableRefObject<google.maps.Map | null>,
+	mapRef: RefObject<google.maps.Map | null>,
 	mapOperatorForView: string,
 	operatorDefaultCenter: google.maps.LatLngLiteral,
 	linjeParam: string,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { IShapes } from "@/shared/models/IShapes";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
 import { advanceAlongShapePoints } from "../utilities/advanceAlongShape";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
@@ -22,7 +22,12 @@ const MAX_STEP_M_PER_FRAME = 2.2;
 const PROJ_SEARCH_MAX_SEGMENTS = 2500;
 
 function readMarkerLatLng(
-	pos: google.maps.LatLng | google.maps.LatLngLiteral | string | null | undefined,
+	pos:
+		| google.maps.LatLng
+		| google.maps.LatLngLiteral
+		| string
+		| null
+		| undefined,
 ): { lat: number; lng: number } | null {
 	if (!pos) return null;
 	const p = pos as { lat?: unknown; lng?: unknown };
@@ -41,11 +46,9 @@ interface UseShapeCoastingParams {
 	vehicleLng: number;
 	/** GTFS-RT VehiclePosition.speed — meters per second, or null. */
 	speedMps: number | null;
-	timelineBusyRef: MutableRefObject<boolean>;
-	skipWritesRef?: MutableRefObject<boolean>;
-	onPositionWriteRef?: MutableRefObject<
-		((lat: number, lng: number) => void) | null
-	>;
+	timelineBusyRef: RefObject<boolean>;
+	skipWritesRef?: RefObject<boolean>;
+	onPositionWriteRef?: RefObject<((lat: number, lng: number) => void) | null>;
 }
 
 /**
@@ -96,7 +99,8 @@ export function useShapeCoasting({
 			const inst = distM / dtSec;
 			if (Number.isFinite(inst) && inst > 0.5) {
 				speedEstimateRef.current =
-					speedEstimateRef.current * 0.65 + Math.min(inst, MAX_SPEED_MPS) * 0.35;
+					speedEstimateRef.current * 0.65 +
+					Math.min(inst, MAX_SPEED_MPS) * 0.35;
 			}
 		}
 		prevSampleRef.current = { lat: vehicleLat, lng: vehicleLng, t: now };
@@ -188,5 +192,12 @@ export function useShapeCoasting({
 
 		raf = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(raf);
-	}, [marker, shapePoints, speedMps, timelineBusyRef, skipWritesRef, onPositionWriteRef]);
+	}, [
+		marker,
+		shapePoints,
+		speedMps,
+		timelineBusyRef,
+		skipWritesRef,
+		onPositionWriteRef,
+	]);
 }

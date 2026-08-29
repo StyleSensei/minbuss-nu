@@ -1,6 +1,6 @@
 import type { MapEvent } from "@vis.gl/react-google-maps";
 import {
-	type MutableRefObject,
+	type RefObject,
 	startTransition,
 	useCallback,
 	useEffect,
@@ -11,13 +11,11 @@ import {
 	MAP_VECTOR_PAINT_POST_TILES_MIN_MS,
 } from "../mapClientConstants";
 
-type MapViewportDebounceRef = MutableRefObject<ReturnType<
-	typeof setTimeout
-> | null>;
+type MapViewportDebounceRef = RefObject<ReturnType<typeof setTimeout> | null>;
 
 export function useMapVectorReady(
-	mapRef: MutableRefObject<google.maps.Map | null>,
-	zoomRef: MutableRefObject<number>,
+	mapRef: RefObject<google.maps.Map | null>,
+	zoomRef: RefObject<number>,
 	mapViewportDebounceRef: MapViewportDebounceRef,
 	setMapReady: (v: boolean) => void,
 	setMapViewport: (

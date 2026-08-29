@@ -1,9 +1,9 @@
-import { type MutableRefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 export function useHideUserMarkerDuringZoom(
 	mapReady: boolean,
-	mapRef: MutableRefObject<google.maps.Map | null>,
-	zoomRef: MutableRefObject<number>,
+	mapRef: RefObject<google.maps.Map | null>,
+	zoomRef: RefObject<number>,
 ) {
 	const [hideUserPositionForZoom, setHideUserPositionForZoom] = useState(false);
 	const hideUserPositionTimeoutRef = useRef<ReturnType<

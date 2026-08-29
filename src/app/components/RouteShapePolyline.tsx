@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef } from "react";
-import type { MutableRefObject } from "react";
+import { memo, useEffect, useEffectEvent, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { IShapes } from "@shared/models/IShapes";
@@ -16,7 +16,7 @@ function getShapeKey(points: IShapes[] | undefined): string {
 }
 
 interface RouteShapePolylineProps {
-	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	googleMapRef: RefObject<google.maps.Map | null>;
 	hasActiveVehicle: boolean;
 	shapePoints: IShapes[];
 	mapReady?: boolean;
@@ -39,13 +39,13 @@ function toLatLngs(shapePoints: IShapes[]) {
 
 function bindPolylineClick(
 	polyline: google.maps.Polyline,
-	onClickRef: MutableRefObject<(() => void) | undefined>,
+	onClick: () => void,
 ) {
 	const listener = polyline.addListener(
 		"click",
 		(event: google.maps.PolyMouseEvent) => {
 			event.stop?.();
-			onClickRef.current?.();
+			onClick();
 		},
 	);
 	return () => google.maps.event.removeListener(listener);
@@ -103,8 +103,9 @@ function RouteShapePolyline({
 }: RouteShapePolylineProps) {
 	const polylineRef = useRef<google.maps.Polyline | null>(null);
 	const hitPolylineRef = useRef<google.maps.Polyline | null>(null);
-	const onClickRef = useRef(onClick);
-	onClickRef.current = onClick;
+	const onPolylineClick = useEffectEvent(() => {
+		onClick?.();
+	});
 	const shapeKey = useMemo(() => getShapeKey(shapePoints), [shapePoints]);
 	const clickable = Boolean(onClick);
 
@@ -124,7 +125,9 @@ function RouteShapePolyline({
 		});
 		polylineRef.current = visual;
 		hitPolylineRef.current = hit;
-		const unbindClick = hit ? bindPolylineClick(hit, onClickRef) : undefined;
+		const unbindClick = hit
+			? bindPolylineClick(hit, onPolylineClick)
+			: undefined;
 
 		return () => {
 			unbindClick?.();
@@ -167,7 +170,9 @@ function RouteShapePolyline({
 			hit?.setPath(fullPath);
 			polylineRef.current = visual;
 			hitPolylineRef.current = hit;
-			const unbindClick = hit ? bindPolylineClick(hit, onClickRef) : undefined;
+			const unbindClick = hit
+				? bindPolylineClick(hit, onPolylineClick)
+				: undefined;
 
 			const progress = { value: 0 };
 

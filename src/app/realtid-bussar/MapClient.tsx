@@ -15,7 +15,14 @@ import {
 	RenderingType,
 } from "@vis.gl/react-google-maps";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	Activity,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { CurrentTrips } from "../components/CurrentTrips";
 import { InfoWindow } from "../components/InfoWindow";
 import { MapControlButtons } from "../components/MapControlButtons";
@@ -107,6 +114,7 @@ export default function MapClient() {
 	const [clickedOutside, setClickedOutside] = useState(false);
 	const showCurrentTrips = isCurrentTripsOpen;
 	const setShowCurrentTrips = setIsCurrentTripsOpen;
+	const [currentTripsEverOpened, setCurrentTripsEverOpened] = useState(false);
 	const [infoWindowActive, setInfoWindowActive] = useState(false);
 	const [followBus, setFollowBus] = useState(false);
 	const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
@@ -711,16 +719,26 @@ export default function MapClient() {
 		setActiveStopMarkerId(null);
 	}, [handleCloseInfoWindow, linjeParam, selectedStopForSchedule]);
 
-	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
-	}
-
 	const hasRouteData =
 		isPinnedStopMode ||
 		filteredVehicles.data.length > 0 ||
 		tripData.upcomingTrips.length > 0 ||
 		tripData.lineStops.length > 0 ||
 		tripData.lineShapes.length > 0;
+	const canMountCurrentTrips =
+		hasRouteData && Boolean(userPosition || selectedStopForSchedule);
+
+	useEffect(() => {
+		if (showCurrentTrips) setCurrentTripsEverOpened(true);
+	}, [showCurrentTrips]);
+
+	useEffect(() => {
+		if (!canMountCurrentTrips) setCurrentTripsEverOpened(false);
+	}, [canMountCurrentTrips]);
+
+	if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+		throw new Error("GOOGLE_MAPS_API_KEY is not defined");
+	}
 
 	return (
 		<div className="map-client-root">
@@ -851,9 +869,8 @@ export default function MapClient() {
 								focusedStationIds={focusedStationIds}
 							/>
 						)}
-						{showCurrentTrips &&
-							hasRouteData &&
-							(userPosition || selectedStopForSchedule) && (
+						{canMountCurrentTrips && currentTripsEverOpened ? (
+							<Activity mode={showCurrentTrips ? "visible" : "hidden"}>
 								<CurrentTrips
 									onTripSelect={handleTripSelect}
 									onClose={handleCloseCurrentTrips}
@@ -865,7 +882,8 @@ export default function MapClient() {
 										undefined
 									}
 								/>
-							)}
+							</Activity>
+						) : null}
 						{userPosition && mapRef.current && (
 							<AdvancedMarker
 								title={"Min position"}

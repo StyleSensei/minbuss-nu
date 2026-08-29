@@ -13,8 +13,8 @@ export function useInitialShapeSnap({
   marker: google.maps.marker.AdvancedMarkerElement | null;
   shapePoints: IShapes[];
   vehiclePosition: { lat: number; lng: number } | null;
-  lastIndexRef: React.MutableRefObject<number | null>;
-  lastSnappedPositionRef?: React.MutableRefObject<{ lat: number; lng: number } | null>;
+  lastIndexRef: React.RefObject<number | null>;
+  lastSnappedPositionRef?: React.RefObject<{ lat: number; lng: number } | null>;
   onSnapped?: () => void;
 }) {
   useLayoutEffect(() => {

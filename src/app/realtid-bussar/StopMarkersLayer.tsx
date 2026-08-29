@@ -11,7 +11,7 @@ import type { IStopPositionJson } from "./stopPositionsTypes";
 type Props = {
 	stops: IStopPositionJson[];
 	onStopClick: (stop: IStopPositionJson) => void;
-	mapRef: React.RefObject<google.maps.Map>;
+	mapRef: React.RefObject<google.maps.Map | null>;
 	stopMarkersVisible: boolean;
 	/** Full storlek + buss-ikon; false = liten prick utan ikon (inaktiv stil). */
 	detailMode: boolean;

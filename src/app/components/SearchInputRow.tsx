@@ -12,7 +12,7 @@ interface SearchInputRowProps {
 	title2?: string;
 	path: string;
 	path2?: string;
-	inputRef: RefObject<HTMLInputElement>;
+	inputRef: RefObject<HTMLInputElement | null>;
 	userInput: string;
 	isTextMode: boolean;
 	isLoading: boolean;

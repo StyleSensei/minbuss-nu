@@ -1,4 +1,4 @@
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { memo, useMemo, useRef } from "react";
 import type { IDbData } from "@/shared/models/IDbData";
 import type { IShapes } from "@/shared/models/IShapes";
@@ -8,7 +8,7 @@ import CustomMarker from "./CustomMarker";
 
 interface IVehicleMarkersProps {
 	vehicles: IVehiclePosition[];
-	googleMapRef: MutableRefObject<google.maps.Map | null>;
+	googleMapRef: RefObject<google.maps.Map | null>;
 	clickedOutside: boolean;
 	setClickedOutside: (value: boolean) => void;
 	infoWindowActiveExternal: boolean;
