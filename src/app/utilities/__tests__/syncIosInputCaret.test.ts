@@ -38,7 +38,7 @@ describe("syncIosInputCaret", () => {
 		expect(setSelectionRange).not.toHaveBeenCalled();
 	});
 
-	it("schedules setSelectionRange when focused on iOS", async () => {
+	it("schedules setSelectionRange when focused on iOS", () => {
 		vi.stubGlobal("navigator", {
 			userAgent:
 				"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
@@ -47,8 +47,6 @@ describe("syncIosInputCaret", () => {
 		const input = {
 			value: "177",
 			setSelectionRange,
-			blur: vi.fn(),
-			focus: vi.fn(),
 		} as unknown as HTMLInputElement;
 		vi.stubGlobal("document", { activeElement: input });
 		vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {

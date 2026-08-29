@@ -17,9 +17,9 @@ interface SearchInputRowProps {
 	isTextMode: boolean;
 	isLoading: boolean;
 	isKeyboardLikelyOpen: boolean;
-	isCompactLayout: boolean;
 	routeExists: boolean;
 	onFocus: () => void;
+	onActivateFromGesture: () => void;
 	onBlur: () => void;
 	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 	onChangeInput: (value: string) => void;
@@ -39,9 +39,9 @@ export function SearchInputRow({
 	isTextMode,
 	isLoading,
 	isKeyboardLikelyOpen,
-	isCompactLayout,
 	routeExists,
 	onFocus,
+	onActivateFromGesture,
 	onBlur,
 	onSubmit,
 	onChangeInput,
@@ -58,9 +58,7 @@ export function SearchInputRow({
 		<form onSubmit={onSubmit}>
 			<button
 				type="button"
-				onClick={() => {
-					onFocus();
-				}}
+				onClick={onActivateFromGesture}
 			>
 				<Icon path={path} fill={fill} iconSize={iconSize} title={title} />
 			</button>
@@ -76,8 +74,6 @@ export function SearchInputRow({
 				type="search"
 				maxLength={80}
 				pattern={undefined}
-				tabIndex={isCompactLayout ? -1 : undefined}
-				readOnly={isCompactLayout}
 				placeholder="Sök linje / hållplats..."
 				className={`search-bar__input ${isLoading ? "loading" : ""}`}
 				autoComplete="off"

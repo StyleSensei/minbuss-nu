@@ -2,7 +2,8 @@
 
 import type { OperatorMapBounds } from "@shared/config/operatorsRegistry";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { focusSearchInputAfterActivation } from "../utilities/focusSearchInputAfterActivation";
+import { flushSync } from "react-dom";
+import { syncIosInputCaret } from "../utilities/syncIosInputCaret";
 
 function isLatLngInsideBounds(
 	lat: number,
@@ -80,6 +81,8 @@ export function useSearchBarUi({
 	const [stopSearchLoading, setStopSearchLoading] = useState(false);
 	const initialHeight = useRef<number | null>(null);
 	const nearbyAbortRef = useRef<AbortController | null>(null);
+	const isActiveRef = useRef(false);
+	isActiveRef.current = isActive;
 
 	useEffect(() => {
 		return () => {
@@ -106,32 +109,12 @@ export function useSearchBarUi({
 		return () => vv.removeEventListener("resize", handleVisualViewPortResize);
 	}, [handleVisualViewPortResize]);
 
-	useEffect(() => {
-		if (!isActive) return;
-		focusSearchInputAfterActivation(inputRef.current);
-	}, [isActive, inputRef]);
-
-	const handleBlur = useCallback(() => {
+	const startNearbyStopsFetch = useCallback(() => {
 		nearbyAbortRef.current?.abort();
-		nearbyAbortRef.current = null;
-		setIsBlurring(true);
-		setTimeout(() => {
-			setIsActive(false);
-			setIsBlurring(false);
-			setIsKeyboardLikelyOpen(false);
-		}, 100);
-	}, []);
-
-	const handleFocus = useCallback(() => {
-		setIsActive(true);
-		setNearbyStopsLoading(true);
-		const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-		if (isMobile) setIsKeyboardLikelyOpen(true);
+		const ac = new AbortController();
+		nearbyAbortRef.current = ac;
 
 		void (async () => {
-			nearbyAbortRef.current?.abort();
-			const ac = new AbortController();
-			nearbyAbortRef.current = ac;
 			let pos: Coordinates | null =
 				userPosition != null
 					? { lat: userPosition.lat, lng: userPosition.lng }
@@ -170,8 +153,47 @@ export function useSearchBarUi({
 		userPosition,
 		nearbyFallbackCenter,
 		nearbyRegionBounds,
-		inputRef,
 	]);
+
+	const activateSearchState = useCallback(() => {
+		flushSync(() => {
+			setIsActive(true);
+			setNearbyStopsLoading(true);
+			const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+			if (isMobile) setIsKeyboardLikelyOpen(true);
+		});
+	}, []);
+
+	const handleBlur = useCallback(() => {
+		nearbyAbortRef.current?.abort();
+		nearbyAbortRef.current = null;
+		setIsBlurring(true);
+		setTimeout(() => {
+			setIsActive(false);
+			setIsBlurring(false);
+			setIsKeyboardLikelyOpen(false);
+		}, 100);
+	}, []);
+
+	const handleFocus = useCallback(() => {
+		if (isActiveRef.current && nearbyAbortRef.current) return;
+
+		setIsActive(true);
+		setNearbyStopsLoading(true);
+		const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+		if (isMobile) setIsKeyboardLikelyOpen(true);
+		startNearbyStopsFetch();
+		syncIosInputCaret(inputRef.current);
+	}, [inputRef, startNearbyStopsFetch]);
+
+	const handleActivateFromGesture = useCallback(() => {
+		activateSearchState();
+		startNearbyStopsFetch();
+		const input = inputRef.current;
+		if (!input) return;
+		input.focus({ preventScroll: true });
+		syncIosInputCaret(input);
+	}, [activateSearchState, inputRef, startNearbyStopsFetch]);
 
 	const handleToggleTextMode = useCallback(() => {
 		setIsTextMode((prev) => !prev);
@@ -222,6 +244,7 @@ export function useSearchBarUi({
 		nearbyStopsLoading,
 		stopSearchLoading,
 		handleFocus,
+		handleActivateFromGesture,
 		handleBlur,
 		handleToggleTextMode,
 		clearSuggestions,

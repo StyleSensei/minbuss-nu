@@ -3,7 +3,7 @@ export function isIosSafari(): boolean {
 	return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-/** WebKit ritar caret på fel ställe när förfadern flyttas med transform — tvinga omritning. */
+/** Tvinga WebKit att rita om caret efter layoutflytt (anropas medan fokus redan är satt). */
 export function syncIosInputCaret(
 	input: HTMLInputElement | null | undefined,
 ): void {
@@ -17,8 +17,7 @@ export function syncIosInputCaret(
 			try {
 				input.setSelectionRange(len, len);
 			} catch {
-				input.blur();
-				input.focus();
+				// type=search kan sakna setSelectionRange i vissa WebKit-versioner
 			}
 		});
 	});
