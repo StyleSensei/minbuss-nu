@@ -264,7 +264,7 @@ export const STOP_MARKERS_MIN_ZOOM = 10;
 /** Små prickar (utan ikon) från denna zoom. */
 export const STOP_MARKERS_COMPACT_ZOOM = 13;
 /** Full markör med buss-ikon från denna zoom. */
-export const STOP_MARKERS_DETAIL_ZOOM = 16;
+export const STOP_MARKERS_DETAIL_ZOOM = 14;
 /** Hållplatsnamn bredvid ikonen från denna zoom. */
 export const STOP_MARKERS_LABEL_ZOOM = 18;
 /** Övre tak vid hög zoom; vid låg zoom används lägre tak (färre AdvancedMarker = mindre lagg). */
