@@ -4,16 +4,18 @@ import { useAnimatedHeading } from "../hooks/useAnimatedHeading";
 
 interface UserLocationMarkerProps {
 	heading: number | null;
+	mapBearing: number;
 	visible: boolean;
 	labelFontSize: number;
 }
 
 export function UserLocationMarker({
 	heading,
+	mapBearing,
 	visible,
 	labelFontSize,
 }: UserLocationMarkerProps) {
-	const headingRef = useAnimatedHeading(heading);
+	const headingRef = useAnimatedHeading(heading, mapBearing);
 
 	return (
 		<>

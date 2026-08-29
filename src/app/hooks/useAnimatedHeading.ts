@@ -1,29 +1,29 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-	headingSmoothingFactor,
-	lerpHeading,
-} from "../utilities/headingMath";
+import { headingSmoothingFactor, lerpHeading } from "../utilities/headingMath";
 
 /** Tidskonstant för mjuk kompassrotation (~280 ms). */
 const SMOOTHING_MS = 280;
 
 /**
- * Animerar kompassriktning med requestAnimationFrame i stället för CSS-transition,
- * så nya målvärden inte avbryter pågående animationer.
+ * Animerar kompassriktning med requestAnimationFrame.
+ * mapBearing subtraheras vid rendering så nålen håller geografisk riktning
+ * när användaren roterar kartan.
  */
-export function useAnimatedHeading(target: number | null) {
+export function useAnimatedHeading(heading: number | null, mapBearing = 0) {
 	const elementRef = useRef<HTMLDivElement>(null);
 	const currentRef = useRef<number | null>(null);
 	const targetRef = useRef<number | null>(null);
+	const mapBearingRef = useRef(mapBearing);
 	const rafRef = useRef<number | null>(null);
 	const lastFrameRef = useRef<number | null>(null);
 
-	targetRef.current = target;
+	targetRef.current = heading;
+	mapBearingRef.current = mapBearing;
 
 	useEffect(() => {
-		if (target == null) {
+		if (heading == null) {
 			currentRef.current = null;
 			lastFrameRef.current = null;
 			if (rafRef.current != null) {
@@ -34,10 +34,10 @@ export function useAnimatedHeading(target: number | null) {
 		}
 
 		if (currentRef.current == null) {
-			currentRef.current = target;
+			currentRef.current = heading;
 			elementRef.current?.style.setProperty(
 				"transform",
-				`rotate(${target}deg)`,
+				`rotate(${heading - mapBearingRef.current}deg)`,
 			);
 		}
 
@@ -59,7 +59,7 @@ export function useAnimatedHeading(target: number | null) {
 
 			elementRef.current?.style.setProperty(
 				"transform",
-				`rotate(${next}deg)`,
+				`rotate(${next - mapBearingRef.current}deg)`,
 			);
 
 			rafRef.current = requestAnimationFrame(tick);
@@ -77,7 +77,17 @@ export function useAnimatedHeading(target: number | null) {
 			}
 			lastFrameRef.current = null;
 		};
-	}, [target != null]);
+	}, [heading != null]);
+
+	// Kompensera direkt när kartan roteras (utan att vänta på kompass-lerp).
+	useEffect(() => {
+		const c = currentRef.current;
+		if (c == null || !elementRef.current) return;
+		elementRef.current.style.setProperty(
+			"transform",
+			`rotate(${c - mapBearing}deg)`,
+		);
+	}, [mapBearing]);
 
 	return elementRef;
 }
