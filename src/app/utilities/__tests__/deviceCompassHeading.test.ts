@@ -30,7 +30,7 @@ describe("getCompassHeadingFromEvent", () => {
 			alpha: null,
 			absolute: false,
 			webkitCompassHeading: 123,
-		} as DeviceOrientationEvent;
+		} as unknown as DeviceOrientationEvent;
 
 		expect(getCompassHeadingFromEvent(event)).toBe(123);
 	});
