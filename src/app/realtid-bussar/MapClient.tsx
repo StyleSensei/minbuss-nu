@@ -1,5 +1,6 @@
 "use client";
 
+import type { IDbData } from "@shared/models/IDbData";
 import { ensureDeviceCompassListening } from "../utilities/deviceCompassHeading";
 import {
 	AdvancedMarker,
