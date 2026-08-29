@@ -1,6 +1,6 @@
 "use client";
 
-import { useVisualHeading } from "../hooks/useVisualHeading";
+import { useAnimatedHeading } from "../hooks/useAnimatedHeading";
 
 interface UserLocationMarkerProps {
 	heading: number | null;
@@ -13,15 +13,15 @@ export function UserLocationMarker({
 	visible,
 	labelFontSize,
 }: UserLocationMarkerProps) {
-	const visualHeading = useVisualHeading(heading);
+	const headingRef = useAnimatedHeading(heading);
 
 	return (
 		<>
 			<div className="user-location-marker">
-				{visualHeading != null && (
+				{heading != null && (
 					<div
+						ref={headingRef}
 						className={`user-location__heading ${visible ? "--visible" : ""}`}
-						style={{ transform: `rotate(${visualHeading}deg)` }}
 					/>
 				)}
 				<div className={`user-location ${visible ? "--visible" : ""}`} />

@@ -139,6 +139,7 @@ export function useGeolocation(
 				lng?: number;
 				epsilon?: number;
 				smoothFactor?: number;
+				raw?: boolean;
 			},
 		) => void
 	>(() => {});
@@ -151,17 +152,20 @@ export function useGeolocation(
 				lng?: number;
 				epsilon?: number;
 				smoothFactor?: number;
+				raw?: boolean;
 			},
 		) => {
 			if (heading == null) return;
 
 			const fromGps = options?.lat != null && options?.lng != null;
-			const smoothed = smoothHeading(
-				lastHeadingRef.current,
-				heading,
-				options?.smoothFactor ?? (fromGps ? 0.35 : 0.65),
-				options?.epsilon ?? (fromGps ? 5 : 1),
-			);
+			const smoothed = options?.raw
+				? heading
+				: smoothHeading(
+						lastHeadingRef.current,
+						heading,
+						options?.smoothFactor ?? (fromGps ? 0.35 : 0.2),
+						options?.epsilon ?? (fromGps ? 5 : 3),
+					);
 			lastHeadingRef.current = smoothed;
 
 			if (fromGps) {
@@ -259,10 +263,10 @@ export function useGeolocation(
 	useEffect(() => {
 		const flushCompassHeading = throttleLatest(() => {
 			applyHeadingRef.current(resolveHeading(), {
-				epsilon: 3,
-				smoothFactor: 0.2,
+				raw: true,
+				epsilon: 0,
 			});
-		}, 100);
+		}, 50);
 
 		const onCompassHeading = (heading: number) => {
 			compassHeadingRef.current = heading;

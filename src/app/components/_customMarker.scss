@@ -107,9 +107,7 @@ $userColor: rgb(0, 149, 255);
     transform-origin: center center;
     pointer-events: none;
     opacity: 0;
-    transition:
-        opacity 0.3s v.$bounce,
-        transform 0.45s ease-out;
+    transition: opacity 0.3s v.$bounce;
     will-change: transform;
 
     &.--visible {
