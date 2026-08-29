@@ -27,6 +27,7 @@ import {
 import { redis } from "../utilities/redis";
 import type { StopBoardShapeStreamEvent } from "../utilities/stopBoardShapeStream";
 import { selectLatestFeedVersionTexts } from "./dataProcessors/latestFeedVersions";
+import { STATIC_GTFS_CACHE_TTL_SEC } from "./gtfsCacheTtl";
 import type { IStopDepartureSchedule } from "./dataProcessors/selectFromDatabase";
 import {
 	selectActiveTripIdsForLineFromDatabase,
@@ -70,8 +71,8 @@ const TRIP_UPDATES_LOCK_KEY = "trip-updates-lock";
 // TTL i sekunder
 const REALTIME_TTL = 4;
 const STOP_DEPARTURES_TTL = 60;
-const STOP_SHAPES_TTL = 60 * 60 * 24;
-const LINE_SHAPES_TTL = STOP_SHAPES_TTL;
+const STOP_SHAPES_TTL = STATIC_GTFS_CACHE_TTL_SEC;
+const LINE_SHAPES_TTL = STATIC_GTFS_CACHE_TTL_SEC;
 const STOP_SHAPE_STREAM_BATCH_SIZE = 8;
 /** Shared Neon pool also serves departures; unbounded parallel batches delayed first paint. */
 const STOP_SHAPE_DB_CONCURRENCY = 3;
@@ -242,8 +243,12 @@ async function waitForCachedTripUpdates(
 	return [];
 }
 
-function lineShapeCacheKey(operator: string, shapeId: string) {
-	return `line-shape:v2:${operator}:${shapeId}`;
+function lineShapeCacheKey(
+	operator: string,
+	shapeId: string,
+	shapesFeedVersion: string,
+) {
+	return `line-shape:v3:${operator}:${shapesFeedVersion}:${shapeId}`;
 }
 
 async function mapWithConcurrency<T>(
@@ -279,10 +284,14 @@ async function getLineShapesForTrips(
 	}
 	if (!shapeIds.length) return [];
 
+	const { shapes: shapesFeedVersion } =
+		await selectLatestFeedVersionTexts(operator);
 	const loaded: { shape_id: string; points: IShapes[] }[] = [];
 	const missing: string[] = [];
 	for (const shapeId of shapeIds) {
-		const cached = await redis.get(lineShapeCacheKey(operator, shapeId));
+		const cached = await redis.get(
+			lineShapeCacheKey(operator, shapeId, shapesFeedVersion),
+		);
 		if (cached) {
 			MetricsTracker.trackCacheHit();
 			loaded.push(...expandLineShapes([cached as ICompactLineShape]));
@@ -323,9 +332,13 @@ async function getLineShapesForTrips(
 		const points = pointsByShapeId.get(shapeId);
 		if (!points?.length) continue;
 		const compact = compactLineShapes([{ shape_id: shapeId, points }])[0];
-		await redis.set(lineShapeCacheKey(operator, shapeId), compact, {
-			ex: LINE_SHAPES_TTL,
-		});
+		await redis.set(
+			lineShapeCacheKey(operator, shapeId, shapesFeedVersion),
+			compact,
+			{
+				ex: LINE_SHAPES_TTL,
+			},
+		);
 		MetricsTracker.trackRedisOperation();
 		loaded.push(...expandLineShapes([compact]));
 	}
@@ -568,7 +581,9 @@ export async function streamUncachedStopBoardShapes(
 
 	const cachedRows = await Promise.all(
 		representativeShapeRefs.map(async (ref) => {
-			const cached = await redis.get(lineShapeCacheKey(operator, ref.shape_id));
+			const cached = await redis.get(
+				lineShapeCacheKey(operator, ref.shape_id, feed.shapes),
+			);
 			return { ref, cached: cached as ICompactLineShape | null };
 		}),
 	);
@@ -628,7 +643,7 @@ export async function streamUncachedStopBoardShapes(
 				]);
 				if (!compact) continue;
 				await redis.set(
-					lineShapeCacheKey(operator, ref.shape_id),
+					lineShapeCacheKey(operator, ref.shape_id, feed.shapes),
 					{
 						shape_id: compact.shape_id,
 						points: compact.points,
