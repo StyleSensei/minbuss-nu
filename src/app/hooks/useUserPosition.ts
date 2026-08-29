@@ -17,6 +17,7 @@ import { getClosest } from "../utilities/getClosest";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { shortestAngleDelta, smoothHeading } from "../utilities/headingMath";
 import { resolveUserHeading } from "../utilities/resolveUserHeading";
+import { throttleLatest } from "../utilities/throttleLatest";
 
 export interface IUser {
 	lat: number;
@@ -105,8 +106,7 @@ export function useGeolocation(
 						prev.heading === resolvedHeading ||
 						(prev.heading != null &&
 							resolvedHeading != null &&
-							Math.abs(shortestAngleDelta(prev.heading, resolvedHeading)) <
-								5);
+							Math.abs(shortestAngleDelta(prev.heading, resolvedHeading)) < 5);
 					const prevTripsSig = prev.tripsAtClosestStop
 						.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
 						.join("|");
@@ -257,12 +257,16 @@ export function useGeolocation(
 	}, [resolveHeading]);
 
 	useEffect(() => {
+		const flushCompassHeading = throttleLatest(() => {
+			applyHeadingRef.current(resolveHeading(), {
+				epsilon: 3,
+				smoothFactor: 0.2,
+			});
+		}, 100);
+
 		const onCompassHeading = (heading: number) => {
 			compassHeadingRef.current = heading;
-			applyHeadingRef.current(resolveHeading(), {
-				epsilon: 1,
-				smoothFactor: 0.65,
-			});
+			flushCompassHeading(heading);
 		};
 
 		const unsubscribe = subscribeDeviceCompass(onCompassHeading);
