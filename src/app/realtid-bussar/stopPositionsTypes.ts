@@ -262,7 +262,7 @@ export type StopsPositionsFile = { v: string; stops: IStopPositionJson[] };
 
 export const STOP_MARKERS_MIN_ZOOM = 10;
 /** Små prickar (utan ikon) från denna zoom. */
-export const STOP_MARKERS_COMPACT_ZOOM = 13;
+export const STOP_MARKERS_COMPACT_ZOOM = 14;
 /** Full markör med buss-ikon från denna zoom. */
 export const STOP_MARKERS_DETAIL_ZOOM = 16;
 /** Hållplatsnamn bredvid ikonen från denna zoom. */
