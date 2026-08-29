@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { getCompassHeadingFromEvent } from "../deviceCompassHeading";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+	getCompassHeadingFromEvent,
+	needsDeviceOrientationPermission,
+} from "../deviceCompassHeading";
+
+describe("needsDeviceOrientationPermission", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("returns true when requestPermission exists", () => {
+		vi.stubGlobal("DeviceOrientationEvent", {
+			requestPermission: () => Promise.resolve("granted"),
+		});
+
+		expect(needsDeviceOrientationPermission()).toBe(true);
+	});
+
+	it("returns false when requestPermission is missing", () => {
+		vi.stubGlobal("DeviceOrientationEvent", {});
+
+		expect(needsDeviceOrientationPermission()).toBe(false);
+	});
+});
 
 describe("getCompassHeadingFromEvent", () => {
 	it("uses webkitCompassHeading on iOS", () => {

@@ -92,7 +92,7 @@ export async function ensureDeviceCompassListening(): Promise<boolean> {
 }
 
 type SubscribeDeviceCompassOptions = {
-	/** Startar kompasslyssnare direkt. Sätt false i WebView tills användaren uttryckligen ber om det. */
+	/** Startar kompasslyssnare direkt. Default false på iOS (kräver användargest). */
 	autoStart?: boolean;
 };
 
@@ -101,7 +101,8 @@ export function subscribeDeviceCompass(
 	options: SubscribeDeviceCompassOptions = {},
 ): () => void {
 	listeners.add(listener);
-	if (options.autoStart !== false) {
+	const autoStart = options.autoStart ?? !needsDeviceOrientationPermission();
+	if (autoStart) {
 		void ensureDeviceCompassListening();
 	}
 

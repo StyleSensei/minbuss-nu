@@ -8,11 +8,8 @@ import {
 	useState,
 } from "react";
 import {
-	ensureDeviceCompassListening,
-	needsDeviceOrientationPermission,
 	subscribeDeviceCompass,
 } from "../utilities/deviceCompassHeading";
-import { isEmbeddedWebView } from "../utilities/isEmbeddedWebView";
 import { getBearingFromLatLon } from "../utilities/getBearingFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
@@ -274,42 +271,7 @@ export function useGeolocation(
 			flushCompassHeading(heading);
 		};
 
-		const deferCompassInWebView =
-			isEmbeddedWebView() && needsDeviceOrientationPermission();
-
-		const unsubscribe = subscribeDeviceCompass(onCompassHeading, {
-			autoStart: !deferCompassInWebView,
-		});
-
-		if (deferCompassInWebView) {
-			return unsubscribe;
-		}
-
-		if (!needsDeviceOrientationPermission()) {
-			void ensureDeviceCompassListening();
-			return unsubscribe;
-		}
-
-		const enableOnGesture = () => {
-			void ensureDeviceCompassListening();
-		};
-
-		window.addEventListener("click", enableOnGesture, {
-			once: true,
-			capture: true,
-		});
-		window.addEventListener("touchstart", enableOnGesture, {
-			once: true,
-			capture: true,
-		});
-
-		return () => {
-			unsubscribe();
-			window.removeEventListener("click", enableOnGesture, { capture: true });
-			window.removeEventListener("touchstart", enableOnGesture, {
-				capture: true,
-			});
-		};
+		return subscribeDeviceCompass(onCompassHeading);
 	}, [resolveHeading]);
 
 	return [position, setPosition];
