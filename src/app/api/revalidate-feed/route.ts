@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { invalidateGtfsCaches } from "@/app/services/invalidateGtfsCaches";
 
 /**
  * Tömmer Next-data-/ISR-cache för feed-beroende API:er efter lyckad GTFS-import.
@@ -25,8 +26,11 @@ export async function POST(request: Request) {
 	revalidatePath("/api/routes");
 	revalidatePath("/api");
 
+	const cacheInvalidation = await invalidateGtfsCaches();
+
 	return NextResponse.json({
 		revalidated: true,
 		paths: ["/api/routes", "/api"],
+		cacheInvalidation,
 	});
 }

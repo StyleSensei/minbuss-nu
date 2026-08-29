@@ -26,7 +26,7 @@ export function latestFeedVersionsByOperator(operator: string) {
 	};
 }
 
-/** Same horizon as stop-shapes Redis blobs so peek does not re-scan MAX(shapes). */
+/** Kort TTL så nya feed_version-texts plockas upp snabbt efter månatlig import. */
 const FEED_VERSION_TTL_SEC = 24 * 60 * 60;
 const FEED_VERSION_TTL_MS = FEED_VERSION_TTL_SEC * 1000;
 const feedVersionMemory = new Map<
@@ -40,6 +40,16 @@ const feedVersionInflight = new Map<
 
 function redisFeedVersionKey(operator: string) {
 	return `feed-versions:v1:${operator}`;
+}
+
+export async function clearFeedVersionCaches(operator: string): Promise<void> {
+	feedVersionMemory.delete(operator);
+	feedVersionInflight.delete(operator);
+	try {
+		await redis.del(redisFeedVersionKey(operator));
+	} catch {
+		// Import ska inte misslyckas p.g.a. cache-rensning.
+	}
 }
 
 function rememberFeedVersions(

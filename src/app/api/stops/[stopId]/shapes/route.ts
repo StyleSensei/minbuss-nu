@@ -3,9 +3,11 @@ import {
 	peekCachedStopShapes,
 	streamUncachedStopBoardShapes,
 } from "@/app/services/cacheHelper";
+import { STATIC_GTFS_EDGE_CACHE_SEC } from "@/app/services/gtfsCacheTtl";
 import { resolveOperator } from "@/shared/config/gtfsOperators";
 
-export const revalidate = 86400;
+/** Redis cachar shapes; kör alltid handler så feed_version-nycklar kan bytas efter import. */
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(
@@ -28,8 +30,7 @@ export async function GET(
 				{ shapes: cached },
 				{
 					headers: {
-						"Cache-Control":
-							"public, s-maxage=86400, stale-while-revalidate=604800",
+						"Cache-Control": `public, s-maxage=${STATIC_GTFS_EDGE_CACHE_SEC}, stale-while-revalidate=604800`,
 					},
 				},
 			);
