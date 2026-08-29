@@ -5,6 +5,7 @@ export const selectAllSchema = z.object({
 	// date: z.date().nullable(),
 	shape_id: z.string().nullable(),
 	departure_time: z.string().nullable(),
+	service_date: z.string().nullable().optional(),
 	stop_name: z.string().nullable(),
 	platform_code: z.string().nullable().optional(),
 	stop_sequence: z.number().nullable(),

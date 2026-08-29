@@ -78,3 +78,11 @@ export function compareDeparturesChronologically(
 		departureSortEpochMs(b.serviceDate, b.departureTime)
 	);
 }
+
+/** Wall-clock instant for a scheduled departure (GTFS service date + departure_time). */
+export function departureInstantFromServiceDate(
+	serviceDate: string,
+	departureTime: string,
+): Date {
+	return new Date(departureSortEpochMs(serviceDate, departureTime));
+}

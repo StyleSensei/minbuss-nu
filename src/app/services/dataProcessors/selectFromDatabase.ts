@@ -22,11 +22,9 @@ import { z } from "zod";
 import { getCachedVehiclePositions } from "@/app/services/cacheHelper";
 import {
 	createMinutesFilter,
-	TimeThresholds,
 } from "@/app/utilities/calculateTimeFilter";
 import {
 	buildUpcomingServiceDayWindows,
-	isGtfsEarlyMorning,
 } from "@/app/utilities/upcomingDepartureWindow";
 import { getDistanceFromLatLon } from "@/app/utilities/getDistanceFromLatLon";
 import { getGtfsDateTime } from "@/app/utilities/gtfsTimeContext";
@@ -55,35 +53,6 @@ function createUpcomingServiceWindowFilter(
 	dt: ReturnType<typeof getGtfsDateTime>,
 	hoursAhead: number,
 ): SQL {
-	if (isGtfsEarlyMorning(dt.hour)) {
-		const yesterday = dt.minus({ days: 1 }).startOf("day");
-		const today = dt.startOf("day");
-		const endTimeMinutes =
-			(dt.hour + hoursAhead + 24) * 60 + dt.minute;
-
-		return (
-			or(
-				and(
-					eq(
-						calendarDates.date,
-						new Date(yesterday.toFormat("yyyy-MM-dd")),
-					),
-					gte(minutesFilter, TimeThresholds.THIRTY_MIN_BEFORE_MIDNIGHT),
-				),
-				and(
-					eq(calendarDates.date, new Date(today.toFormat("yyyy-MM-dd"))),
-					or(
-						gte(minutesFilter, TimeThresholds.THIRTY_MIN_BEFORE_MIDNIGHT),
-						and(
-							gte(minutesFilter, TimeThresholds.MIDNIGHT),
-							lte(minutesFilter, endTimeMinutes),
-						),
-					),
-				),
-			) ?? sql`false`
-		);
-	}
-
 	const clauses = buildUpcomingServiceDayWindows(dt, hoursAhead).flatMap(
 		({ serviceDate, minMinutes, maxMinutes }) => [
 			and(
@@ -1015,6 +984,9 @@ export const selectUpcomingTripsFromDatabase = async (
 				route_desc: routes.route_desc,
 				stop_headsign: stop_times.stop_headsign,
 				departure_time: stop_times.departure_time,
+				service_date: sql<string>`to_char(${calendarDates.date}, 'YYYY-MM-DD')`.as(
+					"service_date",
+				),
 				stop_name: stops.stop_name,
 				stop_sequence: stop_times.stop_sequence,
 				stop_id: stops.stop_id,
@@ -1078,6 +1050,7 @@ export const selectUpcomingTripsFromDatabase = async (
 				routes.route_desc,
 				stop_times.stop_headsign,
 				stop_times.departure_time,
+				calendarDates.date,
 				stops.stop_name,
 				stop_times.stop_sequence,
 				stops.stop_id,
@@ -1406,6 +1379,9 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 				route_desc: routes.route_desc,
 				stop_headsign: stop_times.stop_headsign,
 				departure_time: stop_times.departure_time,
+				service_date: sql<string>`to_char(${calendarDates.date}, 'YYYY-MM-DD')`.as(
+					"service_date",
+				),
 				stop_name: stops.stop_name,
 				platform_code: stops.platform_code,
 				stop_sequence: stop_times.stop_sequence,
@@ -1469,6 +1445,7 @@ export const selectUpcomingDeparturesForStopFromDatabase = async (
 				routes.route_desc,
 				stop_times.stop_headsign,
 				stop_times.departure_time,
+				calendarDates.date,
 				stops.stop_name,
 				stops.platform_code,
 				stop_times.stop_sequence,
