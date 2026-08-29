@@ -17,6 +17,7 @@ interface SearchInputRowProps {
 	isTextMode: boolean;
 	isLoading: boolean;
 	isKeyboardLikelyOpen: boolean;
+	isCompactLayout: boolean;
 	routeExists: boolean;
 	onFocus: () => void;
 	onBlur: () => void;
@@ -38,6 +39,7 @@ export function SearchInputRow({
 	isTextMode,
 	isLoading,
 	isKeyboardLikelyOpen,
+	isCompactLayout,
 	routeExists,
 	onFocus,
 	onBlur,
@@ -57,7 +59,6 @@ export function SearchInputRow({
 			<button
 				type="button"
 				onClick={() => {
-					inputRef.current?.focus();
 					onFocus();
 				}}
 			>
@@ -75,6 +76,8 @@ export function SearchInputRow({
 				type="search"
 				maxLength={80}
 				pattern={undefined}
+				tabIndex={isCompactLayout ? -1 : undefined}
+				readOnly={isCompactLayout}
 				placeholder="Sök linje / hållplats..."
 				className={`search-bar__input ${isLoading ? "loading" : ""}`}
 				autoComplete="off"

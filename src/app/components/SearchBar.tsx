@@ -793,6 +793,7 @@ export const SearchBar = ({
             isTextMode={isTextMode}
             isLoading={isLoading}
             isKeyboardLikelyOpen={isKeyboardLikelyOpen}
+            isCompactLayout={regionCompactLayout}
             routeExists={routeExists}
             onFocus={handleFocus}
             onBlur={handleBlur}

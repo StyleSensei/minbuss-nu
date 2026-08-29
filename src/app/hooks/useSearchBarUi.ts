@@ -2,7 +2,7 @@
 
 import type { OperatorMapBounds } from "@shared/config/operatorsRegistry";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { syncIosInputCaret } from "../utilities/syncIosInputCaret";
+import { focusSearchInputAfterActivation } from "../utilities/focusSearchInputAfterActivation";
 
 function isLatLngInsideBounds(
 	lat: number,
@@ -108,13 +108,8 @@ export function useSearchBarUi({
 
 	useEffect(() => {
 		if (!isActive) return;
-		syncIosInputCaret(inputRef.current);
-		const afterTransition = window.setTimeout(
-			() => syncIosInputCaret(inputRef.current),
-			550,
-		);
-		return () => window.clearTimeout(afterTransition);
-	}, [isActive, nearbyStopsLoading, inputRef]);
+		focusSearchInputAfterActivation(inputRef.current);
+	}, [isActive, inputRef]);
 
 	const handleBlur = useCallback(() => {
 		nearbyAbortRef.current?.abort();
@@ -132,7 +127,6 @@ export function useSearchBarUi({
 		setNearbyStopsLoading(true);
 		const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 		if (isMobile) setIsKeyboardLikelyOpen(true);
-		syncIosInputCaret(inputRef.current);
 
 		void (async () => {
 			nearbyAbortRef.current?.abort();

@@ -513,6 +513,14 @@ $containerWidth: 278px;
     will-change: transform;
     @include m.backdropFilter;
 
+    &.--active,
+    &.--active.--with-stops {
+        @media screen and (max-width: 1199.98px) {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+    }
+
     &.--active {
         border: 2px solid rgba(v.$accent-color, 0.75);
         box-shadow: 0 0 0 1px rgba(v.$accent-color, 0.12), 0 10px 36px rgba(0, 0, 0, 0.28);
