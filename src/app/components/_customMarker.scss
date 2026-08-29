@@ -91,6 +91,43 @@ $userColor: rgb(0, 149, 255);
     font-weight: 400;
 }
 
+.user-location-marker {
+    position: relative;
+    width: $userSize;
+    height: $userSize;
+}
+
+.user-location__heading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 48px;
+    height: 48px;
+    margin: -24px 0 0 -24px;
+    transform-origin: center center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s v.$bounce;
+    will-change: transform;
+
+    &.--visible {
+        opacity: 1;
+    }
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 26px;
+        height: 26px;
+        background: rgba($userColor, 0.28);
+        clip-path: polygon(50% 0%, 12% 100%, 88% 100%);
+        border-radius: 50% 50% 0 0;
+    }
+}
+
 .user-location {
     @extend .custom-marker;
     position: relative;
@@ -99,7 +136,8 @@ $userColor: rgb(0, 149, 255);
     background: $userColor;
     margin: 0;
     float: none;
-
+    border: 2px solid #fff;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
     animation: markerPulse 0.5s 3s ease-out 2;
     cursor: default;
     opacity: 0;

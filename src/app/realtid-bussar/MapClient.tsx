@@ -1,6 +1,7 @@
 "use client";
 
 import type { IDbData } from "@shared/models/IDbData";
+import { ensureDeviceCompassListening } from "../utilities/deviceCompassHeading";
 import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
@@ -19,6 +20,7 @@ import { InfoWindow } from "../components/InfoWindow";
 import { MapControlButtons } from "../components/MapControlButtons";
 import RouteShapePolyline from "../components/RouteShapePolyline";
 import UserMessage from "../components/UserMessage";
+import { UserLocationMarker } from "../components/UserLocationMarker";
 import VehicleMarkers from "../components/VehicleMarkers";
 import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -118,8 +120,7 @@ export default function MapClient() {
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const hallplatsParam = searchParams.get(STOP_SEARCH_QUERY)?.trim() ?? "";
 	const urlSearchTarget = linjeParam || hallplatsParam;
-	const isPinnedStopMode =
-		selectedStopForSchedule !== null && !linjeParam;
+	const isPinnedStopMode = selectedStopForSchedule !== null && !linjeParam;
 	const filteredStopBoard = useMemo(
 		() =>
 			filterStopBoardByLines(
@@ -268,8 +269,7 @@ export default function MapClient() {
 	);
 	const availableStopRouteNames = useMemo(
 		() =>
-			selectedStopRouteLines ??
-			[
+			selectedStopRouteLines ?? [
 				...new Set(
 					availableStopRouteShapes.map((shape) => shape.route_short_name),
 				),
@@ -432,7 +432,6 @@ export default function MapClient() {
 		setFollowBus,
 	);
 
-
 	const regionResolved = useInitialRegionFromGeo(
 		userPosition,
 		operatorsMeta,
@@ -544,6 +543,7 @@ export default function MapClient() {
 	}, []);
 
 	const handleMyPositionClick = useCallback(() => {
+		void ensureDeviceCompassListening();
 		if (!mapReady || !userPosition || !mapRef.current) return;
 		setMyPositionErrorMessage(null);
 
@@ -763,9 +763,7 @@ export default function MapClient() {
 							currentTrips={markerTripRows}
 							lineShapes={activeLineShapes}
 							mapZoom={mapViewport?.zoom ?? zoomRef.current}
-							routeColors={
-								isPinnedStopMode ? stopRouteShapeColors : undefined
-							}
+							routeColors={isPinnedStopMode ? stopRouteShapeColors : undefined}
 							setInfoWindowActiveExternal={setInfoWindowActive}
 							infoWindowActiveExternal={infoWindowActive}
 							followBus={followBus}
@@ -806,7 +804,8 @@ export default function MapClient() {
 											hasActiveVehicle={visibleVehicles.length > 0}
 											onClick={
 												isPinnedStopMode && s.route_short_name
-													? () => handleRouteShapeClick(s.route_short_name ?? "")
+													? () =>
+															handleRouteShapeClick(s.route_short_name ?? "")
 													: undefined
 											}
 										/>
@@ -856,21 +855,14 @@ export default function MapClient() {
 									})
 								}
 							>
-								<div
-									className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+								<UserLocationMarker
+									heading={userPosition.heading}
+									visible={
+										(mapRef.current?.getZoom() ?? 0) >= 12 &&
+										!hideUserPositionForZoom
+									}
+									labelFontSize={(mapRef.current?.getZoom() ?? 10) * 0.8}
 								/>
-								<div
-									className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
-								>
-									<span
-										className="user-location__text"
-										style={{
-											fontSize: (mapRef.current?.getZoom() ?? 10) * 0.8,
-										}}
-									>
-										Min position
-									</span>
-								</div>
 							</AdvancedMarker>
 						)}
 					</GoogleMap>
