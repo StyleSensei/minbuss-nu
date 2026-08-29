@@ -9,6 +9,7 @@ import {
 	ControlPosition,
 	Map as GoogleMap,
 	MapControl,
+	type MapCameraChangedEvent,
 	type MapEvent,
 	type MapMouseEvent,
 	RenderingType,
@@ -117,6 +118,7 @@ export default function MapClient() {
 	const [myPositionErrorMessage, setMyPositionErrorMessage] = useState<
 		string | null
 	>(null);
+	const [mapBearing, setMapBearing] = useState(0);
 	const linjeParam = searchParams.get("linje")?.trim().toUpperCase() ?? "";
 	const hallplatsParam = searchParams.get(STOP_SEARCH_QUERY)?.trim() ?? "";
 	const urlSearchTarget = linjeParam || hallplatsParam;
@@ -331,6 +333,14 @@ export default function MapClient() {
 		operatorMapView.restriction,
 		focusedStationIds,
 		focusedStationStops,
+	);
+
+	const handleMapCameraChanged = useCallback(
+		(e: MapCameraChangedEvent) => {
+			handleCameraChanged(e);
+			setMapBearing(e.detail.heading ?? 0);
+		},
+		[handleCameraChanged],
 	);
 
 	const { clearVectorPaintIdleWatchers, beginVectorMapAttach } =
@@ -723,7 +733,7 @@ export default function MapClient() {
 								beginVectorMapAttach(e, false);
 							}
 						}}
-						onCameraChanged={handleCameraChanged}
+						onCameraChanged={handleMapCameraChanged}
 						disableDefaultUI={true}
 						rotateControl={false}
 						mapTypeControl={false}
@@ -857,6 +867,7 @@ export default function MapClient() {
 							>
 								<UserLocationMarker
 									heading={userPosition.heading}
+									mapBearing={mapBearing}
 									visible={
 										(mapRef.current?.getZoom() ?? 0) >= 12 &&
 										!hideUserPositionForZoom
