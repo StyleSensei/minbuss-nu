@@ -78,3 +78,17 @@ export function compareDeparturesChronologically(
 		departureSortEpochMs(b.serviceDate, b.departureTime)
 	);
 }
+
+/** Wall-clock instant for a scheduled departure (GTFS service date + departure_time). */
+export function departureInstantFromServiceDate(
+	serviceDate: string,
+	departureTime: string,
+): Date {
+	const [h, m, sec = "0"] = departureTime.split(":");
+	const totalMinutes = Number(h) * 60 + Number(m);
+	const seconds = Number.parseInt(sec, 10) || 0;
+	return DateTime.fromISO(serviceDate, { zone: GTFS_SERVICE_TIMEZONE })
+		.startOf("day")
+		.plus({ minutes: totalMinutes, seconds })
+		.toJSDate();
+}

@@ -15,6 +15,7 @@ import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useOverflow } from "../hooks/useOverflow";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
+import { departureInstantFromServiceDate } from "../utilities/upcomingDepartureWindow";
 import { getClosest } from "../utilities/getClosest";
 import {
 	gtfsRouteModeShortLabelSv,
@@ -239,6 +240,12 @@ export const CurrentTrips = ({
 	const getDepartureInstantForFilter = useCallback(
 		(trip: IDbData, boardRef: IDbData): Date => {
 			if (!departureTripUpdates.length) {
+				if (trip.service_date && trip.departure_time) {
+					return departureInstantFromServiceDate(
+						trip.service_date,
+						trip.departure_time,
+					);
+				}
 				return convertGTFSTimeToDate(trip.departure_time);
 			}
 			const tripUpdate = departureTripUpdates.find(
@@ -246,6 +253,12 @@ export const CurrentTrips = ({
 			);
 			const su = tripUpdate?.stopTimeUpdate;
 			if (!su?.length) {
+				if (trip.service_date && trip.departure_time) {
+					return departureInstantFromServiceDate(
+						trip.service_date,
+						trip.departure_time,
+					);
+				}
 				return convertGTFSTimeToDate(trip.departure_time);
 			}
 			const byTripStop = trip.stop_id
@@ -261,6 +274,12 @@ export const CurrentTrips = ({
 				if (byBoard?.departure?.time != null) {
 					return new Date(Number(byBoard.departure.time) * 1000);
 				}
+			}
+			if (trip.service_date && trip.departure_time) {
+				return departureInstantFromServiceDate(
+					trip.service_date,
+					trip.departure_time,
+				);
 			}
 			return convertGTFSTimeToDate(trip.departure_time);
 		},

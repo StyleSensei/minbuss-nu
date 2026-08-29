@@ -4,6 +4,7 @@ import { TimeThresholds } from "../calculateTimeFilter";
 import {
 	buildUpcomingServiceDayWindows,
 	compareDeparturesChronologically,
+	departureInstantFromServiceDate,
 	departureSortEpochMs,
 	getEarlyMorningEndTimeMinutes,
 	isGtfsEarlyMorning,
@@ -73,6 +74,59 @@ describe("compareDeparturesChronologically", () => {
 		expect(sorted[1].departureTime).toBe("07:35:00");
 		expect(sorted[2].departureTime).toBe("07:40:00");
 		expect(sorted[3].departureTime).toBe("43:00:00");
+	});
+});
+
+describe("departureInstantFromServiceDate", () => {
+	const nowAt0056 = stockholm("2026-08-29T00:56:00").toJSDate();
+
+	it("maps yesterday evening service date to a past instant at 00:56", () => {
+		const instant = departureInstantFromServiceDate("2026-08-28", "23:56:00");
+		expect(instant.getTime()).toBeLessThan(nowAt0056.getTime());
+	});
+
+	it("maps same-day early morning service date to a past instant at 00:56", () => {
+		const instant = departureInstantFromServiceDate("2026-08-29", "00:40:00");
+		expect(instant.getTime()).toBeLessThan(nowAt0056.getTime());
+	});
+
+	it("maps same-day later departures to a future instant at 00:56", () => {
+		const instant = departureInstantFromServiceDate("2026-08-29", "01:11:00");
+		expect(instant.getTime()).toBeGreaterThan(nowAt0056.getTime());
+	});
+
+	it("sorts midnight board departures chronologically (Sandviksvägen scenario)", () => {
+		const departures = [
+			{ serviceDate: "2026-08-29", departureTime: "01:11:00" },
+			{ serviceDate: "2026-08-29", departureTime: "02:10:00" },
+			{ serviceDate: "2026-08-28", departureTime: "23:56:00" },
+			{ serviceDate: "2026-08-29", departureTime: "00:04:00" },
+			{ serviceDate: "2026-08-29", departureTime: "00:11:00" },
+			{ serviceDate: "2026-08-29", departureTime: "00:24:00" },
+			{ serviceDate: "2026-08-29", departureTime: "00:40:00" },
+			{ serviceDate: "2026-08-29", departureTime: "00:56:00" },
+		];
+
+		const sorted = [...departures].sort(compareDeparturesChronologically);
+
+		expect(sorted.map((d) => d.departureTime)).toEqual([
+			"23:56:00",
+			"00:04:00",
+			"00:11:00",
+			"00:24:00",
+			"00:40:00",
+			"00:56:00",
+			"01:11:00",
+			"02:10:00",
+		]);
+
+		const upcoming = sorted.filter(
+			(d) =>
+				departureInstantFromServiceDate(d.serviceDate, d.departureTime).getTime() >
+				nowAt0056.getTime(),
+		);
+
+		expect(upcoming.map((d) => d.departureTime)).toEqual(["01:11:00", "02:10:00"]);
 	});
 });
 

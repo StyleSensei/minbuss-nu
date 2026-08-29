@@ -9,6 +9,8 @@ export interface IDbData {
 	stop_headsign: string;
 	stop_id: string;
 	departure_time: string;
+	/** GTFS service calendar date (YYYY-MM-DD), used for midnight-safe sort/filter. */
+	service_date?: string | null;
 	stop_name: string;
 	platform_code?: string | null;
 	stop_sequence: number;

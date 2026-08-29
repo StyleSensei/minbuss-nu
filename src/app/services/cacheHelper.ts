@@ -487,7 +487,7 @@ export const getCachedStopDepartures = cache(
 	): Promise<IStopDepartureSchedule> => {
 		const operator = resolveOperator(operatorInput);
 		const minuteBucket = Math.floor(Date.now() / 60000);
-		const cacheKey = `stop-departures:v10:${operator}:${stopId}:${minuteBucket}`;
+		const cacheKey = `stop-departures:v11:${operator}:${stopId}:${minuteBucket}`;
 		const cached = await redis.get(cacheKey);
 		if (cached) {
 			MetricsTracker.trackCacheHit();
