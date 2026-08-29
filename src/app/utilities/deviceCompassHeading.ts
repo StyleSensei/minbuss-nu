@@ -91,9 +91,19 @@ export async function ensureDeviceCompassListening(): Promise<boolean> {
 	return true;
 }
 
-export function subscribeDeviceCompass(listener: CompassListener): () => void {
+type SubscribeDeviceCompassOptions = {
+	/** Startar kompasslyssnare direkt. Sätt false i WebView tills användaren uttryckligen ber om det. */
+	autoStart?: boolean;
+};
+
+export function subscribeDeviceCompass(
+	listener: CompassListener,
+	options: SubscribeDeviceCompassOptions = {},
+): () => void {
 	listeners.add(listener);
-	void ensureDeviceCompassListening();
+	if (options.autoStart !== false) {
+		void ensureDeviceCompassListening();
+	}
 
 	return () => {
 		listeners.delete(listener);

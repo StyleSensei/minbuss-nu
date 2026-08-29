@@ -552,8 +552,12 @@ export default function MapClient() {
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	}, []);
 
-	const handleMyPositionClick = useCallback(() => {
+	const enableCompassFromUserGesture = useCallback(() => {
 		void ensureDeviceCompassListening();
+	}, []);
+
+	const handleMyPositionClick = useCallback(() => {
+		enableCompassFromUserGesture();
 		if (!mapReady || !userPosition || !mapRef.current) return;
 		setMyPositionErrorMessage(null);
 
@@ -575,6 +579,7 @@ export default function MapClient() {
 			mapRef.current.setZoom(14);
 		}
 	}, [
+		enableCompassFromUserGesture,
 		mapReady,
 		userPosition,
 		mapOperatorForView,
@@ -858,6 +863,8 @@ export default function MapClient() {
 								title={"Min position"}
 								anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 								zIndex={50}
+								clickable
+								onClick={enableCompassFromUserGesture}
 								position={
 									new google.maps.LatLng({
 										lat: userPosition.lat,

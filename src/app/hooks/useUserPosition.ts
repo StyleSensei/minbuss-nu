@@ -12,6 +12,7 @@ import {
 	needsDeviceOrientationPermission,
 	subscribeDeviceCompass,
 } from "../utilities/deviceCompassHeading";
+import { isEmbeddedWebView } from "../utilities/isEmbeddedWebView";
 import { getBearingFromLatLon } from "../utilities/getBearingFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
@@ -273,7 +274,16 @@ export function useGeolocation(
 			flushCompassHeading(heading);
 		};
 
-		const unsubscribe = subscribeDeviceCompass(onCompassHeading);
+		const deferCompassInWebView =
+			isEmbeddedWebView() && needsDeviceOrientationPermission();
+
+		const unsubscribe = subscribeDeviceCompass(onCompassHeading, {
+			autoStart: !deferCompassInWebView,
+		});
+
+		if (deferCompassInWebView) {
+			return unsubscribe;
+		}
 
 		if (!needsDeviceOrientationPermission()) {
 			void ensureDeviceCompassListening();
