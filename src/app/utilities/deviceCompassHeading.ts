@@ -73,13 +73,8 @@ function dispatchCompassHeading(event: DeviceOrientationEvent) {
 	}
 }
 
-/** Startar kompasslyssnare efter ev. iOS-tillstånd. Idempotent. */
-export async function ensureDeviceCompassListening(): Promise<boolean> {
-	if (typeof window === "undefined") return false;
-	if (listening) return true;
-
-	const granted = await requestDeviceOrientationPermission();
-	if (!granted) return false;
+function startCompassListening(): void {
+	if (typeof window === "undefined" || listening) return;
 
 	orientationHandler = (event: DeviceOrientationEvent) => {
 		dispatchCompassHeading(event);
@@ -88,6 +83,46 @@ export async function ensureDeviceCompassListening(): Promise<boolean> {
 	window.addEventListener("deviceorientationabsolute", orientationHandler);
 	window.addEventListener("deviceorientation", orientationHandler);
 	listening = true;
+}
+
+/** Anropa direkt från klick/pointerdown — iOS kräver synkront requestPermission()-anrop. */
+export function enableDeviceCompassFromUserGesture(): void {
+	if (typeof window === "undefined" || listening) return;
+
+	if (!needsDeviceOrientationPermission()) {
+		startCompassListening();
+		return;
+	}
+
+	const requestPermission = (
+		DeviceOrientationEvent as unknown as {
+		 requestPermission?: () => Promise<PermissionState>;
+		}
+	).requestPermission;
+
+	if (typeof requestPermission !== "function") {
+		startCompassListening();
+		return;
+	}
+
+	requestPermission()
+		.then((state) => {
+			if (state === "granted") {
+				startCompassListening();
+			}
+		})
+		.catch(() => {});
+}
+
+/** Startar kompasslyssnare efter ev. iOS-tillstånd. Idempotent. */
+export async function ensureDeviceCompassListening(): Promise<boolean> {
+	if (typeof window === "undefined") return false;
+	if (listening) return true;
+
+	const granted = await requestDeviceOrientationPermission();
+	if (!granted) return false;
+
+	startCompassListening();
 	return true;
 }
 

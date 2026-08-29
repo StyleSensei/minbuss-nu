@@ -1,7 +1,7 @@
 "use client";
 
 import type { IDbData } from "@shared/models/IDbData";
-import { ensureDeviceCompassListening } from "../utilities/deviceCompassHeading";
+import { enableDeviceCompassFromUserGesture } from "../utilities/deviceCompassHeading";
 import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
@@ -553,8 +553,16 @@ export default function MapClient() {
 	}, []);
 
 	const enableCompassFromUserGesture = useCallback(() => {
-		void ensureDeviceCompassListening();
+		enableDeviceCompassFromUserGesture();
 	}, []);
+
+	const handleUserMarkerPointerDown = useCallback(
+		(event: google.maps.MapMouseEvent) => {
+			event.stop?.();
+			enableCompassFromUserGesture();
+		},
+		[enableCompassFromUserGesture],
+	);
 
 	const handleMyPositionClick = useCallback(() => {
 		enableCompassFromUserGesture();
@@ -864,7 +872,7 @@ export default function MapClient() {
 								anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 								zIndex={50}
 								clickable
-								onClick={enableCompassFromUserGesture}
+								onClick={handleUserMarkerPointerDown}
 								position={
 									new google.maps.LatLng({
 										lat: userPosition.lat,

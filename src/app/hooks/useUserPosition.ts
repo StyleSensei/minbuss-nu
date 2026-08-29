@@ -235,10 +235,16 @@ export function useGeolocation(
 			}
 
 			gpsHeadingRef.current = gpsHeading;
-			applyHeadingRef.current(resolveHeading(), {
-				lat: latitude,
-				lng: longitude,
-			});
+			const heading = resolveHeading();
+			if (heading != null) {
+				applyHeadingRef.current(heading, {
+					lat: latitude,
+					lng: longitude,
+				});
+				return;
+			}
+
+			computeUserPosition(latitude, longitude, null);
 		};
 
 		const errorHandler = (error: GeolocationPositionError) => {
@@ -256,7 +262,7 @@ export function useGeolocation(
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);
-	}, [resolveHeading]);
+	}, [resolveHeading, computeUserPosition]);
 
 	useEffect(() => {
 		const flushCompassHeading = throttleLatest(() => {
