@@ -16,6 +16,7 @@ import { getBearingFromLatLon } from "../utilities/getBearingFromLatLon";
 import { getClosest } from "../utilities/getClosest";
 import { getDistanceFromLatLon } from "../utilities/getDistanceFromLatLon";
 import { shortestAngleDelta, smoothHeading } from "../utilities/headingMath";
+import { resolveUserHeading } from "../utilities/resolveUserHeading";
 
 export interface IUser {
 	lat: number;
@@ -30,8 +31,6 @@ export interface IUser {
 const COORD_EPS = 0.000025;
 /** Minst så här långt måste användaren ha förflyttat sig för att vi ska räkna ut riktning. */
 const MIN_MOVEMENT_FOR_BEARING_METERS = 3;
-/** Över denna hastighet prioriteras GPS-riktning framför kompassen. */
-const GPS_HEADING_PREFERRED_SPEED_MPS = 1;
 
 export function useGeolocation(
 	lineStops: IDbData[],
@@ -40,6 +39,7 @@ export function useGeolocation(
 	const [position, setPosition] = useState<IUser | null>(null);
 	const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 	const lastHeadingRef = useRef<number | null>(null);
+	const pendingHeadingRef = useRef<number | null>(null);
 	const gpsHeadingRef = useRef<number | null>(null);
 	const compassHeadingRef = useRef<number | null>(null);
 	const lastSpeedRef = useRef<number | null>(null);
@@ -48,11 +48,27 @@ export function useGeolocation(
 	lineStopsRef.current = lineStops;
 	currentTripsRef.current = currentTrips;
 
+	const resolveHeading = useCallback((): number | null => {
+		return resolveUserHeading({
+			gpsHeading: gpsHeadingRef.current,
+			compassHeading: compassHeadingRef.current,
+			lastHeading: lastHeadingRef.current,
+			speed: lastSpeedRef.current,
+		});
+	}, []);
+
 	const computeUserPosition = useCallback(
 		(lat: number, lng: number, heading: number | null) => {
 			const trips = currentTripsRef.current;
 			const stops = lineStopsRef.current;
 			lastCoordsRef.current = { lat, lng };
+
+			const resolvedHeading =
+				heading ?? pendingHeadingRef.current ?? lastHeadingRef.current;
+			if (resolvedHeading != null) {
+				lastHeadingRef.current = resolvedHeading;
+				pendingHeadingRef.current = null;
+			}
 
 			// Prefer active-trip stops when available so closest stop matches
 			// currently active route patterns/directions on the map.
@@ -86,10 +102,11 @@ export function useGeolocation(
 						Math.abs(prev.lat - lat) < COORD_EPS &&
 						Math.abs(prev.lng - lng) < COORD_EPS;
 					const sameHeading =
-						prev.heading === heading ||
+						prev.heading === resolvedHeading ||
 						(prev.heading != null &&
-							heading != null &&
-							Math.abs(shortestAngleDelta(prev.heading, heading)) < 5);
+							resolvedHeading != null &&
+							Math.abs(shortestAngleDelta(prev.heading, resolvedHeading)) <
+								5);
 					const prevTripsSig = prev.tripsAtClosestStop
 						.map((t) => `${t.trip_id}:${t.stop_id}:${t.stop_sequence}`)
 						.join("|");
@@ -105,7 +122,7 @@ export function useGeolocation(
 				return {
 					lat,
 					lng,
-					heading,
+					heading: resolvedHeading,
 					closestStop: newClosestStop,
 					tripsAtClosestStop,
 				};
@@ -114,31 +131,27 @@ export function useGeolocation(
 		[],
 	);
 
-	const resolveHeading = useCallback((): number | null => {
-		const gpsHeading = gpsHeadingRef.current;
-		const compassHeading = compassHeadingRef.current;
-		const speed = lastSpeedRef.current;
-		const moving =
-			speed != null &&
-			Number.isFinite(speed) &&
-			speed >= GPS_HEADING_PREFERRED_SPEED_MPS;
-
-		if (moving && gpsHeading != null) return gpsHeading;
-		if (compassHeading != null) return compassHeading;
-		return gpsHeading ?? lastHeadingRef.current;
-	}, []);
-
 	const applyHeadingRef = useRef<
 		(
 			heading: number | null,
-			options?: { lat?: number; lng?: number; epsilon?: number },
+			options?: {
+				lat?: number;
+				lng?: number;
+				epsilon?: number;
+				smoothFactor?: number;
+			},
 		) => void
 	>(() => {});
 
 	useEffect(() => {
 		applyHeadingRef.current = (
 			heading: number | null,
-			options?: { lat?: number; lng?: number; epsilon?: number },
+			options?: {
+				lat?: number;
+				lng?: number;
+				epsilon?: number;
+				smoothFactor?: number;
+			},
 		) => {
 			if (heading == null) return;
 
@@ -146,8 +159,8 @@ export function useGeolocation(
 			const smoothed = smoothHeading(
 				lastHeadingRef.current,
 				heading,
-				fromGps ? 0.35 : 0.55,
-				options?.epsilon ?? (fromGps ? 5 : 2),
+				options?.smoothFactor ?? (fromGps ? 0.35 : 0.65),
+				options?.epsilon ?? (fromGps ? 5 : 1),
 			);
 			lastHeadingRef.current = smoothed;
 
@@ -161,8 +174,11 @@ export function useGeolocation(
 			}
 
 			setPosition((prev) => {
-				if (!prev) return prev;
-				const epsilon = options?.epsilon ?? 2;
+				if (!prev) {
+					pendingHeadingRef.current = smoothed;
+					return prev;
+				}
+				const epsilon = options?.epsilon ?? 1;
 				if (
 					prev.heading === smoothed ||
 					(prev.heading != null &&
@@ -243,7 +259,10 @@ export function useGeolocation(
 	useEffect(() => {
 		const onCompassHeading = (heading: number) => {
 			compassHeadingRef.current = heading;
-			applyHeadingRef.current(resolveHeading());
+			applyHeadingRef.current(resolveHeading(), {
+				epsilon: 1,
+				smoothFactor: 0.65,
+			});
 		};
 
 		const unsubscribe = subscribeDeviceCompass(onCompassHeading);

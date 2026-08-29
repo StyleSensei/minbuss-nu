@@ -20,6 +20,7 @@ import { InfoWindow } from "../components/InfoWindow";
 import { MapControlButtons } from "../components/MapControlButtons";
 import RouteShapePolyline from "../components/RouteShapePolyline";
 import UserMessage from "../components/UserMessage";
+import { UserLocationMarker } from "../components/UserLocationMarker";
 import VehicleMarkers from "../components/VehicleMarkers";
 import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -854,31 +855,14 @@ export default function MapClient() {
 									})
 								}
 							>
-								<div className="user-location-marker">
-									{userPosition.heading != null && (
-										<div
-											className={`user-location__heading ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
-											style={{
-												transform: `rotate(${userPosition.heading}deg)`,
-											}}
-										/>
-									)}
-									<div
-										className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
-									/>
-								</div>
-								<div
-									className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
-								>
-									<span
-										className="user-location__text"
-										style={{
-											fontSize: (mapRef.current?.getZoom() ?? 10) * 0.8,
-										}}
-									>
-										Min position
-									</span>
-								</div>
+								<UserLocationMarker
+									heading={userPosition.heading}
+									visible={
+										(mapRef.current?.getZoom() ?? 0) >= 12 &&
+										!hideUserPositionForZoom
+									}
+									labelFontSize={(mapRef.current?.getZoom() ?? 10) * 0.8}
+								/>
 							</AdvancedMarker>
 						)}
 					</GoogleMap>
