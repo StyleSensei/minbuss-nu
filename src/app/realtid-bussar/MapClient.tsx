@@ -1,7 +1,7 @@
 "use client";
 
 import type { IDbData } from "@shared/models/IDbData";
-import { ensureDeviceCompassListening } from "../utilities/deviceCompassHeading";
+import { enableDeviceCompassFromUserGesture } from "../utilities/deviceCompassHeading";
 import {
 	AdvancedMarker,
 	AdvancedMarkerAnchorPoint,
@@ -552,8 +552,20 @@ export default function MapClient() {
 		GoogleMap.setZoom(GoogleMap.getZoom()! - 1);
 	}, []);
 
+	const enableCompassFromUserGesture = useCallback(() => {
+		enableDeviceCompassFromUserGesture();
+	}, []);
+
+	const handleUserMarkerPointerDown = useCallback(
+		(event: google.maps.MapMouseEvent) => {
+			event.stop?.();
+			enableCompassFromUserGesture();
+		},
+		[enableCompassFromUserGesture],
+	);
+
 	const handleMyPositionClick = useCallback(() => {
-		void ensureDeviceCompassListening();
+		enableCompassFromUserGesture();
 		if (!mapReady || !userPosition || !mapRef.current) return;
 		setMyPositionErrorMessage(null);
 
@@ -575,6 +587,7 @@ export default function MapClient() {
 			mapRef.current.setZoom(14);
 		}
 	}, [
+		enableCompassFromUserGesture,
 		mapReady,
 		userPosition,
 		mapOperatorForView,
@@ -858,6 +871,8 @@ export default function MapClient() {
 								title={"Min position"}
 								anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
 								zIndex={50}
+								clickable
+								onClick={handleUserMarkerPointerDown}
 								position={
 									new google.maps.LatLng({
 										lat: userPosition.lat,

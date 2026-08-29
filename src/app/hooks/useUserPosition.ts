@@ -8,8 +8,6 @@ import {
 	useState,
 } from "react";
 import {
-	ensureDeviceCompassListening,
-	needsDeviceOrientationPermission,
 	subscribeDeviceCompass,
 } from "../utilities/deviceCompassHeading";
 import { getBearingFromLatLon } from "../utilities/getBearingFromLatLon";
@@ -237,10 +235,16 @@ export function useGeolocation(
 			}
 
 			gpsHeadingRef.current = gpsHeading;
-			applyHeadingRef.current(resolveHeading(), {
-				lat: latitude,
-				lng: longitude,
-			});
+			const heading = resolveHeading();
+			if (heading != null) {
+				applyHeadingRef.current(heading, {
+					lat: latitude,
+					lng: longitude,
+				});
+				return;
+			}
+
+			computeUserPosition(latitude, longitude, null);
 		};
 
 		const errorHandler = (error: GeolocationPositionError) => {
@@ -258,7 +262,7 @@ export function useGeolocation(
 		);
 
 		return () => navigator.geolocation.clearWatch(watchId);
-	}, [resolveHeading]);
+	}, [resolveHeading, computeUserPosition]);
 
 	useEffect(() => {
 		const flushCompassHeading = throttleLatest(() => {
@@ -273,33 +277,7 @@ export function useGeolocation(
 			flushCompassHeading(heading);
 		};
 
-		const unsubscribe = subscribeDeviceCompass(onCompassHeading);
-
-		if (!needsDeviceOrientationPermission()) {
-			void ensureDeviceCompassListening();
-			return unsubscribe;
-		}
-
-		const enableOnGesture = () => {
-			void ensureDeviceCompassListening();
-		};
-
-		window.addEventListener("click", enableOnGesture, {
-			once: true,
-			capture: true,
-		});
-		window.addEventListener("touchstart", enableOnGesture, {
-			once: true,
-			capture: true,
-		});
-
-		return () => {
-			unsubscribe();
-			window.removeEventListener("click", enableOnGesture, { capture: true });
-			window.removeEventListener("touchstart", enableOnGesture, {
-				capture: true,
-			});
-		};
+		return subscribeDeviceCompass(onCompassHeading);
 	}, [resolveHeading]);
 
 	return [position, setPosition];
