@@ -856,9 +856,19 @@ export default function MapClient() {
 									})
 								}
 							>
-								<div
-									className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
-								/>
+								<div className="user-location-marker">
+									{userPosition.heading != null && (
+										<div
+											className={`user-location__heading ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+											style={{
+												transform: `rotate(${userPosition.heading}deg)`,
+											}}
+										/>
+									)}
+									<div
+										className={`user-location ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
+									/>
+								</div>
 								<div
 									className={`user-location__container ${(mapRef.current?.getZoom() ?? 0) >= 12 && !hideUserPositionForZoom ? "--visible" : ""}`}
 								>
