@@ -15,7 +15,11 @@ import { useDataContext } from "../context/DataContext";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useOverflow } from "../hooks/useOverflow";
 import { convertGTFSTimeToDate } from "../utilities/convertGTFSTimeToDate";
-import { departureInstantFromServiceDate } from "../utilities/upcomingDepartureWindow";
+import {
+	departureSortEpochMs,
+} from "../utilities/upcomingDepartureWindow";
+import { GTFS_SERVICE_TIMEZONE } from "../utilities/gtfsTimeContext";
+import { DateTime } from "luxon";
 import { getClosest } from "../utilities/getClosest";
 import {
 	gtfsRouteModeShortLabelSv,
@@ -237,16 +241,13 @@ export const CurrentTrips = ({
 		[departureTripUpdates],
 	);
 
-	const getDepartureInstantForFilter = useCallback(
-		(trip: IDbData, boardRef: IDbData): Date => {
+	const getDepartureEpochMsForFilter = useCallback(
+		(trip: IDbData, boardRef: IDbData): number => {
 			if (!departureTripUpdates.length) {
 				if (trip.service_date && trip.departure_time) {
-					return departureInstantFromServiceDate(
-						trip.service_date,
-						trip.departure_time,
-					);
+					return departureSortEpochMs(trip.service_date, trip.departure_time);
 				}
-				return convertGTFSTimeToDate(trip.departure_time);
+				return convertGTFSTimeToDate(trip.departure_time).getTime();
 			}
 			const tripUpdate = departureTripUpdates.find(
 				(t) => t.trip.tripId === trip.trip_id,
@@ -254,34 +255,28 @@ export const CurrentTrips = ({
 			const su = tripUpdate?.stopTimeUpdate;
 			if (!su?.length) {
 				if (trip.service_date && trip.departure_time) {
-					return departureInstantFromServiceDate(
-						trip.service_date,
-						trip.departure_time,
-					);
+					return departureSortEpochMs(trip.service_date, trip.departure_time);
 				}
-				return convertGTFSTimeToDate(trip.departure_time);
+				return convertGTFSTimeToDate(trip.departure_time).getTime();
 			}
 			const byTripStop = trip.stop_id
 				? su.find((s) => s.stopId === trip.stop_id && s.departure?.time != null)
 				: undefined;
 			if (byTripStop?.departure?.time != null) {
-				return new Date(Number(byTripStop.departure.time) * 1000);
+				return Number(byTripStop.departure.time) * 1000;
 			}
 			if (boardRef?.stop_id) {
 				const byBoard = su.find(
 					(s) => s.stopId === boardRef.stop_id && s.departure?.time != null,
 				);
 				if (byBoard?.departure?.time != null) {
-					return new Date(Number(byBoard.departure.time) * 1000);
+					return Number(byBoard.departure.time) * 1000;
 				}
 			}
 			if (trip.service_date && trip.departure_time) {
-				return departureInstantFromServiceDate(
-					trip.service_date,
-					trip.departure_time,
-				);
+				return departureSortEpochMs(trip.service_date, trip.departure_time);
 			}
-			return convertGTFSTimeToDate(trip.departure_time);
+			return convertGTFSTimeToDate(trip.departure_time).getTime();
 		},
 		[departureTripUpdates],
 	);
@@ -392,9 +387,11 @@ export const CurrentTrips = ({
 
 				function rowPassesDepartureTimeRule(trip: IDbData): boolean {
 					try {
-						const departureTime = getDepartureInstantForFilter(trip, boardStop);
-						const minutesSince =
-							(Date.now() - departureTime.getTime()) / (1000 * 60);
+						const nowMs = DateTime.now()
+							.setZone(GTFS_SERVICE_TIMEZONE)
+							.toMillis();
+						const departureMs = getDepartureEpochMsForFilter(trip, boardStop);
+						const minutesSince = (nowMs - departureMs) / (1000 * 60);
 
 						if (
 							effectiveFollowedTripId &&
@@ -505,14 +502,14 @@ export const CurrentTrips = ({
 				}
 
 				newList = [...newList].sort((a, b) => {
-					const ta = getDepartureInstantForFilter(
+					const ta = getDepartureEpochMsForFilter(
 						a,
 						isPinnedStopMode ? a : boardStop,
-					).getTime();
-					const tb = getDepartureInstantForFilter(
+					);
+					const tb = getDepartureEpochMsForFilter(
 						b,
 						isPinnedStopMode ? b : boardStop,
-					).getTime();
+					);
 					if (ta !== tb) return ta - tb;
 					return (a.trip_id ?? "").localeCompare(b.trip_id ?? "");
 				});
@@ -542,7 +539,7 @@ export const CurrentTrips = ({
 		filteredStopBoard.departures,
 		tripData.upcomingTrips,
 		tripData.currentTrips,
-		getDepartureInstantForFilter,
+		getDepartureEpochMsForFilter,
 		effectiveFollowedTripId,
 		activeVehicleBoardStop,
 		departureVehicles,
