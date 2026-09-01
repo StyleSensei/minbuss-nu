@@ -131,10 +131,16 @@ export function useShapeCoasting({
 			const anchor = readMarkerLatLng(marker.position);
 			if (!anchor) return;
 
-			// Sök från början av shapen med tillräckligt brett fönster — annars väljs fel gren på långa rutter.
 			const maxSeg = Math.max(0, shapePoints.length - 2);
-			const searchWindow = Math.min(maxSeg, PROJ_SEARCH_MAX_SEGMENTS);
-			const proj = projectRtToShape(anchor, shapePoints, 0, searchWindow);
+			const hint = Math.max(0, Math.min(maxSeg, coastHintIndexRef.current - 40));
+			const searchWindow = Math.min(maxSeg - hint + 1, 180);
+			const proj = projectRtToShape(
+				anchor,
+				shapePoints,
+				hint,
+				searchWindow,
+				coastHintIndexRef.current,
+			);
 
 			if (proj.dist2 > MAX_PROJ_DIST2) return;
 

@@ -242,14 +242,14 @@ export function useRtTimeline({
       anchor,
       shapePoints,
       anchorStartIndex,
-      300
+      300,
+      lastIndexRef.current
     );
 
-    // Monoton progress längs shapen: tillåt aldrig att vi går bakåt i index.
-    // Vi använder anchorProjection för att hitta närmaste segment, men "progress" får inte minska.
+    // Progress följer markörens faktiska position längs shapen — inte optimistiskt avancerat index.
     const progressIndex = Math.min(
       shapePoints.length - 2,
-      Math.max(anchorProjection.index, lastIndexRef.current)
+      anchorProjection.index
     );
     // Startpunkt för animation: använd markörens faktiska position (ankaret).
     // Vi håller progressIndex monotont för att inte gå bakåt i index,
@@ -263,7 +263,8 @@ export function useRtTimeline({
       vehiclePosition,
       shapePoints,
       rtStartIndex,
-      rtSearchWindow
+      rtSearchWindow,
+      progressIndex
     );
 
 
@@ -279,23 +280,44 @@ export function useRtTimeline({
     const softSnapAllowed = rtProjection.dist2 < SOFT_SNAP_MAX_DIST2;
 
     const rawTargetIndex = rtProjection.index;
-    // Rör aldrig markören bakåt och begränsa hur långt fram den kan hoppa per uppdatering.
-    const baseIndex = Math.max(lastIndexRef.current, progressIndex);
+    const baseIndex = progressIndex;
     const MAX_FORWARD_INDEX_STEP = 12;
-    const unclampedTargetIndex = Math.min(
-      Math.max(rawTargetIndex, baseIndex),
+    const MAX_BACKWARD_INDEX_STEP = 25;
+    let effectiveTargetIndex = rawTargetIndex;
+
+    if (snapAllowed) {
+      if (rawTargetIndex > baseIndex) {
+        effectiveTargetIndex = Math.min(
+          rawTargetIndex,
+          Math.min(shapePoints.length - 1, baseIndex + MAX_FORWARD_INDEX_STEP)
+        );
+      } else if (rawTargetIndex < baseIndex) {
+        effectiveTargetIndex = Math.max(
+          rawTargetIndex,
+          Math.max(0, baseIndex - MAX_BACKWARD_INDEX_STEP)
+        );
+      }
+    } else {
+      effectiveTargetIndex = baseIndex;
+    }
+
+    effectiveTargetIndex = Math.min(
+      Math.max(0, effectiveTargetIndex),
       shapePoints.length - 1
-    );
-    const effectiveTargetIndex = Math.min(
-      unclampedTargetIndex,
-      Math.min(shapePoints.length - 1, baseIndex + MAX_FORWARD_INDEX_STEP)
     );
 
     const indexDelta = Math.abs(effectiveTargetIndex - progressIndex);
     const targetIndex = effectiveTargetIndex;
     const targetT = targetIndex === rtProjection.index ? rtProjection.t : 1;
     const target = pointOnSegment(targetIndex, targetT);
-    const forwardClamped = unclampedTargetIndex !== effectiveTargetIndex;
+    const forwardClamped =
+      snapAllowed &&
+      rawTargetIndex > baseIndex &&
+      effectiveTargetIndex < rawTargetIndex;
+    const backwardCorrected =
+      snapAllowed &&
+      rawTargetIndex < baseIndex &&
+      effectiveTargetIndex > rawTargetIndex;
 
     const durationForDelta = (
       delta: number,
@@ -319,14 +341,8 @@ export function useRtTimeline({
       snapMode = "animate";
     }
 
-    // Om vi startar en längre "catch-up" (särskilt när vi forward-clampar) kan effekten triggas igen
-    // innan tweenen hinner bli klar → lastIndexRef uppdateras aldrig och vi försöker catch-up:a om och om igen.
-    // Optimistiskt avancera lastIndexRef direkt så nästa tick utgår från den nya positionen längs shapen.
-    if (effectiveTargetIndex > lastIndexRef.current) {
-      lastIndexRef.current = effectiveTargetIndex;
-    }
-
-    // Hantera snap-beteende baserat på beräknat läge
+    // Uppdatera lastIndexRef först när animationen är klar — inte optimistiskt,
+    // annars kan nästa tick utgå från en position långt före den synliga markören.
     if (snapMode === "skip") {
       skipStreakRef.current += 1;
       if (softSnapAllowed) {
@@ -480,6 +496,7 @@ export function useRtTimeline({
         rtDist2: rtProjection.dist2,
         indexDelta,
         forwardClamped,
+        backwardCorrected,
       });
     }
 
