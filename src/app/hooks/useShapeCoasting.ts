@@ -18,8 +18,6 @@ const MAX_PROJ_DIST2 = 7e-4;
 const MAX_ANCHOR_TO_PROJ_M = 85;
 const MAX_DRIFT_FROM_REPORTED_VEHICLE_M = 175;
 const MAX_STEP_M_PER_FRAME = 2.2;
-/** Max antal segment att söka från start (prestanda); täcker de flesta linjers shape. */
-const PROJ_SEARCH_MAX_SEGMENTS = 2500;
 
 function readMarkerLatLng(
 	pos:
