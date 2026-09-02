@@ -22,9 +22,8 @@ import { useDataContext } from "../context/DataContext";
 import { useCheckIfFurtherFromStop } from "../hooks/useCheckIfFurther";
 import { useInitialShapeSnap } from "../hooks/useInitialShapeSnap";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { useRtTimeline } from "../hooks/useRtTimeline";
+import { useVehicleMarkerMotion } from "../hooks/useVehicleMarkerMotion";
 import { useSetZoom } from "../hooks/useSetZoom";
-import { useShapeCoasting } from "../hooks/useShapeCoasting";
 import { getClosest } from "../utilities/getClosest";
 import { projectRtToShape } from "../utilities/projectPointOnSegment";
 import { snapToShapeInitial } from "../utilities/snapToShape";
@@ -91,7 +90,6 @@ export default function CustomMarker({
 	const onPositionWriteRef = useRef<
 		((lat: number, lng: number) => void) | null
 	>(null);
-	const rtTimelineBusyRef = useRef(false);
 	skipMarkerWritesRef.current = followBus && !isActive;
 
 	const incomingShapePoints = currentVehicle.shapePoints ?? [];
@@ -181,23 +179,13 @@ export default function CustomMarker({
 		onSnapped,
 	});
 
-	useRtTimeline({
+	useVehicleMarkerMotion({
 		marker,
 		vehiclePosition,
 		shapePoints,
-		initialLastIndexRef: lastShapeIndexRef,
-		skipWritesRef: skipMarkerWritesRef,
-		onPositionWriteRef,
-		timelineBusyRef: rtTimelineBusyRef,
-	});
-
-	useShapeCoasting({
-		marker,
-		shapePoints,
-		vehicleLat: position.lat,
-		vehicleLng: position.lng,
 		speedMps: currentVehicle.position.speed,
-		timelineBusyRef: rtTimelineBusyRef,
+		vehicleTimestamp: currentVehicle.timestamp,
+		initialLastIndexRef: lastShapeIndexRef,
 		skipWritesRef: skipMarkerWritesRef,
 		onPositionWriteRef,
 	});
@@ -460,7 +448,7 @@ export default function CustomMarker({
 				ref={markerRef}
 				position={positionForMarker}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				className={`marker-wrapper ${markerReady || shapePoints.length < 2 ? "" : "marker-hidden"}`}
+				className="marker-wrapper"
 				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 				zIndex={zIndex}

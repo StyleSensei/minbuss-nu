@@ -33,12 +33,37 @@ export const getVehiclePositions =
 
 		const vehiclePositions = feed.entity
 			.map((entity) => {
-				if (entity.vehicle) {
-					return entity.vehicle;
-				}
-				return null;
+				const raw = entity.vehicle;
+				if (!raw) return null;
+
+				const trip = raw.trip;
+				const pos = raw.position;
+				const vehicle = raw.vehicle;
+
+				return {
+					trip: {
+						tripId: trip?.tripId ?? null,
+						scheduleRelationship:
+							trip?.scheduleRelationship != null
+								? String(trip.scheduleRelationship)
+								: null,
+					},
+					position: {
+						latitude: pos?.latitude ?? 0,
+						longitude: pos?.longitude ?? 0,
+						bearing: pos?.bearing ?? null,
+						speed: pos?.speed ?? null,
+					},
+					timestamp:
+						raw.timestamp != null && Number.isFinite(Number(raw.timestamp))
+							? String(raw.timestamp)
+							: null,
+					vehicle: {
+						id: vehicle?.id ?? "",
+					},
+				} satisfies IVehiclePosition;
 			})
-			.filter(Boolean) as IVehiclePosition[];
+			.filter((v): v is IVehiclePosition => v != null);
 
 		const data = vehiclePositions;
 

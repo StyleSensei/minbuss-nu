@@ -31,11 +31,15 @@ function projectPointOnSegment(
 	};
 }
 
+/** When dist2 values are within this margin, prefer the segment closest to `hintIndex`. */
+const PROJECTION_TIE_DIST2_EPS = 4e-7;
+
 export function projectRtToShape(
 	rt: { lat: number; lng: number },
 	shape: IShapes[],
 	startIndex = 0,
 	searchWindow = 200,
+	hintIndex?: number,
 ) {
 	if (shape.length < 2) {
 		return {
@@ -78,6 +82,41 @@ export function projectRtToShape(
 		const dx = proj.x - rt.lng;
 		const dy = proj.y - rt.lat;
 		const d2 = dx * dx + dy * dy;
+
+		const isClearlyCloser = d2 < best.dist2 - PROJECTION_TIE_DIST2_EPS;
+		const isNearTie =
+			hintIndex != null &&
+			Number.isFinite(hintIndex) &&
+			Math.abs(d2 - best.dist2) <= PROJECTION_TIE_DIST2_EPS;
+
+		if (isClearlyCloser) {
+			best = {
+				index: i,
+				t: proj.t,
+				lat: proj.y,
+				lng: proj.x,
+				dist2: d2,
+			};
+			continue;
+		}
+
+		if (isNearTie) {
+			const candidateHintDist = Math.abs(i - hintIndex);
+			const bestHintDist = Math.abs(best.index - hintIndex);
+			if (
+				candidateHintDist < bestHintDist ||
+				(candidateHintDist === bestHintDist && d2 < best.dist2)
+			) {
+				best = {
+					index: i,
+					t: proj.t,
+					lat: proj.y,
+					lng: proj.x,
+					dist2: d2,
+				};
+			}
+			continue;
+		}
 
 		if (d2 < best.dist2) {
 			best = {
