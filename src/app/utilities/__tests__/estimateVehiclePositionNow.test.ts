@@ -111,7 +111,7 @@ describe("estimateVehiclePositionOnShape", () => {
 			pipelineLatencySec: 0,
 		});
 
-		expect(result.extrapolatedDistanceM).toBeLessThanOrEqual(72);
+		expect(result.extrapolatedDistanceM).toBeLessThanOrEqual(55);
 	});
 
 	it("uses inferred speed when reported speed is missing", () => {
