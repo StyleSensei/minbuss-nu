@@ -1,0 +1,10 @@
+{
+	"name": "Min Buss.nu",
+	"install": "npm ci",
+	"terminals": [
+		{
+			"name": "next-dev",
+			"command": "npm run dev"
+		}
+	]
+}
