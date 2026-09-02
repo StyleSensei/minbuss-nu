@@ -85,8 +85,8 @@ describe("shape path animation helpers", () => {
 		const normal = computeReconcileDurationSec(120, 10);
 		const catchUp = computeReconcileDurationSec(120, 10, { catchUp: true });
 		expect(catchUp).toBeLessThan(normal);
-		expect(catchUp).toBeGreaterThanOrEqual(1);
-		expect(catchUp).toBeLessThanOrEqual(4.5);
+		expect(catchUp).toBeGreaterThanOrEqual(0.4);
+		expect(catchUp).toBeLessThanOrEqual(2);
 	});
 
 	it("builds backward path when estimate index is behind marker", () => {

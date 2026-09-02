@@ -6,9 +6,11 @@ import { getDistanceFromLatLon } from "./getDistanceFromLatLon";
 /** Used when vehicle timestamp is missing (Redis TTL + poll interval). */
 export const DEFAULT_PIPELINE_LATENCY_SEC = 2.5;
 /** Small buffer for cache/poll when a vehicle timestamp is present. */
-export const TIMESTAMP_PIPELINE_BUFFER_SEC = 0.8;
+export const TIMESTAMP_PIPELINE_BUFFER_SEC = 1.0;
 export const MAX_EXTRAPOLATION_AGE_SEC = 8;
-export const MAX_EXTRAPOLATION_DISTANCE_M = 55;
+export const MAX_EXTRAPOLATION_DISTANCE_M = 72;
+/** Compensates for poll/cache jitter so the marker keeps pace with passengers. */
+export const PASSENGER_PARITY_HEADROOM = 1.12;
 export const MIN_MOVING_SPEED_MPS = 0.3;
 export const MAX_SPEED_MPS = 28;
 /** Max drift from reported GPS while cruising between samples. */
@@ -136,7 +138,7 @@ export function estimateVehiclePositionOnShape(options: {
 
 	const extrapolatedDistanceM = Math.min(
 		MAX_EXTRAPOLATION_DISTANCE_M,
-		speed * ageSec,
+		speed * ageSec * PASSENGER_PARITY_HEADROOM,
 	);
 	const advanced =
 		extrapolatedDistanceM > 0

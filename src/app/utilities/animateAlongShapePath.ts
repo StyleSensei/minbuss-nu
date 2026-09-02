@@ -7,9 +7,9 @@ const MIN_ANIMATION_SPEED_MPS = 6;
 const MIN_ANIMATION_SEC = 2.5;
 const MAX_ANIMATION_SEC = 8;
 /** Faster catch-up when the marker is visibly behind the vehicle. */
-const CATCH_UP_MIN_ANIMATION_SEC = 1;
-const CATCH_UP_MAX_ANIMATION_SEC = 4.5;
-const CATCH_UP_MIN_SPEED_MPS = 8;
+const CATCH_UP_MIN_ANIMATION_SEC = 0.4;
+const CATCH_UP_MAX_ANIMATION_SEC = 2;
+const CATCH_UP_MIN_SPEED_MPS = 12;
 
 export function buildShapePathPoints(
 	shapePoints: IShapes[],
