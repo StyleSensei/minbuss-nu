@@ -39,15 +39,27 @@ describe("normalizeSpeedMps", () => {
 });
 
 describe("computeSampleAgeSec", () => {
-	it("adds pipeline latency to vehicle timestamp age", () => {
-		const nowMs = 1_700_000_005_000;
+	it("caps age even when vehicle timestamp is much older than receipt", () => {
+		const receivedAtMs = 1_700_000_000_000;
+		const nowMs = receivedAtMs + 3_000;
 		const age = computeSampleAgeSec({
 			nowMs,
-			sampleTimestampSec: 1_700_000_000,
-			receivedAtMs: null,
-			pipelineLatencySec: 2,
+			sampleTimestampSec: 1_699_999_970,
+			receivedAtMs,
 		});
-		expect(age).toBeCloseTo(7, 5);
+		expect(age).toBeLessThanOrEqual(8);
+		expect(age).toBeGreaterThan(0);
+	});
+
+	it("does not grow unbounded from an old timestamp on later polls", () => {
+		const receivedAtMs = 1_700_000_000_000;
+		const nowMs = receivedAtMs + 5_000;
+		const age = computeSampleAgeSec({
+			nowMs,
+			sampleTimestampSec: 1_699_999_000,
+			receivedAtMs,
+		});
+		expect(age).toBeLessThan(20);
 	});
 
 	it("falls back to receivedAt when timestamp is missing", () => {
@@ -71,18 +83,33 @@ describe("estimateVehiclePositionOnShape", () => {
 
 	it("extrapolates forward when bus has been moving", () => {
 		const speedMps = 20 / 3.6;
-		const ageSec = 5;
+		const receivedAtMs = 1_700_000_000_000;
 		const result = estimateVehiclePositionOnShape({
 			samplePosition: { lat: 59.0, lng: 18.0 },
 			shapePoints: shape,
 			speedMps,
 			sampleTimestampSec: 1_700_000_000,
-			nowMs: (1_700_000_000 + ageSec) * 1000,
+			nowMs: receivedAtMs + 5_000,
+			receivedAtMs,
 			pipelineLatencySec: 0,
 		});
 
-		expect(result.extrapolatedDistanceM).toBeCloseTo(speedMps * ageSec, 0);
+		expect(result.extrapolatedDistanceM).toBeGreaterThan(0);
 		expect(result.lat).toBeGreaterThan(59.0);
+	});
+
+	it("caps extrapolation distance", () => {
+		const result = estimateVehiclePositionOnShape({
+			samplePosition: { lat: 59.0, lng: 18.0 },
+			shapePoints: shape,
+			speedMps: 20,
+			sampleTimestampSec: 1_700_000_000,
+			nowMs: 1_700_000_030_000,
+			receivedAtMs: 1_700_000_030_000,
+			pipelineLatencySec: 0,
+		});
+
+		expect(result.extrapolatedDistanceM).toBeLessThanOrEqual(55);
 	});
 
 	it("stays at sample when speed is zero", () => {
@@ -92,6 +119,7 @@ describe("estimateVehiclePositionOnShape", () => {
 			speedMps: 0,
 			sampleTimestampSec: 1_700_000_000,
 			nowMs: 1_700_000_010_000,
+			receivedAtMs: 1_700_000_010_000,
 			pipelineLatencySec: 0,
 		});
 

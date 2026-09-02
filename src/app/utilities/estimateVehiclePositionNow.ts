@@ -2,11 +2,16 @@ import type { IShapes } from "@/shared/models/IShapes";
 import { advanceAlongShapePoints } from "./advanceAlongShape";
 import { projectRtToShape } from "./projectPointOnSegment";
 
-/** Extra latency on top of vehicle timestamp (Redis TTL + poll interval, ~half each). */
+/** Used when vehicle timestamp is missing (Redis TTL + poll interval). */
 export const DEFAULT_PIPELINE_LATENCY_SEC = 2.5;
-export const MAX_EXTRAPOLATION_AGE_SEC = 30;
+/** Small buffer for cache/poll when a vehicle timestamp is present. */
+export const TIMESTAMP_PIPELINE_BUFFER_SEC = 0.8;
+export const MAX_EXTRAPOLATION_AGE_SEC = 8;
+export const MAX_EXTRAPOLATION_DISTANCE_M = 55;
 export const MIN_MOVING_SPEED_MPS = 0.3;
 export const MAX_SPEED_MPS = 28;
+/** Max drift from reported GPS while cruising between samples. */
+export const MAX_CRUISE_DRIFT_FROM_GPS_M = 45;
 
 export function parseVehicleTimestampSec(
 	timestamp: string | null | undefined,
@@ -17,6 +22,10 @@ export function parseVehicleTimestampSec(
 	return n > 1e12 ? n / 1000 : n;
 }
 
+/**
+ * Age since the position was valid — anchored to when we received the sample,
+ * not an arbitrarily stale vehicle timestamp that would over-extrapolate.
+ */
 export function computeSampleAgeSec(options: {
 	nowMs: number;
 	sampleTimestampSec: number | null;
@@ -25,18 +34,23 @@ export function computeSampleAgeSec(options: {
 }): number {
 	const pipeline = options.pipelineLatencySec ?? DEFAULT_PIPELINE_LATENCY_SEC;
 	const { nowMs, sampleTimestampSec, receivedAtMs } = options;
+	const nowSec = nowMs / 1000;
+	const receivedSec =
+		receivedAtMs != null && Number.isFinite(receivedAtMs)
+			? receivedAtMs / 1000
+			: nowSec;
 
 	if (sampleTimestampSec != null) {
-		const age = nowMs / 1000 - sampleTimestampSec + pipeline;
+		const dataAgeAtReceipt = Math.max(0, receivedSec - sampleTimestampSec);
+		const sinceReceipt = Math.max(0, nowSec - receivedSec);
+		const age =
+			dataAgeAtReceipt + sinceReceipt + TIMESTAMP_PIPELINE_BUFFER_SEC;
 		return Math.max(0, Math.min(MAX_EXTRAPOLATION_AGE_SEC, age));
 	}
 
-	if (receivedAtMs != null) {
-		const age = (nowMs - receivedAtMs) / 1000 + pipeline;
-		return Math.max(0, Math.min(MAX_EXTRAPOLATION_AGE_SEC, age));
-	}
-
-	return Math.min(MAX_EXTRAPOLATION_AGE_SEC, pipeline);
+	const sinceReceipt = Math.max(0, nowSec - receivedSec);
+	const age = sinceReceipt + pipeline;
+	return Math.max(0, Math.min(MAX_EXTRAPOLATION_AGE_SEC, age));
 }
 
 export function normalizeSpeedMps(speed: number | null | undefined): number {
@@ -63,6 +77,8 @@ export function estimateVehiclePositionOnShape(options: {
 	speedMps: number;
 	ageSec: number;
 	extrapolatedDistanceM: number;
+	projectedLat: number;
+	projectedLng: number;
 } {
 	const speed = normalizeSpeedMps(options.speedMps);
 	const ageSec = computeSampleAgeSec({
@@ -81,7 +97,10 @@ export function estimateVehiclePositionOnShape(options: {
 		hint,
 	);
 
-	const extrapolatedDistanceM = speed * ageSec;
+	const extrapolatedDistanceM = Math.min(
+		MAX_EXTRAPOLATION_DISTANCE_M,
+		speed * ageSec,
+	);
 	const advanced =
 		extrapolatedDistanceM > 0
 			? advanceAlongShapePoints(
@@ -102,5 +121,7 @@ export function estimateVehiclePositionOnShape(options: {
 		speedMps: speed,
 		ageSec,
 		extrapolatedDistanceM,
+		projectedLat: projection.lat,
+		projectedLng: projection.lng,
 	};
 }

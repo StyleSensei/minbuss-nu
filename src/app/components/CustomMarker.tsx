@@ -448,7 +448,7 @@ export default function CustomMarker({
 				ref={markerRef}
 				position={positionForMarker}
 				anchorPoint={AdvancedMarkerAnchorPoint.CENTER}
-				className={`marker-wrapper ${markerReady || shapePoints.length < 2 ? "" : "marker-hidden"}`}
+				className="marker-wrapper"
 				title={markerTitle}
 				onClick={() => (googleMapRef.current ? handleOnClick() : null)}
 				zIndex={zIndex}

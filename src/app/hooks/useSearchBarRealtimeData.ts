@@ -164,10 +164,7 @@ export function useSearchBarRealtimeData({
 		VEHICLE_POLL_INTERVAL_MS,
 		{
 			onError: () =>
-				setFilteredVehicles({
-					data: [],
-					error: { type: "OTHER", message: "Polling failed" },
-				}),
+				setErrorMessage("Kunde inte uppdatera positionsdata"),
 		},
 	);
 
@@ -183,12 +180,7 @@ export function useSearchBarRealtimeData({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: preserves prior flow
 	useEffect(() => {
 		const trimmedUi = userInput.trim();
-		if (
-			trimmedUi &&
-			!routeExists &&
-			isLikelyLineNumberQuery(trimmedUi) &&
-			filteredVehiclesLength > 0
-		) {
+		if (trimmedUi && !routeExists && isLikelyLineNumberQuery(trimmedUi)) {
 			setFilteredVehicles({ data: [] });
 			setFilteredTripUpdates([]);
 			resetTripDataToEmpty();
@@ -244,7 +236,6 @@ export function useSearchBarRealtimeData({
 		};
 	}, [
 		userInput,
-		filteredVehiclesLength,
 		routeExists,
 		effectiveOperator,
 		pollVehiclePositions,
