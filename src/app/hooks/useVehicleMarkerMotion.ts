@@ -3,9 +3,16 @@
 import type { IShapes } from "@/shared/models/IShapes";
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
+import {
+	buildShapePathPoints,
+	computeReconcileDurationSec,
+	computeShapePathLengthM,
+	startAnimateAlongShapePath,
+} from "../utilities/animateAlongShapePath";
 import { advanceAlongShapePoints } from "../utilities/advanceAlongShape";
 import {
 	estimateVehiclePositionOnShape,
+	inferSpeedMpsFromPositionDelta,
 	MAX_CRUISE_DRIFT_FROM_GPS_M,
 	parseVehicleTimestampSec,
 } from "../utilities/estimateVehiclePositionNow";
@@ -16,8 +23,10 @@ const MAX_STEP_M_PER_FRAME = 2.2;
 const MAX_PROJ_DIST2 = 7e-4;
 const THROTTLE_SKIP_WRITES = 3;
 const SNAP_IGNORE_GAP_M = 2;
-const SMOOTH_RECONCILE_MAX_GAP_M = 15;
+/** Below this gap we lerp directly; above we follow the route shape. */
+const SHAPE_ANIMATION_MIN_GAP_M = 18;
 const SMOOTH_RECONCILE_SEC = 0.35;
+const MAX_CRUISE_DRIFT_M = 120;
 
 function readMarkerLatLng(
 	pos:
@@ -82,9 +91,17 @@ function writeMarkerPosition(
 	onPositionWriteRef?.current?.(lat, lng);
 }
 
+function allowedCruiseDriftM(sample: SampleRefState, nowMs: number): number {
+	const sinceSampleSec = Math.max(0, (nowMs - sample.receivedAtMs) / 1000);
+	return Math.min(
+		MAX_CRUISE_DRIFT_M,
+		MAX_CRUISE_DRIFT_FROM_GPS_M + sample.speedMps * sinceSampleSec * 1.15,
+	);
+}
+
 /**
  * Passenger-parity marker motion: extrapolate once per RT sample, then cruise at
- * reported speed with a hard ceiling relative to the latest GPS fix.
+ * reported (or inferred) speed with a ceiling relative to the latest GPS fix.
  */
 export function useVehicleMarkerMotion({
 	marker,
@@ -99,10 +116,26 @@ export function useVehicleMarkerMotion({
 	const motionRef = useRef<MotionState | null>(null);
 	const sampleRef = useRef<SampleRefState | null>(null);
 	const reconcileRafRef = useRef(0);
+	const pathAnimCancelRef = useRef<(() => void) | null>(null);
 	const throttleRef = useRef(0);
 	const prevShapeIdRef = useRef<string | null>(null);
 	const shapePointsRef = useRef(shapePoints);
 	shapePointsRef.current = shapePoints;
+
+	const cancelPathAnimation = () => {
+		pathAnimCancelRef.current?.();
+		pathAnimCancelRef.current = null;
+	};
+
+	const cancelReconcileAnimation = () => {
+		if (reconcileRafRef.current) {
+			cancelAnimationFrame(reconcileRafRef.current);
+			reconcileRafRef.current = 0;
+		}
+	};
+
+	const isAnimating = () =>
+		reconcileRafRef.current !== 0 || pathAnimCancelRef.current != null;
 
 	const applyMotionState = (
 		targetMarker: google.maps.marker.AdvancedMarkerElement,
@@ -121,13 +154,13 @@ export function useVehicleMarkerMotion({
 
 	const reconcileToEstimate = (
 		targetMarker: google.maps.marker.AdvancedMarkerElement,
+		points: IShapes[],
 		estimate: MotionState,
 		current: { lat: number; lng: number } | null,
+		fromIndex: number,
 	) => {
-		if (reconcileRafRef.current) {
-			cancelAnimationFrame(reconcileRafRef.current);
-			reconcileRafRef.current = 0;
-		}
+		cancelReconcileAnimation();
+		cancelPathAnimation();
 
 		const gapM = current
 			? getDistanceFromLatLon(current.lat, current.lng, estimate.lat, estimate.lng)
@@ -138,8 +171,42 @@ export function useVehicleMarkerMotion({
 			return;
 		}
 
-		if (gapM > SMOOTH_RECONCILE_MAX_GAP_M) {
-			applyMotionState(targetMarker, estimate);
+		if (gapM >= SHAPE_ANIMATION_MIN_GAP_M) {
+			const pathPoints = buildShapePathPoints(
+				points,
+				current,
+				fromIndex,
+				{ lat: estimate.lat, lng: estimate.lng },
+				estimate.index,
+			);
+			const pathLengthM = computeShapePathLengthM(pathPoints);
+			const durationSec = computeReconcileDurationSec(
+				pathLengthM,
+				estimate.speedMps,
+			);
+
+			pathAnimCancelRef.current = startAnimateAlongShapePath({
+				shapePoints: points,
+				from: current,
+				fromIndex,
+				to: { lat: estimate.lat, lng: estimate.lng },
+				toIndex: estimate.index,
+				durationSec,
+				onFrame: (lat, lng) => {
+					writeMarkerPosition(
+						targetMarker,
+						lat,
+						lng,
+						skipWritesRef,
+						throttleRef,
+						onPositionWriteRef,
+					);
+				},
+				onComplete: () => {
+					pathAnimCancelRef.current = null;
+					applyMotionState(targetMarker, estimate);
+				},
+			});
 			return;
 		}
 
@@ -190,9 +257,21 @@ export function useVehicleMarkerMotion({
 			};
 		}
 
+		const prevSample = sampleRef.current;
+		const inferredSpeedMps = prevSample
+			? inferSpeedMpsFromPositionDelta({
+					prevLat: prevSample.lat,
+					prevLng: prevSample.lng,
+					prevReceivedAtMs: prevSample.receivedAtMs,
+					lat: vehiclePosition.lat,
+					lng: vehiclePosition.lng,
+					nowMs,
+				})
+			: 0;
+
 		const hint =
 			motionRef.current?.index ??
-			sampleRef.current?.hintIndex ??
+			prevSample?.hintIndex ??
 			initialLastIndexRef?.current ??
 			0;
 		const sampleTimestampSec = parseVehicleTimestampSec(vehicleTimestamp);
@@ -201,6 +280,7 @@ export function useVehicleMarkerMotion({
 			samplePosition: vehiclePosition,
 			shapePoints: points,
 			speedMps,
+			inferredSpeedMps,
 			sampleTimestampSec,
 			nowMs,
 			receivedAtMs: nowMs,
@@ -224,16 +304,22 @@ export function useVehicleMarkerMotion({
 		};
 
 		if (shapeChanged || !motionRef.current) {
+			cancelPathAnimation();
+			cancelReconcileAnimation();
 			applyMotionState(marker, estimateState);
 			return;
 		}
 
 		const current = readMarkerLatLng(marker.position);
-		// If marker ran ahead of the new estimate (over-cruise), snap back.
-		if (
+		const currentProj = current
+			? projectRtToShape(current, points, Math.max(0, hint - 80), 300, hint)
+			: null;
+		const fromIndex = currentProj?.index ?? hint;
+
+		const markerAheadOfEstimate =
 			current &&
 			getDistanceFromLatLon(current.lat, current.lng, estimate.lat, estimate.lng) >
-				SMOOTH_RECONCILE_MAX_GAP_M &&
+				SHAPE_ANIMATION_MIN_GAP_M &&
 			getDistanceFromLatLon(
 				current.lat,
 				current.lng,
@@ -245,19 +331,20 @@ export function useVehicleMarkerMotion({
 					estimate.lng,
 					estimate.projectedLat,
 					estimate.projectedLng,
-				)
-		) {
+				);
+
+		if (markerAheadOfEstimate) {
+			cancelPathAnimation();
+			cancelReconcileAnimation();
 			applyMotionState(marker, estimateState);
 			return;
 		}
 
-		reconcileToEstimate(marker, estimateState, current);
+		reconcileToEstimate(marker, points, estimateState, current, fromIndex);
 
 		return () => {
-			if (reconcileRafRef.current) {
-				cancelAnimationFrame(reconcileRafRef.current);
-				reconcileRafRef.current = 0;
-			}
+			cancelReconcileAnimation();
+			cancelPathAnimation();
 		};
 	}, [
 		marker,
@@ -283,7 +370,7 @@ export function useVehicleMarkerMotion({
 			lastFrameMs = nowMs;
 
 			if (typeof document !== "undefined" && document.hidden) return;
-			if (reconcileRafRef.current) return;
+			if (isAnimating()) return;
 
 			const motion = motionRef.current;
 			const sample = sampleRef.current;
@@ -298,13 +385,14 @@ export function useVehicleMarkerMotion({
 				sample.hintIndex,
 			);
 
+			const driftCap = allowedCruiseDriftM(sample, Date.now());
 			const driftFromGps = getDistanceFromLatLon(
 				motion.lat,
 				motion.lng,
 				gpsProj.lat,
 				gpsProj.lng,
 			);
-			if (driftFromGps >= MAX_CRUISE_DRIFT_FROM_GPS_M) return;
+			if (driftFromGps >= driftCap) return;
 
 			const maxSeg = Math.max(0, points.length - 2);
 			const hint = Math.max(0, Math.min(maxSeg, motion.index - 40));
@@ -322,14 +410,13 @@ export function useVehicleMarkerMotion({
 			if (stepM < 0.02) return;
 
 			const next = advanceAlongShapePoints(points, proj.index, proj.t, stepM);
-
 			const nextDrift = getDistanceFromLatLon(
 				next.lat,
 				next.lng,
 				gpsProj.lat,
 				gpsProj.lng,
 			);
-			if (nextDrift > MAX_CRUISE_DRIFT_FROM_GPS_M) return;
+			if (nextDrift > driftCap) return;
 
 			applyMotionState(marker, {
 				lat: next.lat,

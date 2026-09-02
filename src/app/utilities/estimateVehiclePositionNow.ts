@@ -1,6 +1,7 @@
 import type { IShapes } from "@/shared/models/IShapes";
 import { advanceAlongShapePoints } from "./advanceAlongShape";
 import { projectRtToShape } from "./projectPointOnSegment";
+import { getDistanceFromLatLon } from "./getDistanceFromLatLon";
 
 /** Used when vehicle timestamp is missing (Redis TTL + poll interval). */
 export const DEFAULT_PIPELINE_LATENCY_SEC = 2.5;
@@ -60,10 +61,43 @@ export function normalizeSpeedMps(speed: number | null | undefined): number {
 	return Math.min(MAX_SPEED_MPS, speed);
 }
 
+export function inferSpeedMpsFromPositionDelta(options: {
+	prevLat: number;
+	prevLng: number;
+	prevReceivedAtMs: number;
+	lat: number;
+	lng: number;
+	nowMs: number;
+}): number {
+	const dtSec = (options.nowMs - options.prevReceivedAtMs) / 1000;
+	if (dtSec < 1 || !Number.isFinite(dtSec)) return 0;
+
+	const distM = getDistanceFromLatLon(
+		options.prevLat,
+		options.prevLng,
+		options.lat,
+		options.lng,
+	);
+	if (distM < 8) return 0;
+
+	return Math.min(MAX_SPEED_MPS, distM / dtSec);
+}
+
+export function resolveEffectiveSpeedMps(
+	reportedSpeedMps: number | null | undefined,
+	inferredSpeedMps: number,
+): number {
+	const reported = normalizeSpeedMps(reportedSpeedMps);
+	if (reported > 0) return reported;
+	if (inferredSpeedMps >= MIN_MOVING_SPEED_MPS) return inferredSpeedMps;
+	return 0;
+}
+
 export function estimateVehiclePositionOnShape(options: {
 	samplePosition: { lat: number; lng: number };
 	shapePoints: IShapes[];
 	speedMps: number | null | undefined;
+	inferredSpeedMps?: number;
 	sampleTimestampSec: number | null;
 	nowMs: number;
 	receivedAtMs?: number | null;
@@ -80,7 +114,10 @@ export function estimateVehiclePositionOnShape(options: {
 	projectedLat: number;
 	projectedLng: number;
 } {
-	const speed = normalizeSpeedMps(options.speedMps);
+	const speed = resolveEffectiveSpeedMps(
+		options.speedMps,
+		options.inferredSpeedMps ?? 0,
+	);
 	const ageSec = computeSampleAgeSec({
 		nowMs: options.nowMs,
 		sampleTimestampSec: options.sampleTimestampSec,

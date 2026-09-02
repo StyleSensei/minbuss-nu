@@ -4,8 +4,10 @@ import {
 	computeSampleAgeSec,
 	DEFAULT_PIPELINE_LATENCY_SEC,
 	estimateVehiclePositionOnShape,
+	inferSpeedMpsFromPositionDelta,
 	normalizeSpeedMps,
 	parseVehicleTimestampSec,
+	resolveEffectiveSpeedMps,
 } from "../estimateVehiclePositionNow";
 
 function makeShape(points: Array<{ lat: number; lng: number }>): IShapes[] {
@@ -110,6 +112,23 @@ describe("estimateVehiclePositionOnShape", () => {
 		});
 
 		expect(result.extrapolatedDistanceM).toBeLessThanOrEqual(55);
+	});
+
+	it("uses inferred speed when reported speed is missing", () => {
+		const receivedAtMs = 1_700_000_000_000;
+		const result = estimateVehiclePositionOnShape({
+			samplePosition: { lat: 59.005, lng: 18.0 },
+			shapePoints: shape,
+			speedMps: 0,
+			inferredSpeedMps: 12,
+			sampleTimestampSec: 1_700_000_000,
+			nowMs: receivedAtMs + 5_000,
+			receivedAtMs,
+			pipelineLatencySec: 0,
+		});
+
+		expect(result.speedMps).toBe(12);
+		expect(result.extrapolatedDistanceM).toBeGreaterThan(0);
 	});
 
 	it("stays at sample when speed is zero", () => {
