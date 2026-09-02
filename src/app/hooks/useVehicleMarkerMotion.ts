@@ -23,9 +23,6 @@ const MAX_STEP_M_PER_FRAME = 2.2;
 const MAX_PROJ_DIST2 = 7e-4;
 const THROTTLE_SKIP_WRITES = 3;
 const SNAP_IGNORE_GAP_M = 2;
-/** Below this gap we lerp directly; above we follow the route shape. */
-const SHAPE_ANIMATION_MIN_GAP_M = 18;
-const SMOOTH_RECONCILE_SEC = 0.35;
 const MAX_CRUISE_DRIFT_M = 120;
 
 function readMarkerLatLng(
@@ -171,67 +168,43 @@ export function useVehicleMarkerMotion({
 			return;
 		}
 
-		if (gapM >= SHAPE_ANIMATION_MIN_GAP_M) {
-			const pathPoints = buildShapePathPoints(
-				points,
-				current,
-				fromIndex,
-				{ lat: estimate.lat, lng: estimate.lng },
-				estimate.index,
-			);
-			const pathLengthM = computeShapePathLengthM(pathPoints);
-			const durationSec = computeReconcileDurationSec(
-				pathLengthM,
-				estimate.speedMps,
-			);
+		const pathPoints = buildShapePathPoints(
+			points,
+			current,
+			fromIndex,
+			{ lat: estimate.lat, lng: estimate.lng },
+			estimate.index,
+		);
+		const pathLengthM = Math.max(gapM, computeShapePathLengthM(pathPoints));
+		const catchUp = estimate.index >= fromIndex;
+		const durationSec = computeReconcileDurationSec(
+			pathLengthM,
+			Math.max(estimate.speedMps, 6),
+			{ catchUp },
+		);
 
-			pathAnimCancelRef.current = startAnimateAlongShapePath({
-				shapePoints: points,
-				from: current,
-				fromIndex,
-				to: { lat: estimate.lat, lng: estimate.lng },
-				toIndex: estimate.index,
-				durationSec,
-				onFrame: (lat, lng) => {
-					writeMarkerPosition(
-						targetMarker,
-						lat,
-						lng,
-						skipWritesRef,
-						throttleRef,
-						onPositionWriteRef,
-					);
-				},
-				onComplete: () => {
-					pathAnimCancelRef.current = null;
-					applyMotionState(targetMarker, estimate);
-				},
-			});
-			return;
-		}
-
-		const from = { ...current };
-		const startMs = performance.now();
-		const tick = (nowMs: number) => {
-			const t = Math.min(1, (nowMs - startMs) / (SMOOTH_RECONCILE_SEC * 1000));
-			const lat = from.lat + (estimate.lat - from.lat) * t;
-			const lng = from.lng + (estimate.lng - from.lng) * t;
-			if (t >= 1) {
-				reconcileRafRef.current = 0;
+		pathAnimCancelRef.current = startAnimateAlongShapePath({
+			shapePoints: points,
+			from: current,
+			fromIndex,
+			to: { lat: estimate.lat, lng: estimate.lng },
+			toIndex: estimate.index,
+			durationSec,
+			onFrame: (lat, lng) => {
+				writeMarkerPosition(
+					targetMarker,
+					lat,
+					lng,
+					skipWritesRef,
+					throttleRef,
+					onPositionWriteRef,
+				);
+			},
+			onComplete: () => {
+				pathAnimCancelRef.current = null;
 				applyMotionState(targetMarker, estimate);
-				return;
-			}
-			writeMarkerPosition(
-				targetMarker,
-				lat,
-				lng,
-				skipWritesRef,
-				throttleRef,
-				onPositionWriteRef,
-			);
-			reconcileRafRef.current = requestAnimationFrame(tick);
-		};
-		reconcileRafRef.current = requestAnimationFrame(tick);
+			},
+		});
 	};
 
 	useEffect(() => {
@@ -311,41 +284,14 @@ export function useVehicleMarkerMotion({
 		}
 
 		const current = readMarkerLatLng(marker.position);
-		const currentProj = current
-			? projectRtToShape(current, points, Math.max(0, hint - 80), 300, hint)
-			: null;
-		const fromIndex = currentProj?.index ?? hint;
-
-		const markerAheadOfEstimate =
-			current &&
-			getDistanceFromLatLon(current.lat, current.lng, estimate.lat, estimate.lng) >
-				SHAPE_ANIMATION_MIN_GAP_M &&
-			getDistanceFromLatLon(
-				current.lat,
-				current.lng,
-				estimate.projectedLat,
-				estimate.projectedLng,
-			) >
-				getDistanceFromLatLon(
-					estimate.lat,
-					estimate.lng,
-					estimate.projectedLat,
-					estimate.projectedLng,
-				);
-
-		if (markerAheadOfEstimate) {
-			cancelPathAnimation();
-			cancelReconcileAnimation();
-			applyMotionState(marker, estimateState);
-			return;
-		}
+		const fromIndex =
+			motionRef.current?.index ??
+			(current
+				? projectRtToShape(current, points, Math.max(0, hint - 80), 300, hint)
+						.index
+				: hint);
 
 		reconcileToEstimate(marker, points, estimateState, current, fromIndex);
-
-		return () => {
-			cancelReconcileAnimation();
-			cancelPathAnimation();
-		};
 	}, [
 		marker,
 		vehiclePosition.lat,

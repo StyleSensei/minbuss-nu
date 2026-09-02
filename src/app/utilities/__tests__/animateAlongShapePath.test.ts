@@ -80,4 +80,24 @@ describe("shape path animation helpers", () => {
 		expect(duration).toBeLessThanOrEqual(8);
 		expect(duration).toBeGreaterThanOrEqual(2.5);
 	});
+
+	it("uses shorter catch-up duration when marker is behind", () => {
+		const normal = computeReconcileDurationSec(120, 10);
+		const catchUp = computeReconcileDurationSec(120, 10, { catchUp: true });
+		expect(catchUp).toBeLessThan(normal);
+		expect(catchUp).toBeGreaterThanOrEqual(1);
+		expect(catchUp).toBeLessThanOrEqual(4.5);
+	});
+
+	it("builds backward path when estimate index is behind marker", () => {
+		const path = buildShapePathPoints(
+			shape,
+			{ lat: 59.002, lng: 18.0 },
+			2,
+			{ lat: 59.001, lng: 18.0 },
+			1,
+		);
+		expect(path.length).toBeGreaterThan(2);
+		expect(computeShapePathLengthM(path)).toBeGreaterThan(50);
+	});
 });

@@ -6,6 +6,10 @@ import { MAX_SPEED_MPS } from "./estimateVehiclePositionNow";
 const MIN_ANIMATION_SPEED_MPS = 6;
 const MIN_ANIMATION_SEC = 2.5;
 const MAX_ANIMATION_SEC = 8;
+/** Faster catch-up when the marker is visibly behind the vehicle. */
+const CATCH_UP_MIN_ANIMATION_SEC = 1;
+const CATCH_UP_MAX_ANIMATION_SEC = 4.5;
+const CATCH_UP_MIN_SPEED_MPS = 8;
 
 export function buildShapePathPoints(
 	shapePoints: IShapes[],
@@ -15,12 +19,22 @@ export function buildShapePathPoints(
 	toIndex: number,
 ): Array<{ lat: number; lng: number }> {
 	const points: Array<{ lat: number; lng: number }> = [{ ...from }];
-	const start = Math.min(fromIndex, toIndex);
-	const end = Math.max(fromIndex, toIndex);
-	for (let i = Math.min(start + 1, shapePoints.length - 1); i <= end; i++) {
-		const p = shapePoints[i];
-		points.push({ lat: p.shape_pt_lat, lng: p.shape_pt_lon });
+	const maxSeg = Math.max(0, shapePoints.length - 1);
+	const safeFrom = Math.max(0, Math.min(maxSeg, fromIndex));
+	const safeTo = Math.max(0, Math.min(maxSeg, toIndex));
+
+	if (safeFrom <= safeTo) {
+		for (let i = Math.min(safeFrom + 1, maxSeg); i <= safeTo; i++) {
+			const p = shapePoints[i];
+			points.push({ lat: p.shape_pt_lat, lng: p.shape_pt_lon });
+		}
+	} else {
+		for (let i = safeFrom; i > safeTo; i--) {
+			const p = shapePoints[i];
+			points.push({ lat: p.shape_pt_lat, lng: p.shape_pt_lon });
+		}
 	}
+
 	points.push({ ...to });
 	return points;
 }
@@ -43,15 +57,14 @@ export function computeShapePathLengthM(
 export function computeReconcileDurationSec(
 	pathLengthM: number,
 	speedMps: number,
+	opts?: { catchUp?: boolean },
 ): number {
-	const speed = Math.max(
-		MIN_ANIMATION_SPEED_MPS,
-		Math.min(MAX_SPEED_MPS, speedMps),
-	);
-	return Math.max(
-		MIN_ANIMATION_SEC,
-		Math.min(MAX_ANIMATION_SEC, pathLengthM / speed),
-	);
+	const catchUp = opts?.catchUp === true;
+	const minSec = catchUp ? CATCH_UP_MIN_ANIMATION_SEC : MIN_ANIMATION_SEC;
+	const maxSec = catchUp ? CATCH_UP_MAX_ANIMATION_SEC : MAX_ANIMATION_SEC;
+	const minSpeed = catchUp ? CATCH_UP_MIN_SPEED_MPS : MIN_ANIMATION_SPEED_MPS;
+	const speed = Math.max(minSpeed, Math.min(MAX_SPEED_MPS, speedMps));
+	return Math.max(minSec, Math.min(maxSec, pathLengthM / speed));
 }
 
 export function interpolateShapePathAtDistance(
@@ -111,9 +124,26 @@ export function startAnimateAlongShapePath(options: {
 	}
 
 	if (total <= 0.5) {
-		options.onFrame(options.to.lat, options.to.lng);
-		options.onComplete();
-		return () => {};
+		// Degenerate path — fall back to a short straight blend instead of teleporting.
+		const startMs = performance.now();
+		const fallbackSec = Math.max(0.8, options.durationSec * 0.5);
+		let raf = 0;
+		const tick = (nowMs: number) => {
+			const t = Math.min(1, (nowMs - startMs) / (fallbackSec * 1000));
+			const lat = options.from.lat + (options.to.lat - options.from.lat) * t;
+			const lng = options.from.lng + (options.to.lng - options.from.lng) * t;
+			options.onFrame(lat, lng);
+			if (t >= 1) {
+				raf = 0;
+				options.onComplete();
+				return;
+			}
+			raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		return () => {
+			if (raf) cancelAnimationFrame(raf);
+		};
 	}
 
 	const startMs = performance.now();
